@@ -1,4 +1,4 @@
-import { AgentConfig, IntegrationSettings, RuntimeStatus, SessionRecord, StoredAgent, StructuredDraft, User } from '../types';
+import { AgentConfig, IntegrationSettings, RuntimeStatus, SessionRecord, StoredAgent, StructuredDraft, TelephonyCall, User } from '../types';
 
 export class ApiError extends Error {
   status: number;
@@ -121,5 +121,13 @@ export const api = {
     apiFetch<{ delivery: NonNullable<SessionRecord['integrationDelivery']>; responseBody?: string }>('/api/integrations/test-webhook', {
       method: 'POST',
       body: JSON.stringify(payload || {}),
+    }),
+
+  listTelephonyCalls: () => apiFetch<{ calls: TelephonyCall[] }>('/api/telephony/calls'),
+
+  startTelephonyCall: (payload: { agentId: string; to: string; caller?: string }) =>
+    apiFetch<{ call: TelephonyCall }>('/api/telephony/calls', {
+      method: 'POST',
+      body: JSON.stringify(payload),
     }),
 };
