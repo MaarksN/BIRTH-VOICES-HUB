@@ -1,0 +1,10 @@
+{
+  "name": "BIRTH VOICES HUB",
+  "description": "A SaaS platform for intelligent Voice Agents featuring conversation design, analytics, and integrations.",
+  "requestFramePermissions": [
+    "microphone"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

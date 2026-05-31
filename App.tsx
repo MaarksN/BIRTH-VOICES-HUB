@@ -1,0 +1,68 @@
+import React, { useEffect } from 'react';
+import { HashRouter as Router, Routes, Route, Outlet, Navigate } from 'react-router-dom';
+import LandingPage from './pages/Landing';
+import LoginPage from './pages/Login';
+import RegisterPage from './pages/Register';
+import Overview from './pages/Dashboard/Overview';
+import AdminPage from './pages/Dashboard/Admin';
+import AnalyticsPage from './pages/Dashboard/Analytics';
+import BillingPage from './pages/Dashboard/Billing';
+import DevelopersPage from './pages/Dashboard/Developers';
+import OrganizationPage from './pages/Dashboard/Organization';
+import PlaygroundPage from './pages/Dashboard/Playground';
+import TelephonyPage from './pages/Dashboard/Telephony';
+import ResultsPage from './pages/Dashboard/Results';
+import { Sidebar } from './components/Sidebar';
+import { AgentForm } from './components/AgentForm';
+import { auth } from './lib/auth';
+import { useSessionStore, applyBrandColorToDom } from './store/useSessionStore';
+
+const DashboardLayout = () => {
+  // Simple auth check
+  const isAuthenticated = !!auth.getToken();
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
+
+  return (
+    <div className="flex h-screen bg-slate-50 overflow-hidden">
+      <Sidebar />
+      <main className="flex-1 overflow-auto">
+        <div className="max-w-7xl mx-auto p-8">
+          <Outlet />
+        </div>
+      </main>
+    </div>
+  );
+};
+
+export default function App() {
+  const brandColor = useSessionStore((state) => state.brandColor);
+  
+  useEffect(() => {
+    applyBrandColorToDom(brandColor);
+  }, [brandColor]);
+
+  return (
+    <Router>
+      <Routes>
+        <Route path="/" element={<LandingPage />} />
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/register" element={<RegisterPage />} />
+        
+        <Route path="/dashboard" element={<DashboardLayout />}>
+          <Route index element={<Overview />} />
+          <Route path="admin" element={<AdminPage />} />
+          <Route path="analytics" element={<AnalyticsPage />} />
+          <Route path="billing" element={<BillingPage />} />
+          <Route path="developers" element={<DevelopersPage />} />
+          <Route path="organization" element={<OrganizationPage />} />
+          <Route path="playground" element={<PlaygroundPage />} />
+          <Route path="telephony" element={<TelephonyPage />} />
+          <Route path="agents/new" element={<div className="max-w-4xl mx-auto"><h1 className="text-3xl font-bold text-slate-900 mb-8">Novo Agente</h1><AgentForm /></div>} />
+          <Route path="results" element={<ResultsPage />} />
+        </Route>
+      </Routes>
+    </Router>
+  );
+}
