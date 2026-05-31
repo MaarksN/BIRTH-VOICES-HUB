@@ -13,6 +13,7 @@ Plataforma local para criar agentes de voz estruturados, conduzir conversas no n
 - Registro determinístico sem LLM quando Gemini não estiver configurado.
 - Persistência real em `data/birth-voices.json`.
 - Entrega automática de sessões via webhook assinado com `X-Birth-Voices-Signature`.
+- Histórico de entregas webhook com auditoria e retentativa manual.
 - Dashboards sem dados fictícios: métricas aparecem somente a partir dos dados salvos.
 
 ## Rodar localmente
@@ -56,6 +57,8 @@ Em `Developers`, configure uma URL de webhook do seu CRM/ATS/n8n/backend. Ao sal
 - próxima ação
 
 Se um segredo for configurado, o payload é assinado com HMAC SHA-256 no header `X-Birth-Voices-Signature`.
+
+Cada tentativa de entrega fica registrada em `Developers` com status, sessão, destino, resposta do endpoint e botão de retry para falhas. Isso permite corrigir o endpoint e reenviar a sessão original sem repetir a chamada.
 
 ## Telefonia Twilio
 

@@ -105,6 +105,14 @@ export const api = {
 
   getIntegrations: () => apiFetch<IntegrationSettings>('/api/integrations'),
 
+  listIntegrationDeliveries: () =>
+    apiFetch<{ deliveries: NonNullable<SessionRecord['integrationDelivery']>[] }>('/api/integrations/deliveries'),
+
+  retryIntegrationDelivery: (deliveryId: string) =>
+    apiFetch<{ delivery: NonNullable<SessionRecord['integrationDelivery']> }>(`/api/integrations/deliveries/${deliveryId}/retry`, {
+      method: 'POST',
+    }),
+
   updateIntegrations: (settings: {
     webhook: {
       enabled: boolean;

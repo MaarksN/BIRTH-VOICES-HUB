@@ -112,11 +112,16 @@ export type RuntimeStatus = {
 };
 
 export type IntegrationDelivery = {
+  id?: string;
   status: 'not_configured' | 'delivered' | 'failed';
+  event?: string;
+  sessionId?: string;
+  attempt?: number;
   target?: string;
   statusCode?: number;
   message?: string;
   deliveredAt?: string;
+  responseBody?: string;
 };
 
 export type WebhookIntegration = {
