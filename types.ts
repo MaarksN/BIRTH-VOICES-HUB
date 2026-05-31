@@ -80,10 +80,34 @@ export type SessionRecord = {
   audioUrl?: string;
 };
 
+export type TelephonyCallStatus = 'queued' | 'ringing' | 'in-progress' | 'completed' | 'failed';
+
+export type TelephonyCall = {
+  id: string;
+  agentId: string;
+  agentName: string;
+  caller: string;
+  to: string;
+  from: string;
+  provider: 'twilio';
+  providerCallSid?: string;
+  status: TelephonyCallStatus;
+  currentQuestionIndex: number;
+  transcriptItems: TranscriptItem[];
+  structuredDraft: StructuredDraft;
+  sessionId?: string;
+  error?: string;
+  startedAt: string;
+  updatedAt: string;
+  completedAt?: string;
+};
+
 export type RuntimeStatus = {
   geminiConfigured: boolean;
   storage: string;
   telephonyConfigured: boolean;
+  telephonyOutboundConfigured: boolean;
+  publicBaseUrlConfigured: boolean;
   integrationConfigured: boolean;
 };
 

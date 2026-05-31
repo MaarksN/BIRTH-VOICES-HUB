@@ -12,6 +12,10 @@ import type {
   SessionRecord,
   StoredAgent,
   StructuredDraft,
+  StructuredRisk,
+  TelephonyCall,
+  TelephonyCallStatus,
+  TranscriptItem,
   User,
 } from "./types";
 
@@ -45,12 +49,17 @@ type StoredIntegration = {
   };
 };
 
+type StoredTelephonyCall = TelephonyCall & {
+  ownerId: string;
+};
+
 type Database = {
   users: StoredUser[];
   tokens: TokenRecord[];
   agents: Array<StoredAgent & { ownerId: string }>;
   sessions: StoredSession[];
   integrations: StoredIntegration[];
+  telephonyCalls: StoredTelephonyCall[];
 };
 
 type AuthedRequest = Request & {
@@ -87,6 +96,7 @@ const emptyDatabase = (): Database => ({
   agents: [],
   sessions: [],
   integrations: [],
+  telephonyCalls: [],
 });
 
 async function readDatabase(): Promise<Database> {
@@ -103,6 +113,7 @@ async function readDatabase(): Promise<Database> {
       agents: Array.isArray(parsed.agents) ? parsed.agents : [],
       sessions: Array.isArray(parsed.sessions) ? parsed.sessions : [],
       integrations: Array.isArray(parsed.integrations) ? parsed.integrations : [],
+      telephonyCalls: Array.isArray(parsed.telephonyCalls) ? parsed.telephonyCalls : [],
     };
   } catch (error: any) {
     if (error.code !== "ENOENT") throw error;
@@ -196,6 +207,158 @@ function normalizeStructuredDraft(value: any): StructuredDraft {
 
 function hasStructuredDraft(draft: StructuredDraft) {
   return Boolean(draft.extracted.length || draft.triggeredRisks.length || draft.requiredMissing?.length);
+}
+
+function normalizeForMatch(value: string) {
+  return value
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
+function keywordMatches(answer: string, keyword: string) {
+  const normalizedAnswer = normalizeForMatch(answer);
+  const normalizedKeyword = normalizeForMatch(keyword).trim();
+  if (!normalizedKeyword) return false;
+  if (/^\d+$/.test(normalizedKeyword)) {
+    return normalizedAnswer.split(/\D+/).includes(normalizedKeyword);
+  }
+  return normalizedAnswer.includes(normalizedKeyword);
+}
+
+function detectStructuredRisk(question: AgentConfig["questions"][number], answer: string): StructuredRisk | null {
+  const keyword = (question.riskKeywords || []).find((item) => keywordMatches(answer, item));
+  if (!keyword) return null;
+  return {
+    questionId: question.id,
+    question: question.text,
+    keyword,
+    answer,
+    detectedAt: new Date().toISOString(),
+  };
+}
+
+function applyAnswerToDraft(draft: StructuredDraft, question: AgentConfig["questions"][number], answer: string, risk: StructuredRisk | null): StructuredDraft {
+  const label = question.collectAs?.trim();
+  const extracted = label
+    ? [
+        ...draft.extracted.filter((item) => item.label.toLowerCase() !== label.toLowerCase()),
+        { label, value: answer },
+      ]
+    : draft.extracted;
+
+  const triggeredRisks = risk && !draft.triggeredRisks.some((item) => item.questionId === risk.questionId && item.keyword === risk.keyword)
+    ? [...draft.triggeredRisks, risk]
+    : draft.triggeredRisks;
+
+  return {
+    extracted,
+    triggeredRisks,
+    requiredMissing: draft.requiredMissing || [],
+  };
+}
+
+function getRequiredMissing(agent: StoredAgent, draft: StructuredDraft) {
+  const collected = new Set(draft.extracted.map((item) => item.label.toLowerCase()));
+  return agent.questions
+    .filter((question) => question.required && question.collectAs && !collected.has(question.collectAs.toLowerCase()))
+    .map((question) => question.collectAs!);
+}
+
+function publicTelephonyCall(call: StoredTelephonyCall): TelephonyCall {
+  const { ownerId, ...publicCall } = call;
+  return publicCall;
+}
+
+function getPublicBaseUrl() {
+  return String(process.env.PUBLIC_BASE_URL || "").trim().replace(/\/+$/, "");
+}
+
+function telephonyConfig() {
+  const accountSid = String(process.env.TWILIO_ACCOUNT_SID || "").trim();
+  const authToken = String(process.env.TWILIO_AUTH_TOKEN || "").trim();
+  const from = String(process.env.TWILIO_FROM_NUMBER || "").trim();
+  const publicBaseUrl = getPublicBaseUrl();
+  const missing = [
+    !accountSid && "TWILIO_ACCOUNT_SID",
+    !authToken && "TWILIO_AUTH_TOKEN",
+    !from && "TWILIO_FROM_NUMBER",
+    !publicBaseUrl && "PUBLIC_BASE_URL",
+  ].filter(Boolean) as string[];
+
+  return {
+    accountSid,
+    authToken,
+    from,
+    publicBaseUrl,
+    missing,
+    providerConfigured: Boolean(accountSid && authToken),
+    outboundConfigured: missing.length === 0,
+  };
+}
+
+function validatePhoneNumber(value: unknown) {
+  const phone = String(value || "").trim();
+  if (!/^\+?[1-9]\d{7,14}$/.test(phone.replace(/[\s().-]/g, ""))) {
+    throw new Error("Informe um telefone real em formato internacional. Exemplo: +5511999999999.");
+  }
+  return phone.replace(/[\s().-]/g, "");
+}
+
+function escapeXml(value: string) {
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&apos;");
+}
+
+function twiml(inner: string) {
+  return `<?xml version="1.0" encoding="UTF-8"?><Response>${inner}</Response>`;
+}
+
+function say(text: string) {
+  return `<Say language="pt-BR" voice="alice">${escapeXml(text)}</Say>`;
+}
+
+function redirect(url: string) {
+  return `<Redirect method="POST">${escapeXml(url)}</Redirect>`;
+}
+
+function gatherSpeech(actionUrl: string, prompt: string, retryUrl: string) {
+  return `<Gather input="speech" action="${escapeXml(actionUrl)}" method="POST" language="pt-BR" speechTimeout="auto">${say(prompt)}</Gather>${say("Não consegui ouvir sua resposta. Vou repetir a pergunta.")}${redirect(retryUrl)}`;
+}
+
+async function twilioCreateCall(to: string, from: string, voiceUrl: string, statusUrl: string) {
+  const { accountSid, authToken } = telephonyConfig();
+  const body = new URLSearchParams();
+  body.set("To", to);
+  body.set("From", from);
+  body.set("Url", voiceUrl);
+  body.set("Method", "POST");
+  body.set("StatusCallback", statusUrl);
+  body.append("StatusCallbackEvent", "initiated");
+  body.append("StatusCallbackEvent", "ringing");
+  body.append("StatusCallbackEvent", "answered");
+  body.append("StatusCallbackEvent", "completed");
+  body.set("StatusCallbackMethod", "POST");
+
+  const response = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Calls.json`, {
+    method: "POST",
+    headers: {
+      Authorization: `Basic ${Buffer.from(`${accountSid}:${authToken}`).toString("base64")}`,
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body,
+  });
+  const payload = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    throw new Error(payload.message || "Falha ao iniciar chamada na Twilio.");
+  }
+
+  return payload;
 }
 
 function createToken(data: Database, userId: string) {
@@ -557,11 +720,98 @@ Retorne somente JSON válido, sem markdown, no formato:
   };
 }
 
+async function createSessionFromConversation(params: {
+  data: Database;
+  ownerId: string;
+  agent: StoredAgent & { ownerId: string };
+  caller: string;
+  transcriptItems: TranscriptItem[];
+  durationSeconds: number;
+  structuredDraft: StructuredDraft;
+  audioUrl?: string;
+}) {
+  const { data, ownerId, agent, caller, transcriptItems, durationSeconds, audioUrl } = params;
+  const structuredDraft = {
+    ...params.structuredDraft,
+    requiredMissing: getRequiredMissing(agent, params.structuredDraft),
+  };
+  const transcript = transcriptToText(transcriptItems);
+  const baseAnalysis = process.env.GEMINI_API_KEY
+    ? await analyzeTranscript(agent, transcript, durationSeconds, structuredDraft)
+    : buildDeterministicAnalysis(agent, transcript, durationSeconds, structuredDraft);
+  const analysis = mergeStructuredFindings(baseAnalysis, structuredDraft);
+  const now = new Date().toISOString();
+  const session: SessionRecord = {
+    id: `SES-${Date.now()}`,
+    agentName: agent.name,
+    caller: caller || "Contato não informado",
+    dateTime: now.slice(0, 16).replace("T", " "),
+    duration: `${Math.floor(durationSeconds / 60).toString().padStart(2, "0")}:${Math.round(durationSeconds % 60).toString().padStart(2, "0")}`,
+    transcript,
+    structuredDraft: hasStructuredDraft(structuredDraft) ? structuredDraft : undefined,
+    audioUrl,
+    ...analysis,
+  };
+
+  session.integrationDelivery = await deliverSession(data, ownerId, session);
+
+  const storedSession: StoredSession = {
+    ...session,
+    ownerId,
+    createdAt: now,
+  };
+
+  data.sessions.push(storedSession);
+  const { ownerId: _ownerId, createdAt: _createdAt, ...publicSession } = storedSession;
+  return publicSession;
+}
+
+async function finalizeTelephonyCall(data: Database, call: StoredTelephonyCall, agent: StoredAgent & { ownerId: string }) {
+  if (call.sessionId) {
+    const existing = data.sessions.find((session) => session.id === call.sessionId && session.ownerId === call.ownerId);
+    if (existing) {
+      const { ownerId, createdAt, ...publicSession } = existing;
+      return publicSession;
+    }
+  }
+
+  const completedAt = new Date().toISOString();
+  const startedAt = Date.parse(call.startedAt) || Date.now();
+  const durationSeconds = Math.max(1, Math.round((Date.parse(completedAt) - startedAt) / 1000));
+  const session = await createSessionFromConversation({
+    data,
+    ownerId: call.ownerId,
+    agent,
+    caller: call.caller || call.to,
+    transcriptItems: call.transcriptItems,
+    durationSeconds,
+    structuredDraft: normalizeStructuredDraft(call.structuredDraft),
+  });
+
+  call.sessionId = session.id;
+  call.status = "completed";
+  call.completedAt = completedAt;
+  call.updatedAt = completedAt;
+  return session;
+}
+
+function mapTwilioStatus(value: unknown): TelephonyCallStatus {
+  const status = String(value || "").toLowerCase();
+  if (status === "ringing") return "ringing";
+  if (status === "in-progress" || status === "answered") return "in-progress";
+  if (status === "completed") return "completed";
+  if (["busy", "failed", "no-answer", "canceled"].includes(status)) return "failed";
+  return "queued";
+}
+
 function runtimeStatus(data?: Database, ownerId?: string): RuntimeStatus {
   const integration = data && ownerId ? data.integrations.find((item) => item.ownerId === ownerId) : undefined;
+  const twilio = telephonyConfig();
   return {
     geminiConfigured: Boolean(process.env.GEMINI_API_KEY),
-    telephonyConfigured: Boolean(process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN),
+    telephonyConfigured: twilio.providerConfigured,
+    telephonyOutboundConfigured: twilio.outboundConfigured,
+    publicBaseUrlConfigured: Boolean(twilio.publicBaseUrl),
     integrationConfigured: Boolean(integration?.webhook.enabled && integration.webhook.url),
     storage: DATA_FILE,
   };
@@ -573,6 +823,7 @@ async function startServer() {
   const PORT = Number(process.env.PORT || 3000);
 
   app.use(express.json({ limit: "2mb" }));
+  app.use(express.urlencoded({ extended: false }));
 
   app.get("/api/status", async (req, res, next) => {
     try {
@@ -804,37 +1055,213 @@ async function startServer() {
       }
 
       const durationSeconds = Number(req.body.durationSeconds || 0);
-      const transcript = transcriptToText(req.body.transcriptItems);
       const structuredDraft = normalizeStructuredDraft(req.body.structuredDraft);
-      const baseAnalysis = process.env.GEMINI_API_KEY
-        ? await analyzeTranscript(agent, transcript, durationSeconds, structuredDraft)
-        : buildDeterministicAnalysis(agent, transcript, durationSeconds, structuredDraft);
-      const analysis = mergeStructuredFindings(baseAnalysis, structuredDraft);
-      const now = new Date().toISOString();
-      const session: SessionRecord = {
-        id: `SES-${Date.now()}`,
-        agentName: agent.name,
-        caller: String(req.body.caller || "Contato não informado"),
-        dateTime: now.slice(0, 16).replace("T", " "),
-        duration: `${Math.floor(durationSeconds / 60).toString().padStart(2, "0")}:${Math.round(durationSeconds % 60).toString().padStart(2, "0")}`,
-        transcript,
-        structuredDraft: hasStructuredDraft(structuredDraft) ? structuredDraft : undefined,
-        ...analysis,
-      };
-
-      session.integrationDelivery = await deliverSession(data, req.user!.id, session);
-
-      const storedSession: StoredSession = {
-        ...session,
+      const session = await createSessionFromConversation({
+        data,
         ownerId: req.user!.id,
-        createdAt: now,
+        agent,
+        caller: String(req.body.caller || "Contato não informado"),
+        transcriptItems: req.body.transcriptItems,
+        durationSeconds,
+        structuredDraft,
+      });
+      await writeDatabase(data);
+      res.status(201).json({ session });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.get("/api/telephony/calls", requireAuth, (req: AuthedRequest, res) => {
+    const calls = (req.data?.telephonyCalls || [])
+      .filter((call) => call.ownerId === req.user!.id)
+      .sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt))
+      .map(publicTelephonyCall);
+    res.json({ calls });
+  });
+
+  app.post("/api/telephony/calls", requireAuth, async (req: AuthedRequest, res, next) => {
+    try {
+      const config = telephonyConfig();
+      if (!config.outboundConfigured) {
+        return res.status(503).json({
+          error: `Telefonia real indisponível. Configure: ${config.missing.join(", ")}.`,
+        });
+      }
+
+      const data = req.data || await readDatabase();
+      const agent = data.agents.find((item) => item.id === req.body.agentId && item.ownerId === req.user!.id);
+      if (!agent) {
+        return res.status(404).json({ error: "Agente não encontrado." });
+      }
+
+      if (!agent.questions.length) {
+        return res.status(400).json({ error: "Este agente precisa de ao menos uma pergunta antes de ligar." });
+      }
+
+      const now = new Date().toISOString();
+      const call: StoredTelephonyCall = {
+        id: crypto.randomUUID(),
+        ownerId: req.user!.id,
+        agentId: agent.id,
+        agentName: agent.name,
+        caller: String(req.body.caller || req.body.to || "Contato telefônico"),
+        to: validatePhoneNumber(req.body.to),
+        from: config.from,
+        provider: "twilio",
+        status: "queued",
+        currentQuestionIndex: 0,
+        transcriptItems: [],
+        structuredDraft: normalizeStructuredDraft({}),
+        startedAt: now,
+        updatedAt: now,
       };
 
-      data.sessions.push(storedSession);
+      data.telephonyCalls.push(call);
       await writeDatabase(data);
 
-      const { ownerId, createdAt, ...publicSession } = storedSession;
-      res.status(201).json({ session: publicSession });
+      try {
+        const voiceUrl = `${config.publicBaseUrl}/api/twilio/voice/${call.id}`;
+        const statusUrl = `${config.publicBaseUrl}/api/twilio/status/${call.id}`;
+        const providerCall = await twilioCreateCall(call.to, call.from, voiceUrl, statusUrl);
+        call.providerCallSid = providerCall.sid ? String(providerCall.sid) : undefined;
+        call.status = mapTwilioStatus(providerCall.status);
+        call.updatedAt = new Date().toISOString();
+        await writeDatabase(data);
+        res.status(201).json({ call: publicTelephonyCall(call) });
+      } catch (error: any) {
+        call.status = "failed";
+        call.error = error.message || "Falha ao iniciar chamada na Twilio.";
+        call.updatedAt = new Date().toISOString();
+        await writeDatabase(data);
+        res.status(502).json({ error: call.error, call: publicTelephonyCall(call) });
+      }
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.post("/api/twilio/voice/:callId", async (req, res, next) => {
+    try {
+      const data = await readDatabase();
+      const call = data.telephonyCalls.find((item) => item.id === req.params.callId);
+      if (!call) {
+        res.type("text/xml").send(twiml(`${say("Chamada não encontrada.")}<Hangup />`));
+        return;
+      }
+
+      const agent = data.agents.find((item) => item.id === call.agentId && item.ownerId === call.ownerId);
+      const question = agent?.questions[call.currentQuestionIndex];
+      if (!agent || !question) {
+        if (agent && call.transcriptItems.some((item) => item.role === "user")) {
+          await finalizeTelephonyCall(data, call, agent);
+          await writeDatabase(data);
+        }
+        res.type("text/xml").send(twiml(`${say("Obrigada. A conversa foi registrada.")}<Hangup />`));
+        return;
+      }
+
+      const lastMessage = call.transcriptItems[call.transcriptItems.length - 1];
+      if (!(lastMessage?.role === "agent" && lastMessage.text === question.text)) {
+        call.transcriptItems.push({ role: "agent", text: question.text });
+      }
+      call.status = "in-progress";
+      call.updatedAt = new Date().toISOString();
+      await writeDatabase(data);
+
+      const config = telephonyConfig();
+      const retryUrl = `${config.publicBaseUrl}/api/twilio/voice/${call.id}`;
+      const actionUrl = `${config.publicBaseUrl}/api/twilio/voice/${call.id}/answer`;
+      res.type("text/xml").send(twiml(gatherSpeech(actionUrl, question.text, retryUrl)));
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.post("/api/twilio/voice/:callId/answer", async (req, res, next) => {
+    try {
+      const data = await readDatabase();
+      const call = data.telephonyCalls.find((item) => item.id === req.params.callId);
+      const agent = call ? data.agents.find((item) => item.id === call.agentId && item.ownerId === call.ownerId) : undefined;
+
+      if (!call || !agent) {
+        res.type("text/xml").send(twiml(`${say("Chamada não encontrada.")}<Hangup />`));
+        return;
+      }
+
+      const question = agent.questions[call.currentQuestionIndex];
+      const answer = String(req.body.SpeechResult || req.body.Digits || "").trim();
+      const config = telephonyConfig();
+      const retryUrl = `${config.publicBaseUrl}/api/twilio/voice/${call.id}`;
+
+      if (!question) {
+        await finalizeTelephonyCall(data, call, agent);
+        await writeDatabase(data);
+        res.type("text/xml").send(twiml(`${say("Obrigada. A conversa foi registrada.")}<Hangup />`));
+        return;
+      }
+
+      if (!answer) {
+        const actionUrl = `${config.publicBaseUrl}/api/twilio/voice/${call.id}/answer`;
+        res.type("text/xml").send(twiml(gatherSpeech(actionUrl, question.text, retryUrl)));
+        return;
+      }
+
+      call.transcriptItems.push({ role: "user", text: answer });
+      const risk = detectStructuredRisk(question, answer);
+      call.structuredDraft = applyAnswerToDraft(normalizeStructuredDraft(call.structuredDraft), question, answer, risk);
+
+      if (risk && question.stopOnRisk) {
+        const escalation = "Identifiquei um possível sinal de atenção. Vou registrar prioridade alta e encaminhar para retorno humano.";
+        call.transcriptItems.push({ role: "agent", text: escalation });
+        await finalizeTelephonyCall(data, call, agent);
+        await writeDatabase(data);
+        res.type("text/xml").send(twiml(`${say(escalation)}<Hangup />`));
+        return;
+      }
+
+      const nextIndex = call.currentQuestionIndex + 1;
+      const nextQuestion = agent.questions[nextIndex];
+
+      if (!nextQuestion) {
+        const closing = "Obrigada. Vou registrar a conversa e preparar a entrega para a operação.";
+        call.transcriptItems.push({ role: "agent", text: closing });
+        await finalizeTelephonyCall(data, call, agent);
+        await writeDatabase(data);
+        res.type("text/xml").send(twiml(`${say(closing)}<Hangup />`));
+        return;
+      }
+
+      call.currentQuestionIndex = nextIndex;
+      call.transcriptItems.push({ role: "agent", text: nextQuestion.text });
+      call.status = "in-progress";
+      call.updatedAt = new Date().toISOString();
+      await writeDatabase(data);
+
+      const actionUrl = `${config.publicBaseUrl}/api/twilio/voice/${call.id}/answer`;
+      res.type("text/xml").send(twiml(gatherSpeech(actionUrl, nextQuestion.text, retryUrl)));
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.post("/api/twilio/status/:callId", async (req, res, next) => {
+    try {
+      const data = await readDatabase();
+      const call = data.telephonyCalls.find((item) => item.id === req.params.callId);
+      if (call) {
+        call.providerCallSid = req.body.CallSid ? String(req.body.CallSid) : call.providerCallSid;
+        call.status = mapTwilioStatus(req.body.CallStatus);
+        call.updatedAt = new Date().toISOString();
+
+        if (call.status === "completed" && !call.sessionId && call.transcriptItems.some((item) => item.role === "user")) {
+          const agent = data.agents.find((item) => item.id === call.agentId && item.ownerId === call.ownerId);
+          if (agent) await finalizeTelephonyCall(data, call, agent);
+        }
+
+        await writeDatabase(data);
+      }
+      res.status(204).end();
     } catch (error) {
       next(error);
     }
