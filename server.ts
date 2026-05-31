@@ -1,60 +1,959 @@
-import express from "express";
+import crypto from "crypto";
+import express, { NextFunction, Request, Response } from "express";
+import fs from "fs/promises";
 import path from "path";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI } from "@google/genai";
+import type {
+  AgentConfig,
+  IntegrationDelivery,
+  IntegrationSettings,
+  RuntimeStatus,
+  SessionRecord,
+  StoredAgent,
+  StructuredDraft,
+  User,
+} from "./types";
+
+type StoredUser = Required<Pick<User, "id" | "name" | "company" | "email" | "brandColor">> & {
+  role: string;
+  passwordHash: string;
+  salt: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+type TokenRecord = {
+  token: string;
+  userId: string;
+  expiresAt: string;
+};
+
+type StoredSession = SessionRecord & {
+  ownerId: string;
+  createdAt: string;
+};
+
+type StoredIntegration = {
+  ownerId: string;
+  webhook: {
+    enabled: boolean;
+    url: string;
+    secret?: string;
+    updatedAt?: string;
+    lastDelivery?: IntegrationDelivery;
+  };
+};
+
+type Database = {
+  users: StoredUser[];
+  tokens: TokenRecord[];
+  agents: Array<StoredAgent & { ownerId: string }>;
+  sessions: StoredSession[];
+  integrations: StoredIntegration[];
+};
+
+type AuthedRequest = Request & {
+  user?: StoredUser;
+  data?: Database;
+};
+
+const DATA_DIR = path.join(process.cwd(), "data");
+const DATA_FILE = path.join(DATA_DIR, "birth-voices.json");
+const DEFAULT_BRAND_COLOR = "#2563eb";
+
+async function loadLocalEnv() {
+  const envFile = path.join(process.cwd(), ".env");
+
+  try {
+    const raw = await fs.readFile(envFile, "utf8");
+    for (const line of raw.split(/\r?\n/)) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith("#")) continue;
+      const separator = trimmed.indexOf("=");
+      if (separator <= 0) continue;
+      const key = trimmed.slice(0, separator).trim();
+      const value = trimmed.slice(separator + 1).trim().replace(/^['"]|['"]$/g, "");
+      if (!process.env[key]) process.env[key] = value;
+    }
+  } catch (error: any) {
+    if (error.code !== "ENOENT") throw error;
+  }
+}
+
+const emptyDatabase = (): Database => ({
+  users: [],
+  tokens: [],
+  agents: [],
+  sessions: [],
+  integrations: [],
+});
+
+async function readDatabase(): Promise<Database> {
+  await fs.mkdir(DATA_DIR, { recursive: true });
+
+  try {
+    const raw = await fs.readFile(DATA_FILE, "utf8");
+    const parsed = JSON.parse(raw);
+    return {
+      ...emptyDatabase(),
+      ...parsed,
+      users: Array.isArray(parsed.users) ? parsed.users : [],
+      tokens: Array.isArray(parsed.tokens) ? parsed.tokens : [],
+      agents: Array.isArray(parsed.agents) ? parsed.agents : [],
+      sessions: Array.isArray(parsed.sessions) ? parsed.sessions : [],
+      integrations: Array.isArray(parsed.integrations) ? parsed.integrations : [],
+    };
+  } catch (error: any) {
+    if (error.code !== "ENOENT") throw error;
+    const data = emptyDatabase();
+    await writeDatabase(data);
+    return data;
+  }
+}
+
+async function writeDatabase(data: Database) {
+  await fs.mkdir(DATA_DIR, { recursive: true });
+  const tempFile = `${DATA_FILE}.tmp`;
+  await fs.writeFile(tempFile, JSON.stringify(data, null, 2));
+  await fs.rename(tempFile, DATA_FILE);
+}
+
+function publicUser(user: StoredUser): User {
+  return {
+    id: user.id,
+    name: user.name,
+    company: user.company,
+    role: user.role,
+    email: user.email,
+    brandColor: user.brandColor,
+  };
+}
+
+function createPasswordHash(password: string, salt = crypto.randomBytes(16).toString("hex")) {
+  const hash = crypto.pbkdf2Sync(password, salt, 120000, 64, "sha512").toString("hex");
+  return { salt, hash };
+}
+
+function verifyPassword(password: string, user: StoredUser) {
+  const { hash } = createPasswordHash(password, user.salt);
+  const stored = Buffer.from(user.passwordHash, "hex");
+  const attempted = Buffer.from(hash, "hex");
+  return stored.length === attempted.length && crypto.timingSafeEqual(stored, attempted);
+}
+
+function normalizeEmail(email: string) {
+  return String(email || "").trim().toLowerCase();
+}
+
+function requireFields(fields: Record<string, unknown>, required: string[]) {
+  const missing = required.filter((field) => !String(fields[field] ?? "").trim());
+  if (missing.length) {
+    throw new Error(`Campos obrigatórios ausentes: ${missing.join(", ")}`);
+  }
+}
+
+function normalizeList(value: unknown) {
+  return Array.isArray(value)
+    ? value.map((item) => String(item || "").trim()).filter(Boolean)
+    : [];
+}
+
+function uniqueStrings(values: string[]) {
+  return [...new Set(values.map((value) => value.trim()).filter(Boolean))];
+}
+
+function normalizeStructuredDraft(value: any): StructuredDraft {
+  const extracted = Array.isArray(value?.extracted)
+    ? value.extracted
+        .map((item: any) => ({
+          label: String(item?.label || "").trim(),
+          value: String(item?.value || "").trim(),
+        }))
+        .filter((item: any) => item.label && item.value)
+        .slice(0, 80)
+    : [];
+
+  const triggeredRisks = Array.isArray(value?.triggeredRisks)
+    ? value.triggeredRisks
+        .map((risk: any) => ({
+          questionId: risk?.questionId ? String(risk.questionId) : undefined,
+          question: String(risk?.question || "").trim(),
+          keyword: String(risk?.keyword || "").trim(),
+          answer: String(risk?.answer || "").trim(),
+          detectedAt: risk?.detectedAt ? String(risk.detectedAt) : new Date().toISOString(),
+        }))
+        .filter((risk: any) => risk.question && risk.keyword && risk.answer)
+        .slice(0, 40)
+    : [];
+
+  return {
+    extracted,
+    triggeredRisks,
+    requiredMissing: uniqueStrings(normalizeList(value?.requiredMissing)).slice(0, 40),
+  };
+}
+
+function hasStructuredDraft(draft: StructuredDraft) {
+  return Boolean(draft.extracted.length || draft.triggeredRisks.length || draft.requiredMissing?.length);
+}
+
+function createToken(data: Database, userId: string) {
+  const token = crypto.randomBytes(32).toString("hex");
+  const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24 * 30).toISOString();
+  data.tokens.push({ token, userId, expiresAt });
+  return token;
+}
+
+async function requireAuth(req: AuthedRequest, res: Response, next: NextFunction) {
+  try {
+    const authHeader = req.headers.authorization || "";
+    const token = authHeader.replace(/^Bearer\s+/i, "").trim();
+
+    if (!token) {
+      return res.status(401).json({ error: "Sessão não informada." });
+    }
+
+    const data = await readDatabase();
+    const now = Date.now();
+    const tokenRecord = data.tokens.find((item) => item.token === token);
+
+    if (!tokenRecord || Date.parse(tokenRecord.expiresAt) < now) {
+      data.tokens = data.tokens.filter((item) => item.token !== token);
+      await writeDatabase(data);
+      return res.status(401).json({ error: "Sessão expirada. Faça login novamente." });
+    }
+
+    const user = data.users.find((item) => item.id === tokenRecord.userId);
+    if (!user) {
+      return res.status(401).json({ error: "Usuário da sessão não encontrado." });
+    }
+
+    req.user = user;
+    req.data = data;
+    next();
+  } catch (error) {
+    next(error);
+  }
+}
+
+function validateAgentConfig(body: Partial<AgentConfig>) {
+  requireFields(body as Record<string, unknown>, ["name", "template", "description", "systemInstruction"]);
+
+  if (!Array.isArray(body.questions)) {
+    throw new Error("O roteiro do agente precisa conter uma lista de perguntas.");
+  }
+
+  return {
+    name: String(body.name),
+    template: body.template,
+    description: String(body.description),
+    language: String(body.language || "Português Brasileiro"),
+    tone: Array.isArray(body.tone) ? body.tone.map(String) : [],
+    speed: Number(body.speed || 1),
+    systemInstruction: String(body.systemInstruction),
+    analysisPrompt: String(body.analysisPrompt || ""),
+    questions: body.questions.map((question: any, index: number) => ({
+      id: String(question.id || crypto.randomUUID()),
+      text: String(question.text || `Pergunta ${index + 1}`),
+      type: question.type === "closed" ? "closed" : "open",
+      collectAs: String(question.collectAs || "").trim() || undefined,
+      required: Boolean(question.required),
+      riskKeywords: normalizeList(question.riskKeywords).slice(0, 30),
+      stopOnRisk: Boolean(question.stopOnRisk),
+    })),
+  } as AgentConfig;
+}
+
+function validateSession(body: Partial<SessionRecord>) {
+  requireFields(body as Record<string, unknown>, ["agentName", "caller", "duration", "summary", "transcript"]);
+  const now = new Date().toISOString();
+
+  return {
+    id: String(body.id || `SES-${Date.now()}`),
+    agentName: String(body.agentName),
+    caller: String(body.caller),
+    dateTime: String(body.dateTime || now.slice(0, 16).replace("T", " ")),
+    duration: String(body.duration),
+    sentiment: body.sentiment === "Negativo" || body.sentiment === "Neutro" ? body.sentiment : "Positivo",
+    riskLevel: body.riskLevel === "Alto" || body.riskLevel === "Moderado" ? body.riskLevel : "Baixo",
+    score: Math.max(0, Math.min(100, Number(body.score ?? 80))),
+    summary: String(body.summary),
+    transcript: String(body.transcript),
+    tags: Array.isArray(body.tags) ? body.tags.map(String) : [],
+    followUp: String(body.followUp || "Revisar e definir próxima ação."),
+    extracted: Array.isArray(body.extracted)
+      ? body.extracted.map((item: any) => ({ label: String(item.label || ""), value: String(item.value || "") }))
+      : [],
+    structuredDraft: body.structuredDraft ? normalizeStructuredDraft(body.structuredDraft) : undefined,
+    integrationDelivery: body.integrationDelivery,
+    audioUrl: body.audioUrl ? String(body.audioUrl) : undefined,
+  } as SessionRecord;
+}
+
+function getIntegration(data: Database, ownerId: string) {
+  let integration = data.integrations.find((item) => item.ownerId === ownerId);
+
+  if (!integration) {
+    integration = {
+      ownerId,
+      webhook: {
+        enabled: false,
+        url: "",
+      },
+    };
+    data.integrations.push(integration);
+  }
+
+  return integration;
+}
+
+function publicIntegration(integration: StoredIntegration): IntegrationSettings {
+  return {
+    webhook: {
+      enabled: Boolean(integration.webhook.enabled),
+      url: integration.webhook.url || "",
+      hasSecret: Boolean(integration.webhook.secret),
+      updatedAt: integration.webhook.updatedAt,
+      lastDelivery: integration.webhook.lastDelivery,
+    },
+  };
+}
+
+function createWebhookSignature(secret: string, body: string) {
+  return crypto.createHmac("sha256", secret).update(body).digest("hex");
+}
+
+async function sendWebhook(url: string, secret: string | undefined, event: string, data: unknown): Promise<IntegrationDelivery & { responseBody?: string }> {
+  const deliveredAt = new Date().toISOString();
+  const body = JSON.stringify({
+    event,
+    createdAt: deliveredAt,
+    data,
+  });
+
+  try {
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+      "User-Agent": "Birth-Voices-Hub/1.0",
+    };
+
+    if (secret) {
+      headers["X-Birth-Voices-Signature"] = createWebhookSignature(secret, body);
+    }
+
+    const response = await fetch(url, {
+      method: "POST",
+      headers,
+      body,
+    });
+    const responseBody = await response.text();
+
+    return {
+      status: response.ok ? "delivered" : "failed",
+      target: url,
+      statusCode: response.status,
+      message: response.ok ? "Entregue ao endpoint configurado." : responseBody.slice(0, 300) || response.statusText,
+      deliveredAt,
+      responseBody: responseBody.slice(0, 2000),
+    };
+  } catch (error: any) {
+    return {
+      status: "failed",
+      target: url,
+      message: error.message || "Falha ao entregar webhook.",
+      deliveredAt,
+    };
+  }
+}
+
+async function deliverSession(data: Database, ownerId: string, session: SessionRecord): Promise<IntegrationDelivery> {
+  const integration = getIntegration(data, ownerId);
+
+  if (!integration.webhook.enabled || !integration.webhook.url) {
+    const delivery: IntegrationDelivery = {
+      status: "not_configured",
+      message: "Webhook/CRM não configurado.",
+    };
+    integration.webhook.lastDelivery = delivery;
+    return delivery;
+  }
+
+  const delivery = await sendWebhook(
+    integration.webhook.url,
+    integration.webhook.secret,
+    "session.completed",
+    session,
+  );
+
+  const publicDelivery: IntegrationDelivery = {
+    status: delivery.status,
+    target: delivery.target,
+    statusCode: delivery.statusCode,
+    message: delivery.message,
+    deliveredAt: delivery.deliveredAt,
+  };
+  integration.webhook.lastDelivery = publicDelivery;
+  return publicDelivery;
+}
+
+function extractJson(text: string) {
+  const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  const raw = fenced ? fenced[1] : text;
+  const first = raw.indexOf("{");
+  const last = raw.lastIndexOf("}");
+  if (first < 0 || last < first) {
+    throw new Error("A IA não retornou JSON estruturado.");
+  }
+  return JSON.parse(raw.slice(first, last + 1));
+}
+
+function transcriptToText(items: Array<{ role: "agent" | "user"; text: string }>) {
+  return items
+    .map((item) => `${item.role === "agent" ? "Agente" : "Usuário"}: ${item.text}`)
+    .join("\n");
+}
+
+type AnalysisResult = Pick<SessionRecord, "summary" | "sentiment" | "riskLevel" | "score" | "tags" | "followUp" | "extracted">;
+
+function mergeStructuredFindings(analysis: AnalysisResult, draft: StructuredDraft): AnalysisResult {
+  const extracted: AnalysisResult["extracted"] = [];
+  const seenLabels = new Set<string>();
+  const addExtracted = (item: { label: string; value: string }) => {
+    const label = String(item.label || "").trim();
+    const value = String(item.value || "").trim();
+    const key = label.toLowerCase();
+    if (!label || !value || seenLabels.has(key)) return;
+    seenLabels.add(key);
+    extracted.push({ label, value });
+  };
+
+  draft.extracted.forEach(addExtracted);
+  analysis.extracted.forEach(addExtracted);
+
+  const riskKeywords = uniqueStrings(draft.triggeredRisks.map((risk) => risk.keyword));
+  const missingFields = uniqueStrings(draft.requiredMissing || []);
+  const tags = uniqueStrings([
+    ...analysis.tags,
+    ...riskKeywords.map((keyword) => `risco:${keyword}`),
+    ...(draft.triggeredRisks.length ? ["risco-detectado", "escalacao-humana"] : []),
+    ...(missingFields.length ? ["campos-pendentes"] : []),
+  ]).slice(0, 12);
+
+  let riskLevel = analysis.riskLevel;
+  let score = analysis.score;
+  let followUp = analysis.followUp;
+
+  if (draft.triggeredRisks.length) {
+    riskLevel = "Alto";
+    score = Math.min(score, 45);
+    followUp = `Escalar para atendimento humano com prioridade alta. Sinais detectados: ${riskKeywords.join(", ")}.`;
+  } else if (missingFields.length) {
+    score = Math.min(score, 75);
+    followUp = `Completar campos obrigatórios pendentes: ${missingFields.join(", ")}.`;
+  }
+
+  return {
+    ...analysis,
+    riskLevel,
+    score,
+    tags,
+    followUp,
+    extracted,
+  };
+}
+
+function buildDeterministicAnalysis(agent: StoredAgent, transcript: string, durationSeconds: number, draft: StructuredDraft): AnalysisResult {
+  const riskKeywords = uniqueStrings(draft.triggeredRisks.map((risk) => risk.keyword));
+  const missingFields = uniqueStrings(draft.requiredMissing || []);
+  const hasRisk = draft.triggeredRisks.length > 0;
+  const hasMissingFields = missingFields.length > 0;
+
+  return {
+    summary: hasRisk
+      ? `Conversa registrada pelo roteiro "${agent.name}" com sinal de risco detectado e necessidade de escalação humana.`
+      : `Conversa registrada pelo roteiro "${agent.name}" com ${draft.extracted.length} campo(s) estruturado(s) coletado(s) em ${durationSeconds} segundo(s).`,
+    sentiment: "Neutro",
+    riskLevel: hasRisk ? "Alto" : hasMissingFields ? "Moderado" : "Baixo",
+    score: hasRisk ? 35 : hasMissingFields ? 65 : Math.min(95, 70 + draft.extracted.length * 5),
+    tags: uniqueStrings([
+      "roteiro-estruturado",
+      ...(hasRisk ? ["risco-detectado", "escalacao-humana"] : []),
+      ...(hasMissingFields ? ["campos-pendentes"] : []),
+      ...riskKeywords.map((keyword) => `risco:${keyword}`),
+    ]).slice(0, 12),
+    followUp: hasRisk
+      ? `Escalar para atendimento humano com prioridade alta. Sinais detectados: ${riskKeywords.join(", ")}.`
+      : hasMissingFields
+        ? `Completar campos obrigatórios pendentes: ${missingFields.join(", ")}.`
+        : "Revisar registro estruturado e seguir o fluxo operacional definido.",
+    extracted: draft.extracted,
+  };
+}
+
+async function analyzeTranscript(agent: StoredAgent & { ownerId: string }, transcript: string, durationSeconds: number, draft: StructuredDraft) {
+  const apiKey = process.env.GEMINI_API_KEY;
+
+  if (!apiKey) {
+    throw new Error("GEMINI_API_KEY não configurada. A análise inteligente e extração estruturada dependem dessa chave.");
+  }
+
+  const ai = new GoogleGenAI({ apiKey });
+  const prompt = `Analise a transcrição de uma conversa conduzida por agente de voz.
+
+Agente:
+${JSON.stringify({
+    name: agent.name,
+    template: agent.template,
+    description: agent.description,
+    analysisPrompt: agent.analysisPrompt,
+    questions: agent.questions,
+  }, null, 2)}
+
+Transcrição:
+${transcript}
+
+Achados determinísticos coletados pelo roteiro:
+${JSON.stringify(draft, null, 2)}
+
+Duração aproximada em segundos: ${durationSeconds}
+
+Regras obrigatórias:
+- Preserve os campos estruturados já coletados quando fizer sentido.
+- Se houver triggeredRisks, classifique riskLevel como Alto e recomende escalação humana.
+- Não invente campos, diagnósticos, integrações ou ações já concluídas.
+
+Retorne somente JSON válido, sem markdown, no formato:
+{
+  "summary": "resumo objetivo da conversa",
+  "sentiment": "Positivo | Neutro | Negativo",
+  "riskLevel": "Baixo | Moderado | Alto",
+  "score": 0,
+  "tags": ["tag1", "tag2"],
+  "followUp": "próxima ação clara",
+  "extracted": [{"label": "campo", "value": "valor"}]
+}`;
+
+  const response = await ai.models.generateContent({
+    model: "gemini-2.5-flash",
+    contents: [{ role: "user", parts: [{ text: prompt }] }],
+    config: {
+      temperature: 0.2,
+      responseMimeType: "application/json",
+    },
+  });
+
+  const parsed = extractJson(response.text || "{}");
+  return {
+    summary: String(parsed.summary || "Conversa concluída."),
+    sentiment: parsed.sentiment === "Negativo" || parsed.sentiment === "Neutro" ? parsed.sentiment : "Positivo",
+    riskLevel: parsed.riskLevel === "Alto" || parsed.riskLevel === "Moderado" ? parsed.riskLevel : "Baixo",
+    score: Math.max(0, Math.min(100, Number(parsed.score ?? 80))),
+    tags: Array.isArray(parsed.tags) ? parsed.tags.map(String).slice(0, 8) : [],
+    followUp: String(parsed.followUp || "Revisar resultado e definir próxima ação."),
+    extracted: Array.isArray(parsed.extracted)
+      ? parsed.extracted.map((item: any) => ({ label: String(item.label || ""), value: String(item.value || "") })).filter((item: any) => item.label)
+      : [],
+  };
+}
+
+function runtimeStatus(data?: Database, ownerId?: string): RuntimeStatus {
+  const integration = data && ownerId ? data.integrations.find((item) => item.ownerId === ownerId) : undefined;
+  return {
+    geminiConfigured: Boolean(process.env.GEMINI_API_KEY),
+    telephonyConfigured: Boolean(process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN),
+    integrationConfigured: Boolean(integration?.webhook.enabled && integration.webhook.url),
+    storage: DATA_FILE,
+  };
+}
 
 async function startServer() {
+  await loadLocalEnv();
   const app = express();
-  const PORT = 3000;
+  const PORT = Number(process.env.PORT || 3000);
 
-  app.use(express.json());
+  app.use(express.json({ limit: "2mb" }));
 
-  // API Routes
-  app.post("/api/chat", async (req, res) => {
+  app.get("/api/status", async (req, res, next) => {
     try {
-      const { prompt, currentMessages, enableSearchGrounding = false } = req.body;
+      const token = String(req.headers.authorization || "").replace(/^Bearer\s+/i, "").trim();
+      if (!token) {
+        return res.json(runtimeStatus());
+      }
+
+      const data = await readDatabase();
+      const tokenRecord = data.tokens.find((item) => item.token === token);
+      res.json(runtimeStatus(data, tokenRecord?.userId));
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.post("/api/auth/register", async (req, res, next) => {
+    try {
+      const { companyName, email, password } = req.body;
+      const normalizedEmail = normalizeEmail(email);
+      requireFields({ companyName, email: normalizedEmail, password }, ["companyName", "email", "password"]);
+
+      if (String(password).length < 6) {
+        return res.status(400).json({ error: "A senha precisa ter pelo menos 6 caracteres." });
+      }
+
+      const data = await readDatabase();
+      if (data.users.some((user) => user.email === normalizedEmail)) {
+        return res.status(409).json({ error: "Este email já possui uma conta." });
+      }
+
+      const { salt, hash } = createPasswordHash(String(password));
+      const now = new Date().toISOString();
+      const user: StoredUser = {
+        id: crypto.randomUUID(),
+        name: normalizedEmail.split("@")[0],
+        company: String(companyName).trim(),
+        email: normalizedEmail,
+        role: "Owner",
+        brandColor: DEFAULT_BRAND_COLOR,
+        passwordHash: hash,
+        salt,
+        createdAt: now,
+        updatedAt: now,
+      };
+
+      data.users.push(user);
+      const token = createToken(data, user.id);
+      await writeDatabase(data);
+
+      res.status(201).json({ token, user: publicUser(user) });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.post("/api/auth/login", async (req, res, next) => {
+    try {
+      const email = normalizeEmail(req.body.email);
+      const password = String(req.body.password || "");
+      requireFields({ email, password }, ["email", "password"]);
+
+      const data = await readDatabase();
+      const user = data.users.find((item) => item.email === email);
+
+      if (!user || !verifyPassword(password, user)) {
+        return res.status(401).json({ error: "Email ou senha inválidos." });
+      }
+
+      const token = createToken(data, user.id);
+      await writeDatabase(data);
+
+      res.json({ token, user: publicUser(user) });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.post("/api/auth/logout", requireAuth, async (req: AuthedRequest, res, next) => {
+    try {
+      const token = String(req.headers.authorization || "").replace(/^Bearer\s+/i, "").trim();
+      const data = req.data || await readDatabase();
+      data.tokens = data.tokens.filter((item) => item.token !== token);
+      await writeDatabase(data);
+      res.json({ ok: true });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.get("/api/me", requireAuth, (req: AuthedRequest, res) => {
+    res.json({ user: publicUser(req.user!) });
+  });
+
+  app.patch("/api/me", requireAuth, async (req: AuthedRequest, res, next) => {
+    try {
+      const data = req.data || await readDatabase();
+      const user = data.users.find((item) => item.id === req.user!.id)!;
+
+      if (typeof req.body.company === "string" && req.body.company.trim()) {
+        user.company = req.body.company.trim();
+      }
+
+      if (typeof req.body.name === "string" && req.body.name.trim()) {
+        user.name = req.body.name.trim();
+      }
+
+      if (typeof req.body.brandColor === "string" && /^#[0-9a-f]{6}$/i.test(req.body.brandColor)) {
+        user.brandColor = req.body.brandColor;
+      }
+
+      user.updatedAt = new Date().toISOString();
+      await writeDatabase(data);
+      res.json({ user: publicUser(user) });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.get("/api/agents", requireAuth, (req: AuthedRequest, res) => {
+    const agents = (req.data?.agents || [])
+      .filter((agent) => agent.ownerId === req.user!.id)
+      .map(({ ownerId, ...agent }) => agent);
+    res.json({ agents });
+  });
+
+  app.post("/api/agents", requireAuth, async (req: AuthedRequest, res, next) => {
+    try {
+      const data = req.data || await readDatabase();
+      const config = validateAgentConfig(req.body);
+      const now = new Date().toISOString();
+      const agent = {
+        ...config,
+        id: crypto.randomUUID(),
+        ownerId: req.user!.id,
+        createdAt: now,
+        updatedAt: now,
+      };
+
+      data.agents.push(agent);
+      await writeDatabase(data);
+      const { ownerId, ...publicAgent } = agent;
+      res.status(201).json({ agent: publicAgent });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.put("/api/agents/:id", requireAuth, async (req: AuthedRequest, res, next) => {
+    try {
+      const data = req.data || await readDatabase();
+      const index = data.agents.findIndex((agent) => agent.id === req.params.id && agent.ownerId === req.user!.id);
+
+      if (index < 0) {
+        return res.status(404).json({ error: "Agente não encontrado." });
+      }
+
+      const config = validateAgentConfig(req.body);
+      data.agents[index] = {
+        ...data.agents[index],
+        ...config,
+        updatedAt: new Date().toISOString(),
+      };
+
+      await writeDatabase(data);
+      const { ownerId, ...agent } = data.agents[index];
+      res.json({ agent });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.delete("/api/agents/:id", requireAuth, async (req: AuthedRequest, res, next) => {
+    try {
+      const data = req.data || await readDatabase();
+      const before = data.agents.length;
+      data.agents = data.agents.filter((agent) => !(agent.id === req.params.id && agent.ownerId === req.user!.id));
+
+      if (data.agents.length === before) {
+        return res.status(404).json({ error: "Agente não encontrado." });
+      }
+
+      await writeDatabase(data);
+      res.json({ ok: true });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.get("/api/sessions", requireAuth, (req: AuthedRequest, res) => {
+    const sessions = (req.data?.sessions || [])
+      .filter((session) => session.ownerId === req.user!.id)
+      .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))
+      .map(({ ownerId, createdAt, ...session }) => session);
+    res.json({ sessions });
+  });
+
+  app.post("/api/sessions", requireAuth, async (req: AuthedRequest, res, next) => {
+    try {
+      const data = req.data || await readDatabase();
+      const session = validateSession(req.body);
+      session.integrationDelivery = await deliverSession(data, req.user!.id, session);
+      const storedSession: StoredSession = {
+        ...session,
+        ownerId: req.user!.id,
+        createdAt: new Date().toISOString(),
+      };
+
+      data.sessions.push(storedSession);
+      await writeDatabase(data);
+      const { ownerId, createdAt, ...publicSession } = storedSession;
+      res.status(201).json({ session: publicSession });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.post("/api/sessions/analyze-and-save", requireAuth, async (req: AuthedRequest, res, next) => {
+    try {
+      const data = req.data || await readDatabase();
+      const agent = data.agents.find((item) => item.id === req.body.agentId && item.ownerId === req.user!.id);
+
+      if (!agent) {
+        return res.status(404).json({ error: "Agente não encontrado." });
+      }
+
+      if (!Array.isArray(req.body.transcriptItems) || req.body.transcriptItems.length === 0) {
+        return res.status(400).json({ error: "Transcrição vazia. Conduza uma conversa antes de salvar." });
+      }
+
+      const durationSeconds = Number(req.body.durationSeconds || 0);
+      const transcript = transcriptToText(req.body.transcriptItems);
+      const structuredDraft = normalizeStructuredDraft(req.body.structuredDraft);
+      const baseAnalysis = process.env.GEMINI_API_KEY
+        ? await analyzeTranscript(agent, transcript, durationSeconds, structuredDraft)
+        : buildDeterministicAnalysis(agent, transcript, durationSeconds, structuredDraft);
+      const analysis = mergeStructuredFindings(baseAnalysis, structuredDraft);
+      const now = new Date().toISOString();
+      const session: SessionRecord = {
+        id: `SES-${Date.now()}`,
+        agentName: agent.name,
+        caller: String(req.body.caller || "Contato não informado"),
+        dateTime: now.slice(0, 16).replace("T", " "),
+        duration: `${Math.floor(durationSeconds / 60).toString().padStart(2, "0")}:${Math.round(durationSeconds % 60).toString().padStart(2, "0")}`,
+        transcript,
+        structuredDraft: hasStructuredDraft(structuredDraft) ? structuredDraft : undefined,
+        ...analysis,
+      };
+
+      session.integrationDelivery = await deliverSession(data, req.user!.id, session);
+
+      const storedSession: StoredSession = {
+        ...session,
+        ownerId: req.user!.id,
+        createdAt: now,
+      };
+
+      data.sessions.push(storedSession);
+      await writeDatabase(data);
+
+      const { ownerId, createdAt, ...publicSession } = storedSession;
+      res.status(201).json({ session: publicSession });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.get("/api/integrations", requireAuth, async (req: AuthedRequest, res, next) => {
+    try {
+      const data = req.data || await readDatabase();
+      const integration = getIntegration(data, req.user!.id);
+      await writeDatabase(data);
+      res.json(publicIntegration(integration));
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.patch("/api/integrations", requireAuth, async (req: AuthedRequest, res, next) => {
+    try {
+      const data = req.data || await readDatabase();
+      const integration = getIntegration(data, req.user!.id);
+      const webhook = req.body.webhook || {};
+
+      if (typeof webhook.url === "string") {
+        const url = webhook.url.trim();
+        if (url && !/^https?:\/\//i.test(url)) {
+          return res.status(400).json({ error: "URL do webhook precisa começar com http:// ou https://." });
+        }
+        integration.webhook.url = url;
+      }
+
+      if (typeof webhook.enabled === "boolean") {
+        integration.webhook.enabled = webhook.enabled;
+      }
+
+      if (typeof webhook.secret === "string") {
+        integration.webhook.secret = webhook.secret.trim() || undefined;
+      }
+
+      integration.webhook.updatedAt = new Date().toISOString();
+      await writeDatabase(data);
+      res.json(publicIntegration(integration));
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.post("/api/integrations/test-webhook", requireAuth, async (req: AuthedRequest, res, next) => {
+    try {
+      const data = req.data || await readDatabase();
+      const integration = getIntegration(data, req.user!.id);
+      const url = String(req.body.url || integration.webhook.url || "").trim();
+      const secret = typeof req.body.secret === "string" ? req.body.secret : integration.webhook.secret;
+
+      if (!url) {
+        return res.status(400).json({ error: "Configure uma URL de webhook antes de testar." });
+      }
+
+      const delivery = await sendWebhook(url, secret, "integration.test", {
+        message: "Teste real do Birth Voices Hub",
+        user: publicUser(req.user!),
+      });
+
+      const publicDelivery: IntegrationDelivery = {
+        status: delivery.status,
+        target: delivery.target,
+        statusCode: delivery.statusCode,
+        message: delivery.message,
+        deliveredAt: delivery.deliveredAt,
+      };
+      integration.webhook.lastDelivery = publicDelivery;
+      await writeDatabase(data);
+      res.json({ delivery: publicDelivery, responseBody: delivery.responseBody });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.post("/api/chat", requireAuth, async (req: AuthedRequest, res, next) => {
+    try {
+      const { prompt, currentMessages, enableSearchGrounding = false, temperature = 0.7, model = "gemini-2.5-flash" } = req.body;
       const apiKey = process.env.GEMINI_API_KEY;
-      
+
       if (!apiKey) {
-        return res.status(500).json({ error: "Chave da API Gemini não configurada no servidor." });
+        return res.status(503).json({
+          error: "GEMINI_API_KEY não configurada. Defina a variável de ambiente para usar o agente de IA real.",
+        });
+      }
+
+      if (!Array.isArray(currentMessages)) {
+        return res.status(400).json({ error: "Histórico de mensagens inválido." });
       }
 
       const ai = new GoogleGenAI({ apiKey });
-
-      // Build history
-      const history = currentMessages.map((m: any) => ({
-        role: m.role === 'user' ? 'user' : 'model',
-        parts: [{ text: m.text }]
+      const history = currentMessages.map((message: any) => ({
+        role: message.role === "agent" ? "model" : "user",
+        parts: [{ text: String(message.text || "") }],
       }));
 
-      // Base Config
       const config: any = {
-        systemInstruction: prompt,
-        temperature: 0.7
+        systemInstruction: String(prompt || "Você é um assistente útil."),
+        temperature: Number(temperature),
       };
 
-      // Search Grounding Option
       if (enableSearchGrounding) {
         config.tools = [{ googleSearch: {} }];
       }
 
       const response = await ai.models.generateContent({
-        model: 'gemini-2.5-pro',
-        contents: [
-          ...history,
-          { role: 'user', parts: [{ text: "Responda à minha solicitação mais recente." }] }
-        ],
-        config
+        model: String(model),
+        contents: history,
+        config,
       });
 
       res.json({ text: response.text });
-    } catch (error: any) {
-      console.error("Chat API error:", error);
-      res.status(500).json({ error: error.message || "Internal server error" });
+    } catch (error) {
+      next(error);
     }
   });
 
-  // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
       server: { middlewareMode: true },
@@ -62,15 +961,21 @@ async function startServer() {
     });
     app.use(vite.middlewares);
   } else {
-    const distPath = path.join(process.cwd(), 'dist');
+    const distPath = path.join(process.cwd(), "dist");
     app.use(express.static(distPath));
-    app.get('*', (req, res) => {
-      res.sendFile(path.join(distPath, 'index.html'));
+    app.get("*", (_req, res) => {
+      res.sendFile(path.join(distPath, "index.html"));
     });
   }
 
+  app.use((error: any, _req: Request, res: Response, _next: NextFunction) => {
+    console.error("API error:", error);
+    res.status(400).json({ error: error.message || "Erro interno do servidor." });
+  });
+
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`Server running on http://localhost:${PORT}`);
+    console.log(`Persistent storage: ${DATA_FILE}`);
   });
 }
 

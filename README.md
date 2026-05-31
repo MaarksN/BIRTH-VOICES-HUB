@@ -1,20 +1,62 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
-</div>
+# Birth Voices Hub
 
-# Run and deploy your AI Studio app
+Plataforma local para criar agentes de voz estruturados, conduzir conversas no navegador, registrar transcrições, analisar resultados com Gemini e entregar sessões para CRM, ATS, n8n, Make ou outro backend via webhook.
 
-This contains everything you need to run your app locally.
+## O que está funcional
 
-View your app in AI Studio: https://ai.studio/apps/d251a5e1-c4cd-4ae5-9366-d49f756fa894
+- Autenticação local com senha hasheada.
+- Criação, edição, listagem e exclusão de agentes persistidos no backend.
+- Playground de voz com síntese em português, reconhecimento de fala quando o navegador permite e fallback por texto.
+- Roteiro estruturado: Catarina conduz pergunta por pergunta conforme o agente configurado.
+- Análise e extração estruturada com Gemini quando `GEMINI_API_KEY` está configurada.
+- Persistência real em `data/birth-voices.json`.
+- Entrega automática de sessões via webhook assinado com `X-Birth-Voices-Signature`.
+- Dashboards sem dados fictícios: métricas aparecem somente a partir dos dados salvos.
 
-## Run Locally
+## Rodar localmente
 
-**Prerequisites:**  Node.js
+1. Instale dependências:
 
+```bash
+npm install
+```
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+2. Crie `.env` a partir de `.env.example` e configure pelo menos:
+
+```bash
+GEMINI_API_KEY=...
+```
+
+3. Inicie:
+
+```bash
+npm run dev
+```
+
+4. Abra:
+
+```text
+http://localhost:3000
+```
+
+## Integrações
+
+Em `Developers`, configure uma URL de webhook do seu CRM/ATS/n8n/backend. Ao salvar uma sessão, o backend envia:
+
+- `event: session.completed`
+- transcrição completa
+- resumo
+- sentimento
+- nível de risco
+- score
+- tags
+- campos extraídos
+- próxima ação
+
+Se um segredo for configurado, o payload é assinado com HMAC SHA-256 no header `X-Birth-Voices-Signature`.
+
+## Build
+
+```bash
+npm run build
+```

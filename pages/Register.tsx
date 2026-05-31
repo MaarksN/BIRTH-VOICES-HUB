@@ -17,18 +17,8 @@ export default function RegisterPage() {
     setError('');
 
     try {
-      // Mock Register
-      if (email && password && companyName) {
-          const user = {
-              name: email.split('@')[0],
-              company: companyName,
-              email: email
-          }
-          auth.setToken('mock-token-xyz', user);
-          setTimeout(() => navigate('/dashboard'), 1000);
-      } else {
-          throw new Error('Erro ao criar conta');
-      }
+      await auth.register(companyName, email, password);
+      navigate('/dashboard');
     } catch (err: any) {
       setError(err.message);
       setLoading(false);
@@ -61,6 +51,7 @@ export default function RegisterPage() {
                 type="text"
                 value={companyName}
                 onChange={e => setCompanyName(e.target.value)}
+                autoComplete="organization"
                 className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
                 required
               />
@@ -71,6 +62,7 @@ export default function RegisterPage() {
                 type="email"
                 value={email}
                 onChange={e => setEmail(e.target.value)}
+                autoComplete="email"
                 className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
                 required
               />
@@ -81,6 +73,8 @@ export default function RegisterPage() {
                 type="password"
                 value={password}
                 onChange={e => setPassword(e.target.value)}
+                autoComplete="new-password"
+                minLength={6}
                 className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
                 required
               />

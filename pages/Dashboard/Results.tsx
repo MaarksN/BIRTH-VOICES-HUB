@@ -1,293 +1,420 @@
-import React, { useState } from 'react';
-import { Download, FileText, Calendar, Clock, Smile, MessageSquare, Search, ChevronRight, Music } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import {
+  AlertTriangle,
+  Calendar,
+  CheckCircle2,
+  Clock,
+  Download,
+  FileText,
+  Loader2,
+  MessageSquare,
+  Music,
+  Plus,
+  Search,
+  SlidersHorizontal,
+} from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { api } from '../../lib/api';
+import { formatDuration, parseDurationToSeconds, riskClass, sentimentClass, toCsvCell } from '../../lib/format';
+import { RiskLevel, Sentiment, SessionRecord } from '../../types';
 
-interface SessionRecord {
-  id: string;
-  agentName: string;
-  caller: string;
-  dateTime: string;
-  duration: string;
-  sentiment: 'Positivo' | 'Neutro' | 'Negativo';
-  summary: string;
-  transcript: string;
-  audioUrl?: string;
-}
+const sentiments: Array<'Todos' | Sentiment> = ['Todos', 'Positivo', 'Neutro', 'Negativo'];
+const risks: Array<'Todos' | RiskLevel> = ['Todos', 'Baixo', 'Moderado', 'Alto'];
 
 export default function ResultsPage() {
-  const [sessions] = useState<SessionRecord[]>([
-    {
-      id: "SES-2026-001",
-      agentName: "Maria - Suporte Consultas",
-      caller: "(11) 98765-4321",
-      dateTime: "2026-05-30 14:15",
-      duration: "03:45",
-      sentiment: "Positivo",
-      summary: "Paciente ligou para confirmar o horário do pré-natal. Foi agendado com sucesso para sexta às 10:00h.",
-      transcript: "Agente: Olá, com quem falo?\nUsuário: Oi, aqui é a Juliana. Quero confirmar minha consulta de pré-natal.\nAgente: Certo Juliana, localizei seu cadastro. Sua consulta está agendada para sexta, dia 5 de Junho, às 10:00 da manhã. Está confirmado?\nUsuário: Perfeito, muito obrigada! Até lá.\nAgente: Por nada Juliana, tenha um ótimo dia.",
-      audioUrl: "mock-audio-recording-url.wav"
-    },
-    {
-      id: "SES-2026-002",
-      agentName: "Carlos - Triagem Geral",
-      caller: "(21) 99988-7766",
-      dateTime: "2026-05-30 11:02",
-      duration: "02:10",
-      sentiment: "Neutro",
-      summary: "Usuário solicitou falar com o profissional de amamentação. Transferido para o ramal correto.",
-      transcript: "Agente: Olá, Hub de Voz da Maternidade. Como posso ajudar?\nUsuário: Queria tirar uma dúvida sobre amamentação.\nAgente: Entendo. Vou te transferir para a equipe do Banco de Leite para atendimento especializado.\nUsuário: Ah, ok, obrigado."
-    },
-    {
-      id: "SES-2026-003",
-      agentName: "Bianca - Pós-parto Monitoria",
-      caller: "(31) 96543-2109",
-      dateTime: "2026-05-29 16:40",
-      duration: "05:12",
-      sentiment: "Positivo",
-      summary: "Acompanhamento pós-parto de rotina. Mãe relata que o bebê está dormindo bem e o umbigo caiu. Nenhuma queixa de dor.",
-      transcript: "Agente: Olá Amanda, tudo bem? Como está o pós-parto de vocês?\nUsuário: Oi, tudo bem. O bebê tá ótimo, o coto umbilical caiu ontem e tá limpinho.\nAgente: Que excelente notícia! E como está a amamentação?\nUsuário: Tá indo super bem, ele pega direitinho.\nAgente: Perfeito Amanda. Lembre-se que em caso de febre ou dor forte, procure nossa emergência."
-    },
-    {
-      id: "SES-2026-004",
-      agentName: "Maria - Suporte Consultas",
-      caller: "(81) 97766-5544",
-      dateTime: "2026-05-28 09:12",
-      duration: "01:30",
-      sentiment: "Negativo",
-      summary: "Usuário irritado devido à demora no atendimento presencial anterior. Ligação encerrada após reclamação.",
-      transcript: "Agente: Hub de Voz, bom dia.\nUsuário: Bom dia nada. Quero registrar uma queixa sobre a recepção ontem, fiquei duas horas esperando.\nAgente: Sinto muito por essa experiência desagradável. Vou registrar sua queixa na nossa ouvidoria agora mesmo.\nUsuário: Certo, espero que resolva alguma coisa."
-    }
-  ]);
-
+  const [sessions, setSessions] = useState<SessionRecord[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedSession, setSelectedSession] = useState<SessionRecord | null>(sessions[0]);
+  const [sentimentFilter, setSentimentFilter] = useState<'Todos' | Sentiment>('Todos');
+  const [riskFilter, setRiskFilter] = useState<'Todos' | RiskLevel>('Todos');
+  const [selectedSession, setSelectedSession] = useState<SessionRecord | null>(null);
 
-  const filteredSessions = sessions.filter(s => 
-    s.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    s.caller.includes(searchTerm) ||
-    s.agentName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    s.summary.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  useEffect(() => {
+    let cancelled = false;
+
+    const load = async () => {
+      try {
+        const response = await api.listSessions();
+        if (!cancelled) {
+          setSessions(response.sessions);
+          setSelectedSession(response.sessions[0] || null);
+        }
+      } catch (err: any) {
+        if (!cancelled) setError(err.message);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const filteredSessions = useMemo(() => {
+    const query = searchTerm.trim().toLowerCase();
+
+    return sessions.filter((session) => {
+      const matchesSearch =
+        !query ||
+        session.id.toLowerCase().includes(query) ||
+        session.caller.includes(searchTerm) ||
+        session.agentName.toLowerCase().includes(query) ||
+        session.summary.toLowerCase().includes(query) ||
+        session.tags.some((tag) => tag.toLowerCase().includes(query));
+
+      const matchesSentiment = sentimentFilter === 'Todos' || session.sentiment === sentimentFilter;
+      const matchesRisk = riskFilter === 'Todos' || session.riskLevel === riskFilter;
+
+      return matchesSearch && matchesSentiment && matchesRisk;
+    });
+  }, [sessions, searchTerm, sentimentFilter, riskFilter]);
+
+  useEffect(() => {
+    if (!selectedSession || !filteredSessions.some((session) => session.id === selectedSession.id)) {
+      setSelectedSession(filteredSessions[0] || null);
+    }
+  }, [filteredSessions, selectedSession]);
+
+  const metrics = useMemo(() => {
+    const totalSeconds = filteredSessions.reduce((sum, session) => sum + parseDurationToSeconds(session.duration), 0);
+    const positiveOrNeutral = filteredSessions.filter((session) => session.sentiment !== 'Negativo').length;
+    const highRisk = filteredSessions.filter((session) => session.riskLevel === 'Alto').length;
+    const averageScore = filteredSessions.length
+      ? Math.round(filteredSessions.reduce((sum, session) => sum + session.score, 0) / filteredSessions.length)
+      : 0;
+
+    return {
+      averageDuration: filteredSessions.length ? formatDuration(totalSeconds / filteredSessions.length) : '00:00',
+      positiveNeutralRate: filteredSessions.length ? Math.round((positiveOrNeutral / filteredSessions.length) * 100) : 0,
+      highRisk,
+      averageScore,
+    };
+  }, [filteredSessions]);
 
   const handleExportCSV = () => {
-    // Excel-safe standard headers
-    const headers = ["ID da Sessão", "Canal/Agente", "Caller/Contato", "Data e Hora", "Duração", "Sentimento da Chamada", "Resumo Clínico/Operacional", "Transcrição Integral"];
-    
-    // Format sessions to CSV list with quotes escaping
+    const headers = [
+      'ID da Sessão',
+      'Agente',
+      'Contato',
+      'Data e Hora',
+      'Duração',
+      'Sentimento',
+      'Risco',
+      'Score',
+      'Tags',
+      'Próxima Ação',
+      'Resumo',
+      'Transcrição Integral',
+    ];
+
     const csvContent = [
-      headers.join(','),
-      ...sessions.map(s => {
-        const escapedAgentName = `"${(s.agentName || '').replace(/"/g, '""')}"`;
-        const escapedSummary = `"${(s.summary || '').replace(/"/g, '""')}"`;
-        const escapedTranscript = `"${(s.transcript || '').replace(/"/g, '""')}"`;
-        
-        return [
-          s.id,
-          escapedAgentName,
-          s.caller,
-          s.dateTime,
-          s.duration,
-          s.sentiment,
-          escapedSummary,
-          escapedTranscript
-        ].join(',');
-      })
+      headers.map(toCsvCell).join(','),
+      ...filteredSessions.map((session) => [
+        session.id,
+        session.agentName,
+        session.caller,
+        session.dateTime,
+        session.duration,
+        session.sentiment,
+        session.riskLevel,
+        session.score,
+        session.tags.join('; '),
+        session.followUp,
+        session.summary,
+        session.transcript,
+      ].map(toCsvCell).join(',')),
     ].join('\n');
-    
-    // Download prompt with UTF-8 byte order mark to parse Portuguese accents correctly
+
     const blob = new Blob(["\ufeff" + csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.setAttribute("href", url);
-    link.setAttribute("download", `hub_resultados_transcricoes_${new Date().toISOString().split('T')[0]}.csv`);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `birth_voices_resultados_${new Date().toISOString().split('T')[0]}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
+
+  if (loading) {
+    return (
+      <div className="flex min-h-[420px] items-center justify-center text-slate-500">
+        <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+        Carregando sessões reais...
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 font-sans">Resultados & Transcrições</h1>
-          <p className="text-sm text-slate-500 mt-1">Monitore e analise os diálogos e métricas consolidadas dos agentes.</p>
+          <p className="text-sm font-semibold text-brand">Resultados</p>
+          <h1 className="mt-1 text-3xl font-bold text-slate-950">Transcrições e análises</h1>
+          <p className="mt-2 max-w-2xl text-slate-600">
+            Esta página exibe apenas sessões salvas no backend desta instalação. Sem dados artificiais.
+          </p>
         </div>
-        <button 
+        <button
           onClick={handleExportCSV}
-          className="flex items-center justify-center gap-2 px-5 py-2.5 bg-brand text-white rounded-lg hover:opacity-90 font-medium text-sm transition-opacity shadow-sm shrink-0"
+          disabled={!filteredSessions.length}
+          className="inline-flex items-center justify-center gap-2 rounded-lg bg-brand px-5 py-2.5 text-sm font-bold text-white shadow-sm transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          <Download className="h-4 w-4" /> Exportar Dados (CSV)
+          <Download className="h-4 w-4" />
+          Exportar CSV filtrado
         </button>
       </div>
 
-      {/* Metrics Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs">
-          <div className="text-xs font-bold text-slate-400 uppercase tracking-wider">Total de Chamadas</div>
-          <div className="text-3xl font-extrabold text-slate-900 mt-2">{sessions.length}</div>
-          <div className="text-xs text-brand mt-1 font-semibold flex items-center gap-1">
-            <span>●</span> 100% integradas
-          </div>
+      {error && (
+        <div className="rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm font-medium text-rose-700">
+          {error}
         </div>
-        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs">
-          <div className="text-xs font-bold text-slate-400 uppercase tracking-wider">Duração Média</div>
-          <div className="text-3xl font-extrabold text-slate-900 mt-2">03:06</div>
-          <div className="text-xs text-green-600 mt-1 font-semibold">
-            Tempo otimizado de resposta
+      )}
+
+      {!sessions.length ? (
+        <section className="rounded-lg border border-dashed border-slate-300 bg-white p-10 text-center shadow-sm">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-lg bg-brand-50 text-brand">
+            <FileText className="h-7 w-7" />
           </div>
+          <h2 className="mt-4 text-xl font-bold text-slate-950">Nenhuma sessão registrada</h2>
+          <p className="mx-auto mt-2 max-w-2xl text-sm leading-6 text-slate-600">
+            Use o playground para conversar com um agente real via Gemini e salve a conversa como sessão, ou envie sessões pela API.
+          </p>
+          <Link to="/dashboard/playground" className="mt-5 inline-flex items-center justify-center gap-2 rounded-lg bg-brand px-4 py-2 text-sm font-bold text-white">
+            <Plus className="h-4 w-4" />
+            Criar primeira sessão
+          </Link>
+        </section>
+      ) : (
+        <>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <MetricCard label="Sessões filtradas" value={filteredSessions.length.toString()} helper={`${sessions.length} no total`} icon={FileText} />
+            <MetricCard label="Duração média" value={metrics.averageDuration} helper="tempo por conversa" icon={Clock} />
+            <MetricCard label="Positivo/Neutro" value={`${metrics.positiveNeutralRate}%`} helper="experiência registrada" icon={CheckCircle2} />
+            <MetricCard label="Risco alto" value={metrics.highRisk.toString()} helper={`score médio ${metrics.averageScore}`} icon={AlertTriangle} danger={metrics.highRisk > 0} />
+          </div>
+
+          <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto_auto] lg:items-center">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Buscar por ID, agente, telefone, tag ou resumo..."
+                  value={searchTerm}
+                  onChange={(event) => setSearchTerm(event.target.value)}
+                  className="w-full rounded-lg border border-slate-300 py-2.5 pl-10 pr-4 text-sm outline-none transition focus:border-brand focus:ring-2 focus:ring-brand-100"
+                />
+              </div>
+              <FilterSelect label="Sentimento" value={sentimentFilter} options={sentiments} onChange={(value) => setSentimentFilter(value as typeof sentimentFilter)} />
+              <FilterSelect label="Risco" value={riskFilter} options={risks} onChange={(value) => setRiskFilter(value as typeof riskFilter)} />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(360px,0.82fr)_minmax(0,1.18fr)]">
+            <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+              <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50 p-4">
+                <div className="flex items-center gap-2">
+                  <SlidersHorizontal className="h-4 w-4 text-brand" />
+                  <span className="text-sm font-bold text-slate-800">Chamadas</span>
+                </div>
+                <span className="text-xs font-semibold text-slate-500">{filteredSessions.length} resultados</span>
+              </div>
+              <div className="max-h-[640px] divide-y divide-slate-100 overflow-y-auto">
+                {filteredSessions.length === 0 ? (
+                  <div className="p-10 text-center text-sm text-slate-500">
+                    Nenhuma sessão corresponde aos filtros atuais.
+                  </div>
+                ) : (
+                  filteredSessions.map((session) => (
+                    <button
+                      key={session.id}
+                      type="button"
+                      onClick={() => setSelectedSession(session)}
+                      className={`block w-full border-l-4 p-4 text-left transition hover:bg-slate-50 ${
+                        selectedSession?.id === session.id ? 'border-brand bg-brand-50' : 'border-transparent'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="font-mono text-xs font-bold text-slate-500">{session.id}</p>
+                          <h3 className="mt-1 truncate font-bold text-slate-950">{session.agentName}</h3>
+                        </div>
+                        <span className={`rounded-full border px-2 py-0.5 text-[11px] font-bold ${riskClass[session.riskLevel]}`}>
+                          {session.riskLevel}
+                        </span>
+                      </div>
+                      <p className="mt-2 line-clamp-2 text-sm leading-6 text-slate-600">{session.summary}</p>
+                      <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                        <span className="font-mono">{session.caller}</span>
+                        <span>•</span>
+                        <span>{session.duration}</span>
+                        <span>•</span>
+                        <span className={`rounded-full border px-2 py-0.5 font-bold ${sentimentClass[session.sentiment]}`}>{session.sentiment}</span>
+                      </div>
+                    </button>
+                  ))
+                )}
+              </div>
+            </section>
+
+            <section className="min-h-[640px] rounded-lg border border-slate-200 bg-white shadow-sm">
+              {selectedSession ? (
+                <SessionDetail session={selectedSession} />
+              ) : (
+                <div className="flex h-full min-h-[420px] items-center justify-center p-10 text-center text-sm text-slate-500">
+                  Selecione uma chamada para visualizar análise, transcrição e próximos passos.
+                </div>
+              )}
+            </section>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+function SessionDetail({ session }: { session: SessionRecord }) {
+  return (
+    <div className="space-y-6 p-5 lg:p-6">
+      <div className="flex flex-col gap-4 border-b border-slate-100 pb-5 md:flex-row md:items-start md:justify-between">
+        <div>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="rounded bg-brand-50 px-2 py-1 font-mono text-xs font-bold text-brand">{session.id}</span>
+            <span className="inline-flex items-center gap-1 text-xs text-slate-500">
+              <Calendar className="h-3.5 w-3.5" />
+              {session.dateTime}
+            </span>
+          </div>
+          <h2 className="mt-2 text-xl font-black text-slate-950">{session.agentName}</h2>
+          <p className="mt-1 font-mono text-sm text-slate-500">{session.caller}</p>
         </div>
-        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs">
-          <div className="text-xs font-bold text-slate-400 uppercase tracking-wider">Score Positivo / Neutro</div>
-          <div className="text-3xl font-extrabold text-slate-900 mt-2">75%</div>
-          <div className="text-xs text-slate-500 mt-1">
-            Sentimento satisfatório do usuário
-          </div>
+        <div className="flex flex-wrap gap-2">
+          <span className={`rounded-full border px-2.5 py-1 text-xs font-bold ${sentimentClass[session.sentiment]}`}>{session.sentiment}</span>
+          <span className={`rounded-full border px-2.5 py-1 text-xs font-bold ${riskClass[session.riskLevel]}`}>Risco {session.riskLevel}</span>
+          <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-bold text-slate-700">Score {session.score}</span>
         </div>
       </div>
 
-      {/* Main Container */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        {/* Left List Pane */}
-        <div className="lg:col-span-5 bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
-          <div className="p-4 border-b border-slate-100 bg-slate-50">
-            <div className="relative">
-              <input 
-                type="text" 
-                placeholder="Buscar por ID, agente, resumo ou telefone..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-9 pr-4 py-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand font-sans"
-              />
-              <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
-            </div>
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_280px]">
+        <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+          <h3 className="flex items-center gap-2 text-xs font-bold uppercase text-slate-500">
+            <FileText className="h-4 w-4" />
+            Resumo operacional
+          </h3>
+          <p className="mt-3 text-sm leading-7 text-slate-700">{session.summary}</p>
+          <div className="mt-4 flex flex-wrap gap-2">
+            {session.tags.map((tag) => (
+              <span key={tag} className="rounded-full bg-white px-2.5 py-1 text-xs font-bold text-slate-600 ring-1 ring-slate-200">
+                {tag}
+              </span>
+            ))}
           </div>
-          <div className="divide-y divide-slate-100 max-h-[500px] overflow-y-auto scrollbar-hide">
-            {filteredSessions.length === 0 ? (
-              <div className="p-8 text-center text-slate-400 text-sm">
-                Nenhuma sessão corresponde aos filtros digitados.
+        </div>
+
+        <div className="rounded-lg border border-slate-200 bg-white p-4">
+          <h3 className="text-xs font-bold uppercase text-slate-500">Dados extraídos</h3>
+          <div className="mt-3 space-y-3">
+            {session.extracted.length ? session.extracted.map((item) => (
+              <div key={item.label}>
+                <p className="text-xs text-slate-500">{item.label}</p>
+                <p className="text-sm font-bold text-slate-900">{item.value}</p>
               </div>
-            ) : (
-              filteredSessions.map((s) => (
-                <div 
-                  key={s.id}
-                  onClick={() => setSelectedSession(s)}
-                  className={`p-4 cursor-pointer hover:bg-slate-50 transition-colors border-l-4 ${
-                    selectedSession?.id === s.id ? 'bg-brand-50 border-brand' : 'border-transparent'
-                  }`}
-                >
-                  <div className="flex justify-between items-start gap-2">
-                    <span className="font-mono text-xs font-bold text-slate-700">{s.id}</span>
-                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
-                      s.sentiment === 'Positivo' ? 'bg-green-100 text-green-700' :
-                      s.sentiment === 'Neutro' ? 'bg-slate-100 text-slate-650' : 'bg-red-100 text-red-700'
-                    }`}>
-                      {s.sentiment}
-                    </span>
-                  </div>
-                  <div className="font-semibold text-sm text-slate-900 mt-1.5 truncate">{s.agentName}</div>
-                  <div className="text-xs text-slate-500 mt-1 flex items-center gap-3">
-                    <span className="font-mono">{s.caller}</span>
-                    <span>•</span>
-                    <span className="flex items-center gap-1"><Clock className="h-3.5 w-3.5" /> {s.duration}</span>
-                  </div>
-                  <p className="text-xs text-slate-600 mt-2 line-clamp-2 italic">{s.summary}</p>
-                </div>
-              ))
+            )) : (
+              <p className="text-sm text-slate-500">Nenhum campo estruturado salvo nesta sessão.</p>
             )}
           </div>
         </div>
+      </div>
 
-        {/* Right Detail Pane */}
-        <div className="lg:col-span-7 space-y-4">
-          {selectedSession ? (
-            <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 space-y-6">
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 pb-5">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="font-mono text-xs text-brand font-bold bg-brand-50 px-2 py-1 rounded">{selectedSession.id}</span>
-                    <span className="text-xs text-slate-400">{selectedSession.dateTime}</span>
-                  </div>
-                  <h2 className="text-lg font-bold text-slate-900 mt-1.5">{selectedSession.agentName}</h2>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-slate-500 font-mono">{selectedSession.caller}</span>
-                  <span className={`text-xs px-2.5 py-1 rounded-md font-bold ${
-                    selectedSession.sentiment === 'Positivo' ? 'bg-green-100 text-green-700' :
-                    selectedSession.sentiment === 'Neutro' ? 'bg-slate-100 text-slate-600' : 'bg-red-100 text-red-700'
-                  }`}>
-                    {selectedSession.sentiment}
-                  </span>
-                </div>
-              </div>
+      <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
+        <h3 className="flex items-center gap-2 text-sm font-bold text-amber-900">
+          <AlertTriangle className="h-4 w-4" />
+          Próxima ação
+        </h3>
+        <p className="mt-2 text-sm text-amber-900/80">{session.followUp}</p>
+      </div>
 
-              {/* Call Summary Card */}
-              <div className="bg-slate-50 p-4 rounded-lg border border-slate-250">
-                <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
-                  <FileText className="h-4 w-4 text-slate-400" />
-                  Resumo Clínico / Operacional
-                </h4>
-                <p className="text-sm text-slate-700 mt-2.5 font-medium leading-relaxed">{selectedSession.summary}</p>
-              </div>
+      <div className="flex flex-col gap-3 rounded-lg border border-slate-200 bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-3">
+          <div className="rounded-full bg-brand-50 p-2.5 text-brand">
+            <Music className="h-5 w-5" />
+          </div>
+          <div>
+            <div className="font-bold text-slate-950">Gravação da chamada</div>
+            <div className="text-xs text-slate-500">Duração {session.duration}</div>
+          </div>
+        </div>
+        <button
+          disabled={!session.audioUrl}
+          className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-bold text-slate-700 transition hover:border-brand hover:text-brand disabled:cursor-not-allowed disabled:opacity-45"
+        >
+          <Download className="h-4 w-4" />
+          Baixar áudio
+        </button>
+      </div>
 
-              {/* Call Audio Recording */}
-              <div className="flex items-center justify-between bg-white border border-slate-200 p-4 rounded-lg shadow-sm">
-                <div className="flex items-center gap-3">
-                   <div className="p-2.5 bg-brand-50 text-brand rounded-full">
-                       <Music className="h-5 w-5" />
-                   </div>
-                   <div>
-                       <div className="font-bold text-sm text-slate-900">Gravação do Áudio da Chamada</div>
-                       <div className="text-xs text-slate-500">Gravado pelo canal de voz ({selectedSession.duration})</div>
-                   </div>
-                </div>
-                <button 
-                  onClick={() => {
-                     // Provide a mock download trigger for the audioUrl
-                     const link = document.createElement("a");
-                     link.href = "#"; // Replace with actual selectedSession.audioUrl if available
-                     link.setAttribute("download", `chamada_${selectedSession.id}.wav`);
-                     document.body.appendChild(link);
-                     link.click();
-                     document.body.removeChild(link);
-                  }}
-                  className="flex items-center gap-2 px-4 py-2 border border-slate-200 hover:border-brand hover:text-brand bg-slate-50 hover:bg-brand-50 text-slate-600 rounded-lg text-sm font-semibold transition-all"
-                >
-                  <Download className="h-4 w-4" /> Baixar Áudio
-                </button>
-              </div>
-
-              {/* Call Transcript Bubbles */}
-              <div>
-                <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-4 flex items-center gap-2">
-                  <MessageSquare className="h-4 w-4 text-slate-400" />
-                  Diálogo Completo
-                </h4>
-                <div className="space-y-3 max-h-[320px] overflow-y-auto bg-slate-50 border border-slate-100 p-4 rounded-lg scrollbar-hide">
-                  {selectedSession.transcript.split('\n').map((line, idx) => {
-                    const isAgent = line.startsWith('Agente:');
-                    const cleanLine = line.replace('Agente:', '').replace('Usuário:', '').trim();
-                    return (
-                      <div key={idx} className={`flex flex-col ${isAgent ? 'items-start' : 'items-end'}`}>
-                        <span className="text-[10px] text-slate-400 mb-0.5">{isAgent ? "Agente de Voz" : "Usuário / Paciente"}</span>
-                        <div className={`p-3 rounded-xl text-xs max-w-[85%] leading-relaxed ${
-                          isAgent 
-                            ? 'bg-white text-slate-850 hover:border-slate-200 border border-slate-100 rounded-tl-none font-medium' 
-                            : 'bg-brand text-white rounded-tr-none'
-                        }`}>
-                          {cleanLine}
-                        </div>
-                      </div>
-                    );
-                  })}
+      <div>
+        <h3 className="mb-3 flex items-center gap-2 text-xs font-bold uppercase text-slate-500">
+          <MessageSquare className="h-4 w-4" />
+          Diálogo completo
+        </h3>
+        <div className="max-h-[340px] space-y-3 overflow-y-auto rounded-lg border border-slate-100 bg-slate-50 p-4">
+          {session.transcript.split('\n').map((line, index) => {
+            const isAgent = line.startsWith('Agente:');
+            const cleanLine = line.replace('Agente:', '').replace('Usuário:', '').trim();
+            return (
+              <div key={`${session.id}-${index}`} className={`flex flex-col ${isAgent ? 'items-start' : 'items-end'}`}>
+                <span className="mb-1 text-[10px] font-semibold text-slate-400">{isAgent ? 'Agente de voz' : 'Usuária / Paciente'}</span>
+                <div className={`max-w-[88%] rounded-xl p-3 text-sm leading-6 ${
+                  isAgent
+                    ? 'rounded-tl-none border border-slate-100 bg-white text-slate-700'
+                    : 'rounded-tr-none bg-brand text-white'
+                }`}>
+                  {cleanLine}
                 </div>
               </div>
-            </div>
-          ) : (
-            <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-12 text-center text-slate-400">
-               Selecione uma chamada do painel esquerdo para visualizar as transcrições e análises correspondentes.
-            </div>
-          )}
+            );
+          })}
         </div>
       </div>
     </div>
+  );
+}
+
+function MetricCard({ label, value, helper, icon: Icon, danger }: any) {
+  return (
+    <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className="text-sm font-medium text-slate-500">{label}</p>
+          <p className="mt-2 text-3xl font-black text-slate-950">{value}</p>
+          <p className="mt-1 text-sm text-slate-500">{helper}</p>
+        </div>
+        <div className={`rounded-lg p-2 ${danger ? 'bg-rose-50 text-rose-600' : 'bg-brand-50 text-brand'}`}>
+          <Icon className="h-5 w-5" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function FilterSelect({ label, value, options, onChange }: { label: string; value: string; options: string[]; onChange: (value: string) => void }) {
+  return (
+    <label className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+      <span className="text-xs font-bold uppercase text-slate-500">{label}</span>
+      <select
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className="bg-transparent text-sm font-bold text-slate-800 outline-none"
+      >
+        {options.map((option) => (
+          <option key={option} value={option}>{option}</option>
+        ))}
+      </select>
+    </label>
   );
 }

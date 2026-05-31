@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Trash, Save, Mic, Settings, MessageSquare, Database, Link as LinkIcon, Brain } from 'lucide-react';
-import { AgentConfig, AgentTemplate, Question } from '../types';
+import { AgentConfig, AgentTemplate, Question, StoredAgent } from '../types';
+import { api } from '../lib/api';
 
 const CATARINA_BASE_PROMPT = `Você é Catarina, uma agente de inteligência artificial especializada em conduzir conversas profissionais por voz em português brasileiro.
 Sua comunicação é natural, humana, clara e empática.
@@ -36,11 +37,11 @@ CONTEXTO ESPECÍFICO (RH):
 Você está entrevistando um candidato. Avalie experiência, expectativas, soft skills e aderência ao perfil.`,
   analysisPrompt: 'Gere um Resumo do perfil, Score de aderência e Classificação (aprovado ou seguir análise).',
   questions: [
-    { id: '1', text: 'Pode me contar brevemente sobre sua experiência profissional?', type: 'open' },
-    { id: '2', text: 'O que te motivou a se candidatar a esta vaga?', type: 'open' },
-    { id: '3', text: 'Quais são suas principais habilidades?', type: 'open' },
-    { id: '4', text: 'Você tem disponibilidade para o modelo de trabalho proposto?', type: 'closed' },
-    { id: '5', text: 'Qual sua expectativa salarial?', type: 'open' }
+    { id: '1', text: 'Pode me contar brevemente sobre sua experiência profissional?', type: 'open', collectAs: 'experiencia_profissional', required: true },
+    { id: '2', text: 'O que te motivou a se candidatar a esta vaga?', type: 'open', collectAs: 'motivacao' },
+    { id: '3', text: 'Quais são suas principais habilidades?', type: 'open', collectAs: 'habilidades' },
+    { id: '4', text: 'Você tem disponibilidade para o modelo de trabalho proposto?', type: 'closed', collectAs: 'disponibilidade', required: true },
+    { id: '5', text: 'Qual sua expectativa salarial?', type: 'open', collectAs: 'expectativa_salarial' }
   ]
 };
 
@@ -57,11 +58,11 @@ CONTEXTO ESPECÍFICO (VENDAS):
 Você está qualificando um lead. Colete dores, orçamento, timing e autoridade. Entregue lead quente ou desqualificado.`,
   analysisPrompt: 'Identifique: Lead qualificado ou desqualificado, Dores mapeadas e Prioridade de follow up.',
   questions: [
-    { id: '1', text: 'Pode me contar um pouco sobre sua empresa?', type: 'open' },
-    { id: '2', text: 'Qual desafio você está tentando resolver hoje?', type: 'open' },
-    { id: '3', text: 'Como você lida com isso atualmente?', type: 'open' },
-    { id: '4', text: 'Existe orçamento previsto para essa solução?', type: 'closed' },
-    { id: '5', text: 'Quem participa da decisão final?', type: 'open' }
+    { id: '1', text: 'Pode me contar um pouco sobre sua empresa?', type: 'open', collectAs: 'empresa', required: true },
+    { id: '2', text: 'Qual desafio você está tentando resolver hoje?', type: 'open', collectAs: 'dor_principal', required: true, riskKeywords: ['urgente', 'perdendo clientes', 'parado', 'não consigo operar'] },
+    { id: '3', text: 'Como você lida com isso atualmente?', type: 'open', collectAs: 'processo_atual' },
+    { id: '4', text: 'Existe orçamento previsto para essa solução?', type: 'closed', collectAs: 'orcamento', required: true },
+    { id: '5', text: 'Quem participa da decisão final?', type: 'open', collectAs: 'decisores' }
   ]
 };
 
@@ -78,10 +79,10 @@ CONTEXTO ESPECÍFICO (ONBOARDING):
 Você está recebendo um novo cliente. Mapeie cenário, expectativas e contexto para preparar o time de sucesso do cliente.`,
   analysisPrompt: 'Gere um Mapa de expectativas, Pontos críticos e Recomendações iniciais.',
   questions: [
-    { id: '1', text: 'Qual o principal objetivo ao contratar nossa solução?', type: 'open' },
-    { id: '2', text: 'Quais processos você deseja melhorar primeiro?', type: 'open' },
-    { id: '3', text: 'Já utilizou soluções semelhantes?', type: 'closed' },
-    { id: '4', text: 'Existe algum prazo crítico?', type: 'closed' }
+    { id: '1', text: 'Qual o principal objetivo ao contratar nossa solução?', type: 'open', collectAs: 'objetivo_principal', required: true },
+    { id: '2', text: 'Quais processos você deseja melhorar primeiro?', type: 'open', collectAs: 'processos_prioritarios' },
+    { id: '3', text: 'Já utilizou soluções semelhantes?', type: 'closed', collectAs: 'experiencia_previa' },
+    { id: '4', text: 'Existe algum prazo crítico?', type: 'closed', collectAs: 'prazo_critico', riskKeywords: ['hoje', 'amanhã', 'esta semana', 'urgente'] }
   ]
 };
 
@@ -98,9 +99,9 @@ CONTEXTO ESPECÍFICO (SUPORTE):
 Você é um assistente de suporte técnico. Siga um fluxo de diagnóstico passo a passo. Seja paciente e claro.`,
   analysisPrompt: 'Resuma o problema relatado pelo cliente, a solução aplicada passo a passo e a prioridade definida pelo usuário (Baixa, Média, Alta).',
   questions: [
-    { id: '1', text: 'Olá, aqui é do Suporte Técnico. Poderia descrever o problema?', type: 'open' },
-    { id: '2', text: 'Certo. Qual modelo do equipamento você está utilizando?', type: 'open' },
-    { id: '3', text: 'Entendi. Para finalizar, qual nível de prioridade você daria para essa resolução: Baixa, Média ou Alta?', type: 'closed' }
+    { id: '1', text: 'Olá, aqui é do Suporte Técnico. Poderia descrever o problema?', type: 'open', collectAs: 'problema', required: true, riskKeywords: ['fora do ar', 'parado', 'perda de dados', 'critico', 'crítico'], stopOnRisk: true },
+    { id: '2', text: 'Certo. Qual modelo do equipamento você está utilizando?', type: 'open', collectAs: 'modelo_equipamento' },
+    { id: '3', text: 'Entendi. Para finalizar, qual nível de prioridade você daria para essa resolução: Baixa, Média ou Alta?', type: 'closed', collectAs: 'prioridade' }
   ]
 };
 
@@ -117,35 +118,57 @@ CONTEXTO ESPECÍFICO (PESQUISA):
 Você é um pesquisador de satisfação. Colete feedback honesto e detalhado.`,
   analysisPrompt: 'Gere um Resumo Estratégico em formato de tópicos (bullet points) contendo: - Principais elogios - Principais reclamações - Sugestões de melhoria - Score de Sentimento Geral.',
   questions: [
-    { id: '1', text: 'Olá, aqui é da Pesquisa de Qualidade. Você tem um minuto para avaliar nosso serviço?', type: 'closed' },
-    { id: '2', text: 'De 0 a 10, qual a chance de você nos recomendar para um amigo?', type: 'closed' },
-    { id: '3', text: 'O que motivou essa nota?', type: 'open' }
+    { id: '1', text: 'Olá, aqui é da Pesquisa de Qualidade. Você tem um minuto para avaliar nosso serviço?', type: 'closed', collectAs: 'aceite_pesquisa' },
+    { id: '2', text: 'De 0 a 10, qual a chance de você nos recomendar para um amigo?', type: 'closed', collectAs: 'nota_nps', required: true, riskKeywords: ['0', '1', '2', '3', '4', 'péssimo', 'horrível'] },
+    { id: '3', text: 'O que motivou essa nota?', type: 'open', collectAs: 'motivo_nota' }
+  ]
+};
+
+const INITIAL_MATERNAL_CONFIG: AgentConfig = {
+  name: 'Catarina (Pré-natal)',
+  template: 'maternal',
+  description: 'Atendimento de pré-natal, confirmação de consultas e orientação segura de próximos passos',
+  language: 'Português Brasileiro',
+  tone: ['Empático', 'Profissional'],
+  speed: 1,
+  systemInstruction: `${CATARINA_BASE_PROMPT}
+
+CONTEXTO ESPECÍFICO (CUIDADO MATERNO):
+Você apoia gestantes e puérperas com acolhimento, confirmação de informações, coleta estruturada e encaminhamento seguro.
+Você não dá diagnóstico, não substitui equipe clínica e deve orientar contato humano imediato quando houver dor intensa, sangramento, febre, falta de ar, tontura forte, alteração importante de pressão, redução de movimentos fetais ou qualquer sinal de urgência.`,
+  analysisPrompt: 'Gere: resumo objetivo, sinais de risco, campos extraídos, próxima ação recomendada e necessidade de escalação humana.',
+  questions: [
+    { id: '1', text: 'Olá, posso confirmar seu nome e o motivo do contato?', type: 'open', collectAs: 'identificacao_e_motivo', required: true },
+    { id: '2', text: 'Você está sentindo algum sintoma que precise de atenção imediata?', type: 'open', collectAs: 'sintomas', required: true, riskKeywords: ['dor forte', 'sangramento', 'febre', 'falta de ar', 'tontura', 'pressão alta', 'pressao alta', 'movimentos fetais reduzidos', 'bebê mexendo menos', 'bebe mexendo menos'], stopOnRisk: true },
+    { id: '3', text: 'Qual foi a última orientação recebida pela equipe de saúde?', type: 'open', collectAs: 'orientacao_recebida' },
+    { id: '4', text: 'Você gostaria que eu registrasse uma solicitação de retorno da equipe?', type: 'closed', collectAs: 'solicitar_retorno' }
   ]
 };
 
 export function AgentForm() {
   const [activeTab, setActiveTab] = useState('persona');
-  const [config, setConfig] = useState<AgentConfig>(INITIAL_HR_CONFIG);
+  const [config, setConfig] = useState<AgentConfig>(INITIAL_MATERNAL_CONFIG);
   const [isSaving, setIsSaving] = useState(false);
-  const [savedConfigs, setSavedConfigs] = useState<AgentConfig[]>([]);
+  const [savedConfigs, setSavedConfigs] = useState<StoredAgent[]>([]);
+  const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
   const [showLoadModal, setShowLoadModal] = useState(false);
+  const [statusMessage, setStatusMessage] = useState('');
 
   useEffect(() => {
-    const saved = localStorage.getItem('birth_voices_saved_agents');
-    if (saved) {
+    const loadAgents = async () => {
       try {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) {
-          setSavedConfigs(parsed);
-        }
-      } catch (e) {
-        console.error('Failed to parse saved agents', e);
+        const response = await api.listAgents();
+        setSavedConfigs(response.agents);
+      } catch (error: any) {
+        setStatusMessage(error.message);
       }
-    }
+    };
+
+    loadAgents();
   }, []);
 
   useEffect(() => {
-    localStorage.setItem('birth_voices_current_config', JSON.stringify(config));
+    sessionStorage.setItem('birth_voices_current_config', JSON.stringify(config));
   }, [config]);
 
   const updateConfig = (field: keyof AgentConfig, value: any) => {
@@ -154,6 +177,9 @@ export function AgentForm() {
 
   const handleTemplateChange = (template: AgentTemplate) => {
     switch (template) {
+      case 'maternal':
+        setConfig({ ...INITIAL_MATERNAL_CONFIG, name: config.name });
+        break;
       case 'hr':
         setConfig({ ...INITIAL_HR_CONFIG, name: config.name });
         break;
@@ -173,60 +199,83 @@ export function AgentForm() {
   };
 
   const addQuestion = () => {
-    updateConfig('questions', [...config.questions, { id: Date.now().toString(), text: '', type: 'open' }]);
+    updateConfig('questions', [...config.questions, { id: Date.now().toString(), text: '', type: 'open', riskKeywords: [] }]);
   };
 
   const removeQuestion = (id: string) => {
     updateConfig('questions', config.questions.filter(q => q.id !== id));
   };
 
-  const updateQuestion = (id: string, field: keyof Question, value: string) => {
+  const updateQuestion = <K extends keyof Question>(id: string, field: K, value: Question[K]) => {
     updateConfig('questions', config.questions.map(q => q.id === id ? { ...q, [field]: value } : q));
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     setIsSaving(true);
+    setStatusMessage('');
 
-    const newSavedConfigs = [...savedConfigs];
-    const existingIndex = newSavedConfigs.findIndex(c => c.name === config.name);
+    try {
+      const existingByName = savedConfigs.find(agent => agent.name === config.name && agent.id !== selectedAgentId);
+      let saved: StoredAgent;
 
-    if (existingIndex >= 0) {
-      if (confirm(`Já existe um agente com o nome "${config.name}". Deseja sobrescrever?`)) {
-        newSavedConfigs[existingIndex] = config;
-      } else {
+      if (selectedAgentId) {
+        saved = (await api.updateAgent(selectedAgentId, config)).agent;
+      } else if (existingByName && confirm(`Já existe um agente com o nome "${config.name}". Deseja atualizar esse agente?`)) {
+        saved = (await api.updateAgent(existingByName.id, config)).agent;
+      } else if (existingByName) {
         setIsSaving(false);
         return;
+      } else {
+        saved = (await api.createAgent(config)).agent;
       }
-    } else {
-      newSavedConfigs.push(config);
-    }
 
-    setSavedConfigs(newSavedConfigs);
-    localStorage.setItem('birth_voices_saved_agents', JSON.stringify(newSavedConfigs));
-
-    setTimeout(() => {
+      setSelectedAgentId(saved.id);
+      setConfig(saved);
+      const response = await api.listAgents();
+      setSavedConfigs(response.agents);
+      setStatusMessage('Agente salvo no backend com sucesso.');
+    } catch (error: any) {
+      setStatusMessage(error.message);
+    } finally {
       setIsSaving(false);
-      alert('Agente salvo com sucesso!');
-    }, 800);
-  };
-
-  const loadAgent = (agent: AgentConfig) => {
-    setConfig(agent);
-    setShowLoadModal(false);
-  };
-
-  const deleteAgent = (name: string) => {
-    if (confirm(`Tem certeza que deseja excluir o agente "${name}"?`)) {
-      const newSaved = savedConfigs.filter(c => c.name !== name);
-      setSavedConfigs(newSaved);
-      localStorage.setItem('birth_voices_saved_agents', JSON.stringify(newSaved));
     }
   };
 
-  const clearAllAgents = () => {
+  const loadAgent = (agent: StoredAgent) => {
+    setConfig(agent);
+    setSelectedAgentId(agent.id);
+    setShowLoadModal(false);
+    setStatusMessage(`Agente "${agent.name}" carregado.`);
+  };
+
+  const deleteAgent = async (agent: StoredAgent) => {
+    if (confirm(`Tem certeza que deseja excluir o agente "${agent.name}"?`)) {
+      try {
+        await api.deleteAgent(agent.id);
+        const newSaved = savedConfigs.filter(c => c.id !== agent.id);
+        setSavedConfigs(newSaved);
+        if (selectedAgentId === agent.id) {
+          setSelectedAgentId(null);
+          setConfig(INITIAL_MATERNAL_CONFIG);
+        }
+        setStatusMessage('Agente excluído.');
+      } catch (error: any) {
+        setStatusMessage(error.message);
+      }
+    }
+  };
+
+  const clearAllAgents = async () => {
     if (confirm('Tem certeza que deseja apagar TODOS os agentes salvos? Esta ação não pode ser desfeita.')) {
-      setSavedConfigs([]);
-      localStorage.removeItem('birth_voices_saved_agents');
+      try {
+        await Promise.all(savedConfigs.map(agent => api.deleteAgent(agent.id)));
+        setSavedConfigs([]);
+        setSelectedAgentId(null);
+        setConfig(INITIAL_MATERNAL_CONFIG);
+        setStatusMessage('Todos os agentes foram excluídos.');
+      } catch (error: any) {
+        setStatusMessage(error.message);
+      }
     }
   };
 
@@ -243,14 +292,14 @@ export function AgentForm() {
               {savedConfigs.length === 0 ? (
                 <p className="text-center text-slate-500 py-8">Nenhum agente salvo ainda.</p>
               ) : (
-                savedConfigs.map((agent, idx) => (
-                  <div key={idx} className="flex items-center justify-between p-3 border border-slate-200 rounded-lg hover:border-blue-300 hover:bg-blue-50 transition-colors group">
+                savedConfigs.map((agent) => (
+                  <div key={agent.id} className="flex items-center justify-between p-3 border border-slate-200 rounded-lg hover:border-blue-300 hover:bg-blue-50 transition-colors group">
                     <div className="flex-1 cursor-pointer" onClick={() => loadAgent(agent)}>
                       <div className="font-bold text-slate-800">{agent.name}</div>
                       <div className="text-xs text-slate-500">{agent.template} • {agent.tone.join(', ')}</div>
                     </div>
                     <button
-                      onClick={() => deleteAgent(agent.name)}
+                      onClick={() => deleteAgent(agent)}
                       className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors"
                       title="Excluir"
                     >
@@ -292,11 +341,18 @@ export function AgentForm() {
       </div>
 
       <div className="p-6">
+        {statusMessage && (
+          <div className="mb-6 rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm font-medium text-slate-700">
+            {statusMessage}
+          </div>
+        )}
+
         {activeTab === 'persona' && (
           <div className="space-y-6 max-w-2xl">
             <div className="bg-slate-50 p-4 rounded-lg border border-slate-200 mb-6">
               <label className="block text-sm font-bold text-slate-900 mb-2">Modelo de Agente (Template)</label>
               <div className="flex flex-wrap gap-2">
+                <TemplateButton active={config.template === 'maternal'} onClick={() => handleTemplateChange('maternal')} label="Cuidado Materno" />
                 <TemplateButton active={config.template === 'hr'} onClick={() => handleTemplateChange('hr')} label="RH" />
                 <TemplateButton active={config.template === 'sales'} onClick={() => handleTemplateChange('sales')} label="Vendas" />
                 <TemplateButton active={config.template === 'onboarding'} onClick={() => handleTemplateChange('onboarding')} label="Onboarding" />
@@ -433,12 +489,54 @@ export function AgentForm() {
                     <div className="flex gap-4">
                       <select
                         value={q.type}
-                        onChange={(e) => updateQuestion(q.id, 'type', e.target.value as any)}
+                        onChange={(e) => updateQuestion(q.id, 'type', e.target.value as Question['type'])}
                         className="p-2 text-sm border border-slate-300 rounded-lg bg-white"
                       >
                         <option value="open">Resposta Aberta</option>
                         <option value="closed">Sim/Não</option>
                       </select>
+                    </div>
+                    <div className="grid gap-3 md:grid-cols-2">
+                      <label className="block">
+                        <span className="mb-1 block text-xs font-bold uppercase text-slate-500">Campo estruturado</span>
+                        <input
+                          type="text"
+                          value={q.collectAs || ''}
+                          onChange={(e) => updateQuestion(q.id, 'collectAs', e.target.value)}
+                          placeholder="ex.: sintomas, orçamento, prioridade"
+                          className="w-full rounded-lg border border-slate-300 p-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </label>
+                      <label className="block">
+                        <span className="mb-1 block text-xs font-bold uppercase text-slate-500">Palavras de risco</span>
+                        <input
+                          type="text"
+                          value={(q.riskKeywords || []).join(', ')}
+                          onChange={(e) => updateQuestion(q.id, 'riskKeywords', e.target.value.split(',').map(item => item.trim()).filter(Boolean))}
+                          placeholder="ex.: urgente, dor forte, fora do ar"
+                          className="w-full rounded-lg border border-slate-300 p-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </label>
+                    </div>
+                    <div className="flex flex-wrap gap-4 text-sm text-slate-700">
+                      <label className="inline-flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={Boolean(q.required)}
+                          onChange={(e) => updateQuestion(q.id, 'required', e.target.checked)}
+                          className="h-4 w-4 rounded border-slate-300 text-blue-600"
+                        />
+                        Obrigatória
+                      </label>
+                      <label className="inline-flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={Boolean(q.stopOnRisk)}
+                          onChange={(e) => updateQuestion(q.id, 'stopOnRisk', e.target.checked)}
+                          className="h-4 w-4 rounded border-slate-300 text-blue-600"
+                        />
+                        Escalar ao detectar risco
+                      </label>
                     </div>
                   </div>
                   <button onClick={() => removeQuestion(q.id)} className="text-slate-400 hover:text-red-500 mt-3">
@@ -457,7 +555,10 @@ export function AgentForm() {
 
         {activeTab === 'integrations' && (
           <div className="space-y-6 max-w-2xl">
-            <IntegrationCard name="HubSpot" connected={true} />
+            <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+              Integrações externas só ficam ativas quando credenciais reais forem configuradas no backend. Nenhuma conexão é marcada como ativa sem autenticação.
+            </div>
+            <IntegrationCard name="HubSpot" connected={false} />
             <IntegrationCard name="Salesforce" connected={false} />
             <IntegrationCard name="Webhooks" connected={false} />
             <IntegrationCard name="n8n" connected={false} />
@@ -529,7 +630,7 @@ function IntegrationCard({ name, connected }: { name: string, connected: boolean
             : 'bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-200'
         }`}
       >
-        {connected ? 'Conectado' : 'Conectar'}
+        {connected ? 'Conectado' : 'Configurar'}
       </button>
     </div>
   );
