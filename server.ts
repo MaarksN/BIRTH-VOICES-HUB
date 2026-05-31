@@ -53,6 +53,11 @@ type StoredTelephonyCall = TelephonyCall & {
   ownerId: string;
 };
 
+type StoredIntegrationDelivery = IntegrationDelivery & {
+  ownerId: string;
+  createdAt: string;
+};
+
 type Database = {
   users: StoredUser[];
   tokens: TokenRecord[];
@@ -60,6 +65,7 @@ type Database = {
   sessions: StoredSession[];
   integrations: StoredIntegration[];
   telephonyCalls: StoredTelephonyCall[];
+  integrationDeliveries: StoredIntegrationDelivery[];
 };
 
 type AuthedRequest = Request & {
@@ -97,6 +103,7 @@ const emptyDatabase = (): Database => ({
   sessions: [],
   integrations: [],
   telephonyCalls: [],
+  integrationDeliveries: [],
 });
 
 async function readDatabase(): Promise<Database> {
@@ -114,6 +121,7 @@ async function readDatabase(): Promise<Database> {
       sessions: Array.isArray(parsed.sessions) ? parsed.sessions : [],
       integrations: Array.isArray(parsed.integrations) ? parsed.integrations : [],
       telephonyCalls: Array.isArray(parsed.telephonyCalls) ? parsed.telephonyCalls : [],
+      integrationDeliveries: Array.isArray(parsed.integrationDeliveries) ? parsed.integrationDeliveries : [],
     };
   } catch (error: any) {
     if (error.code !== "ENOENT") throw error;
@@ -530,16 +538,49 @@ async function sendWebhook(url: string, secret: string | undefined, event: strin
   }
 }
 
+function publicDelivery(delivery: IntegrationDelivery): IntegrationDelivery {
+  return {
+    id: delivery.id,
+    status: delivery.status,
+    event: delivery.event,
+    sessionId: delivery.sessionId,
+    attempt: delivery.attempt,
+    target: delivery.target,
+    statusCode: delivery.statusCode,
+    message: delivery.message,
+    deliveredAt: delivery.deliveredAt,
+    responseBody: delivery.responseBody,
+  };
+}
+
+function recordIntegrationDelivery(data: Database, ownerId: string, delivery: IntegrationDelivery & { responseBody?: string }) {
+  const createdAt = delivery.deliveredAt || new Date().toISOString();
+  const record: StoredIntegrationDelivery = {
+    ...publicDelivery(delivery),
+    id: delivery.id || crypto.randomUUID(),
+    ownerId,
+    createdAt,
+  };
+  data.integrationDeliveries.push(record);
+  return publicDelivery(record);
+}
+
 async function deliverSession(data: Database, ownerId: string, session: SessionRecord): Promise<IntegrationDelivery> {
   const integration = getIntegration(data, ownerId);
+  const previousAttempts = data.integrationDeliveries.filter((delivery) => delivery.ownerId === ownerId && delivery.sessionId === session.id).length;
 
   if (!integration.webhook.enabled || !integration.webhook.url) {
     const delivery: IntegrationDelivery = {
+      id: crypto.randomUUID(),
       status: "not_configured",
+      event: "session.completed",
+      sessionId: session.id,
+      attempt: previousAttempts + 1,
       message: "Webhook/CRM não configurado.",
+      deliveredAt: new Date().toISOString(),
     };
     integration.webhook.lastDelivery = delivery;
-    return delivery;
+    return recordIntegrationDelivery(data, ownerId, delivery);
   }
 
   const delivery = await sendWebhook(
@@ -550,14 +591,19 @@ async function deliverSession(data: Database, ownerId: string, session: SessionR
   );
 
   const publicDelivery: IntegrationDelivery = {
+    id: crypto.randomUUID(),
     status: delivery.status,
+    event: "session.completed",
+    sessionId: session.id,
+    attempt: previousAttempts + 1,
     target: delivery.target,
     statusCode: delivery.statusCode,
     message: delivery.message,
     deliveredAt: delivery.deliveredAt,
+    responseBody: delivery.responseBody,
   };
   integration.webhook.lastDelivery = publicDelivery;
-  return publicDelivery;
+  return recordIntegrationDelivery(data, ownerId, publicDelivery);
 }
 
 function extractJson(text: string) {
@@ -1273,6 +1319,47 @@ async function startServer() {
       const integration = getIntegration(data, req.user!.id);
       await writeDatabase(data);
       res.json(publicIntegration(integration));
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.get("/api/integrations/deliveries", requireAuth, (req: AuthedRequest, res) => {
+    const deliveries = (req.data?.integrationDeliveries || [])
+      .filter((delivery) => delivery.ownerId === req.user!.id)
+      .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))
+      .slice(0, 100)
+      .map(publicDelivery);
+    res.json({ deliveries });
+  });
+
+  app.post("/api/integrations/deliveries/:id/retry", requireAuth, async (req: AuthedRequest, res, next) => {
+    try {
+      const data = req.data || await readDatabase();
+      const previousDelivery = data.integrationDeliveries.find((delivery) => delivery.id === req.params.id && delivery.ownerId === req.user!.id);
+
+      if (!previousDelivery) {
+        return res.status(404).json({ error: "Entrega não encontrada." });
+      }
+
+      if (!previousDelivery.sessionId) {
+        return res.status(400).json({ error: "Esta entrega não está vinculada a uma sessão." });
+      }
+
+      const session = data.sessions.find((item) => item.id === previousDelivery.sessionId && item.ownerId === req.user!.id);
+      if (!session) {
+        return res.status(404).json({ error: "Sessão original não encontrada." });
+      }
+
+      const integration = getIntegration(data, req.user!.id);
+      if (!integration.webhook.enabled || !integration.webhook.url) {
+        return res.status(400).json({ error: "Configure e ative o webhook antes de retentar a entrega." });
+      }
+
+      const delivery = await deliverSession(data, req.user!.id, session);
+      session.integrationDelivery = delivery;
+      await writeDatabase(data);
+      res.json({ delivery });
     } catch (error) {
       next(error);
     }

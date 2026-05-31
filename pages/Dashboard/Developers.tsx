@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { AlertTriangle, CheckCircle2, Copy, Loader2, RefreshCw, Save, ShieldCheck, Webhook } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Copy, History, Loader2, RefreshCw, Save, ShieldCheck, Webhook } from 'lucide-react';
 import { api } from '../../lib/api';
 import { IntegrationDelivery, IntegrationSettings } from '../../types';
 
@@ -11,19 +11,25 @@ export default function DevelopersPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
+  const [retryingId, setRetryingId] = useState('');
   const [message, setMessage] = useState('');
   const [responseBody, setResponseBody] = useState('');
+  const [deliveries, setDeliveries] = useState<IntegrationDelivery[]>([]);
 
   useEffect(() => {
     let cancelled = false;
 
     const load = async () => {
       try {
-        const response = await api.getIntegrations();
+        const [response, deliveriesResponse] = await Promise.all([
+          api.getIntegrations(),
+          api.listIntegrationDeliveries(),
+        ]);
         if (!cancelled) {
           setSettings(response);
           setWebhookUrl(response.webhook.url);
           setEnabled(response.webhook.enabled);
+          setDeliveries(deliveriesResponse.deliveries);
         }
       } catch (error: any) {
         if (!cancelled) setMessage(error.message);
@@ -79,6 +85,25 @@ export default function DevelopersPage() {
       setMessage(error.message);
     } finally {
       setTesting(false);
+    }
+  };
+
+  const handleRetry = async (deliveryId: string) => {
+    setRetryingId(deliveryId);
+    setMessage('');
+
+    try {
+      const response = await api.retryIntegrationDelivery(deliveryId);
+      setSettings((prev) => prev ? { ...prev, webhook: { ...prev.webhook, lastDelivery: response.delivery } } : prev);
+      const deliveriesResponse = await api.listIntegrationDeliveries();
+      setDeliveries(deliveriesResponse.deliveries);
+      setMessage(response.delivery.status === 'delivered'
+        ? 'Entrega reenviada com sucesso.'
+        : `Nova tentativa registrada com falha: ${response.delivery.message}`);
+    } catch (error: any) {
+      setMessage(error.message);
+    } finally {
+      setRetryingId('');
     }
   };
 
@@ -224,7 +249,76 @@ export default function DevelopersPage() {
           <InfoCard title="Banco de dados" text="Aponte para n8n, Make, Supabase Edge Function, Cloudflare Worker ou sua API para gravar o JSON onde quiser." />
         </div>
       </section>
+
+      <section className="rounded-lg border border-slate-200 bg-white shadow-sm">
+        <div className="flex flex-col gap-3 border-b border-slate-100 p-6 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="flex items-center gap-2 font-bold text-slate-950">
+              <History className="h-5 w-5 text-brand" />
+              Histórico de entregas
+            </h2>
+            <p className="mt-1 text-sm text-slate-500">
+              Cada sessão salva registra uma tentativa de entrega para auditoria e retentativa.
+            </p>
+          </div>
+          <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600">{deliveries.length} registros</span>
+        </div>
+
+        {deliveries.length ? (
+          <div className="divide-y divide-slate-100">
+            {deliveries.map((delivery) => (
+              <div key={delivery.id || `${delivery.sessionId}-${delivery.deliveredAt}`} className="grid gap-4 p-5 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <DeliveryBadge status={delivery.status} />
+                    {delivery.sessionId && <span className="font-mono text-xs font-bold text-slate-500">{delivery.sessionId}</span>}
+                    {delivery.attempt && <span className="text-xs font-bold text-slate-500">tentativa {delivery.attempt}</span>}
+                  </div>
+                  <p className="mt-2 break-all text-sm text-slate-600">{delivery.target || 'Webhook não configurado'}</p>
+                  {delivery.message && <p className="mt-1 text-sm text-slate-500">{delivery.message}</p>}
+                  {delivery.responseBody && (
+                    <pre className="mt-3 max-h-24 overflow-auto rounded-lg bg-slate-50 p-3 text-xs text-slate-700">{delivery.responseBody}</pre>
+                  )}
+                </div>
+                <div className="flex flex-col gap-2 text-right">
+                  <span className="text-xs text-slate-500">
+                    {delivery.deliveredAt ? new Date(delivery.deliveredAt).toLocaleString('pt-BR') : 'sem data'}
+                  </span>
+                  {delivery.status !== 'delivered' && delivery.id && (
+                    <button
+                      onClick={() => handleRetry(delivery.id!)}
+                      disabled={retryingId === delivery.id}
+                      className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-300 px-3 py-2 text-xs font-bold text-slate-700 transition hover:border-brand hover:text-brand disabled:opacity-50"
+                    >
+                      {retryingId === delivery.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+                      Retentar
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="p-10 text-center text-sm text-slate-500">
+            Nenhuma tentativa de entrega registrada ainda.
+          </div>
+        )}
+      </section>
     </div>
+  );
+}
+
+function DeliveryBadge({ status }: { status: IntegrationDelivery['status'] }) {
+  const classes: Record<IntegrationDelivery['status'], string> = {
+    delivered: 'bg-emerald-50 text-emerald-700',
+    failed: 'bg-rose-50 text-rose-700',
+    not_configured: 'bg-amber-50 text-amber-700',
+  };
+
+  return (
+    <span className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${classes[status]}`}>
+      {status}
+    </span>
   );
 }
 
