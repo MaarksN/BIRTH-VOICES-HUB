@@ -73,7 +73,7 @@ type AuthedRequest = Request & {
   data?: Database;
 };
 
-const DATA_DIR = path.join(process.cwd(), "data");
+const DATA_DIR = process.env.BIRTH_VOICES_DATA_DIR || path.join(process.cwd(), "data");
 const DATA_FILE = path.join(DATA_DIR, "birth-voices.json");
 const DEFAULT_BRAND_COLOR = "#2563eb";
 
@@ -1477,7 +1477,7 @@ async function startServer() {
   } else {
     const distPath = path.join(process.cwd(), "dist");
     app.use(express.static(distPath));
-    app.get("*", (_req, res) => {
+    app.get(/.*/, (_req, res) => {
       res.sendFile(path.join(distPath, "index.html"));
     });
   }
