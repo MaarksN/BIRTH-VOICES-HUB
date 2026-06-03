@@ -12,6 +12,8 @@ const server = spawn(process.execPath, ["dist/server.cjs"], {
     ...process.env,
     NODE_ENV: "production",
     PORT: port,
+    PUBLIC_BASE_URL: baseUrl,
+    TWILIO_AUTH_TOKEN: "smoke-twilio-token",
     BIRTH_VOICES_DATA_DIR: dataDir,
   },
   stdio: ["ignore", "pipe", "pipe"],
@@ -29,7 +31,7 @@ function assert(condition, message) {
   if (!condition) throw new Error(message);
 }
 
-async function request(pathname, options = {}) {
+async function requestRaw(pathname, options = {}) {
   const response = await fetch(`${baseUrl}${pathname}`, {
     ...options,
     headers: {
@@ -37,11 +39,25 @@ async function request(pathname, options = {}) {
       ...(options.headers || {}),
     },
   });
-  const payload = await response.json().catch(() => ({}));
+  const contentType = response.headers.get("content-type") || "";
+  const payload = contentType.includes("application/json") ? await response.json().catch(() => ({})) : await response.text();
+  return { response, payload };
+}
+
+async function request(pathname, options = {}) {
+  const { response, payload } = await requestRaw(pathname, options);
   if (!response.ok) {
     throw new Error(`${options.method || "GET"} ${pathname} returned ${response.status}: ${JSON.stringify(payload)}`);
   }
   return payload;
+}
+
+async function expectStatus(pathname, status, options = {}) {
+  const { response, payload } = await requestRaw(pathname, options);
+  if (response.status !== status) {
+    throw new Error(`${options.method || "GET"} ${pathname} expected ${status}, received ${response.status}: ${JSON.stringify(payload)}`);
+  }
+  return { response, payload };
 }
 
 async function waitForServer() {
@@ -59,6 +75,8 @@ async function waitForServer() {
 try {
   const status = await waitForServer();
   assert(status.storage === path.join(dataDir, "birth-voices.json"), "Server is not using isolated smoke-test storage.");
+  const statusResponse = await fetch(`${baseUrl}/api/status`);
+  assert(statusResponse.headers.get("x-content-type-options") === "nosniff", "Security headers are not applied.");
 
   const email = `qa-${Date.now()}@example.com`;
   const registered = await request("/api/auth/register", {
@@ -95,6 +113,17 @@ try {
   const agents = await request("/api/agents", { headers: authHeaders });
   assert(agents.agents.length === 1, "Created agent was not listed.");
 
+  await expectStatus("/api/integrations", 400, {
+    method: "PATCH",
+    headers: authHeaders,
+    body: JSON.stringify({ webhook: { enabled: true, url: "http://127.0.0.1:9999/webhook" } }),
+  });
+
+  await expectStatus("/api/twilio/status/not-a-real-call", 403, {
+    method: "POST",
+    body: JSON.stringify({ CallStatus: "completed" }),
+  });
+
   const createdSession = await request("/api/sessions", {
     method: "POST",
     headers: authHeaders,
@@ -117,7 +146,7 @@ try {
   const sessions = await request("/api/sessions", { headers: authHeaders });
   assert(sessions.sessions.length === 1, "Created session was not listed.");
 
-  console.log("Smoke test passed: status, auth, agents, sessions and integration fallback are healthy.");
+  console.log("Smoke test passed: status, security headers, auth, SSRF guard, Twilio signature guard, agents, sessions and integration fallback are healthy.");
 } finally {
   if (server.exitCode === null) {
     const exited = new Promise((resolve) => server.once("exit", resolve));

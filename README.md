@@ -79,6 +79,25 @@ PUBLIC_BASE_URL=https://sua-url-publica.com
 
 Quando o roteiro termina ou uma palavra de risco interrompe a conversa, a plataforma salva a sessão e dispara o webhook configurado.
 
+
+## Segurança e QA técnico
+
+A API aplica um primeiro conjunto de proteções de produção: headers HTTP de segurança, rate limit global para `/api/*`, rate limit mais restritivo para login/cadastro, bloqueio de webhooks apontando para localhost/redes privadas/reservadas e validação de assinatura nos callbacks públicos da Twilio.
+
+Para ajustar timeout de entrega webhook, configure:
+
+```bash
+WEBHOOK_TIMEOUT_MS=10000
+```
+
+Antes de considerar uma alteração pronta, execute:
+
+```bash
+npm run qa
+```
+
+Esse ciclo executa typecheck, build de produção e smoke test cobrindo autenticação, agentes, sessões, fallback de integração, headers de segurança, proteção anti-SSRF e rejeição de callback Twilio sem assinatura válida.
+
 ## Build
 
 ```bash
