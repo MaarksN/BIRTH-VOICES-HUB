@@ -1,6 +1,8 @@
 import crypto from "crypto";
+import dns from "dns/promises";
 import express, { NextFunction, Request, Response } from "express";
 import fs from "fs/promises";
+import net from "net";
 import path from "path";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI } from "@google/genai";
@@ -73,9 +75,12 @@ type AuthedRequest = Request & {
   data?: Database;
 };
 
-const DATA_DIR = path.join(process.cwd(), "data");
+const DATA_DIR = process.env.BIRTH_VOICES_DATA_DIR || path.join(process.cwd(), "data");
 const DATA_FILE = path.join(DATA_DIR, "birth-voices.json");
 const DEFAULT_BRAND_COLOR = "#2563eb";
+const WEBHOOK_TIMEOUT_MS = Number(process.env.WEBHOOK_TIMEOUT_MS || 10000);
+const RATE_LIMIT_WINDOW_MS = 60 * 1000;
+const AUTH_RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000;
 
 async function loadLocalEnv() {
   const envFile = path.join(process.cwd(), ".env");
@@ -176,6 +181,105 @@ function normalizeList(value: unknown) {
   return Array.isArray(value)
     ? value.map((item) => String(item || "").trim()).filter(Boolean)
     : [];
+}
+
+function constantTimeEqual(a: string, b: string) {
+  const left = Buffer.from(a);
+  const right = Buffer.from(b);
+  return left.length === right.length && crypto.timingSafeEqual(left, right);
+}
+
+function isPrivateIp(address: string) {
+  if (net.isIPv4(address)) {
+    const parts = address.split(".").map(Number);
+    const [a, b] = parts;
+    return (
+      a === 0 ||
+      a === 10 ||
+      a === 127 ||
+      (a === 169 && b === 254) ||
+      (a === 172 && b >= 16 && b <= 31) ||
+      (a === 192 && b === 168) ||
+      a >= 224
+    );
+  }
+
+  if (net.isIPv6(address)) {
+    const normalized = address.toLowerCase();
+    return normalized === "::" || normalized === "::1" || normalized.startsWith("fe80:") || normalized.startsWith("fc") || normalized.startsWith("fd");
+  }
+
+  return true;
+}
+
+async function validatePublicWebhookUrl(rawUrl: string) {
+  let parsed: URL;
+  try {
+    parsed = new URL(rawUrl);
+  } catch {
+    throw new Error("URL do webhook inválida.");
+  }
+
+  if (!["https:", "http:"].includes(parsed.protocol)) {
+    throw new Error("URL do webhook precisa usar HTTP ou HTTPS.");
+  }
+
+  if (process.env.NODE_ENV === "production" && parsed.protocol !== "https:") {
+    throw new Error("URL do webhook precisa usar HTTPS em produção.");
+  }
+
+  const hostname = parsed.hostname.toLowerCase();
+  if (["localhost", "localhost.localdomain"].includes(hostname) || hostname.endsWith(".localhost")) {
+    throw new Error("URL do webhook não pode apontar para localhost.");
+  }
+
+  if (net.isIP(hostname) && isPrivateIp(hostname)) {
+    throw new Error("URL do webhook não pode apontar para IP privado, local ou reservado.");
+  }
+
+  const addresses = await dns.lookup(hostname, { all: true, verbatim: true });
+  if (!addresses.length || addresses.some((item) => isPrivateIp(item.address))) {
+    throw new Error("URL do webhook resolve para rede privada, local ou reservada.");
+  }
+
+  return parsed.toString();
+}
+
+type RateLimitBucket = {
+  count: number;
+  resetAt: number;
+};
+
+const rateLimitBuckets = new Map<string, RateLimitBucket>();
+
+function rateLimit(options: { windowMs: number; max: number; keyPrefix: string }) {
+  return (req: Request, res: Response, next: NextFunction) => {
+    const now = Date.now();
+    const key = `${options.keyPrefix}:${req.ip || req.socket.remoteAddress || "unknown"}`;
+    const current = rateLimitBuckets.get(key);
+    const bucket = current && current.resetAt > now ? current : { count: 0, resetAt: now + options.windowMs };
+    bucket.count += 1;
+    rateLimitBuckets.set(key, bucket);
+
+    res.setHeader("RateLimit-Limit", String(options.max));
+    res.setHeader("RateLimit-Remaining", String(Math.max(0, options.max - bucket.count)));
+    res.setHeader("RateLimit-Reset", String(Math.ceil(bucket.resetAt / 1000)));
+
+    if (bucket.count > options.max) {
+      return res.status(429).json({ error: "Muitas tentativas. Aguarde antes de tentar novamente." });
+    }
+
+    next();
+  };
+}
+
+function securityHeaders(_req: Request, res: Response, next: NextFunction) {
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("X-Frame-Options", "DENY");
+  res.setHeader("Referrer-Policy", "no-referrer");
+  res.setHeader("Permissions-Policy", "camera=(), geolocation=(), payment=()");
+  res.setHeader("Cross-Origin-Opener-Policy", "same-origin");
+  next();
 }
 
 function uniqueStrings(values: string[]) {
@@ -503,7 +607,12 @@ async function sendWebhook(url: string, secret: string | undefined, event: strin
     data,
   });
 
+  let safeUrl = url;
+  let timeout: ReturnType<typeof setTimeout> | undefined;
   try {
+    safeUrl = await validatePublicWebhookUrl(url);
+    const controller = new AbortController();
+    timeout = setTimeout(() => controller.abort(), WEBHOOK_TIMEOUT_MS);
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
       "User-Agent": "Birth-Voices-Hub/1.0",
@@ -513,16 +622,18 @@ async function sendWebhook(url: string, secret: string | undefined, event: strin
       headers["X-Birth-Voices-Signature"] = createWebhookSignature(secret, body);
     }
 
-    const response = await fetch(url, {
+    const response = await fetch(safeUrl, {
       method: "POST",
       headers,
       body,
+      redirect: "error",
+      signal: controller.signal,
     });
     const responseBody = await response.text();
 
     return {
       status: response.ok ? "delivered" : "failed",
-      target: url,
+      target: safeUrl,
       statusCode: response.status,
       message: response.ok ? "Entregue ao endpoint configurado." : responseBody.slice(0, 300) || response.statusText,
       deliveredAt,
@@ -531,10 +642,12 @@ async function sendWebhook(url: string, secret: string | undefined, event: strin
   } catch (error: any) {
     return {
       status: "failed",
-      target: url,
-      message: error.message || "Falha ao entregar webhook.",
+      target: safeUrl,
+      message: error.name === "AbortError" ? "Timeout ao entregar webhook." : error.message || "Falha ao entregar webhook.",
       deliveredAt,
     };
+  } finally {
+    if (timeout) clearTimeout(timeout);
   }
 }
 
@@ -850,6 +963,41 @@ function mapTwilioStatus(value: unknown): TelephonyCallStatus {
   return "queued";
 }
 
+function twilioSignaturePayload(req: Request) {
+  const baseUrl = getPublicBaseUrl();
+  const requestUrl = baseUrl ? `${baseUrl}${req.originalUrl}` : `${req.protocol}://${req.get("host")}${req.originalUrl}`;
+  const params = req.body && typeof req.body === "object" ? req.body : {};
+  const suffix = Object.keys(params)
+    .sort()
+    .map((key) => `${key}${params[key]}`)
+    .join("");
+  return `${requestUrl}${suffix}`;
+}
+
+function verifyTwilioRequest(req: Request) {
+  const authToken = String(process.env.TWILIO_AUTH_TOKEN || "").trim();
+  const signature = String(req.header("X-Twilio-Signature") || "").trim();
+  if (!authToken || !signature) return false;
+
+  const expected = crypto
+    .createHmac("sha1", authToken)
+    .update(Buffer.from(twilioSignaturePayload(req), "utf8"))
+    .digest("base64");
+  return constantTimeEqual(expected, signature);
+}
+
+function requireTwilioSignature(req: Request, res: Response, next: NextFunction) {
+  if (!process.env.TWILIO_AUTH_TOKEN) {
+    return res.status(503).type("text/xml").send(twiml(`${say("Telefonia não configurada.")}<Hangup />`));
+  }
+
+  if (!verifyTwilioRequest(req)) {
+    return res.status(403).type("text/xml").send(twiml(`${say("Assinatura Twilio inválida.")}<Hangup />`));
+  }
+
+  next();
+}
+
 function runtimeStatus(data?: Database, ownerId?: string): RuntimeStatus {
   const integration = data && ownerId ? data.integrations.find((item) => item.ownerId === ownerId) : undefined;
   const twilio = telephonyConfig();
@@ -868,8 +1016,12 @@ async function startServer() {
   const app = express();
   const PORT = Number(process.env.PORT || 3000);
 
+  app.use(securityHeaders);
+  app.use("/api/", rateLimit({ windowMs: RATE_LIMIT_WINDOW_MS, max: 240, keyPrefix: "api" }));
+  app.use(["/api/auth/login", "/api/auth/register"], rateLimit({ windowMs: AUTH_RATE_LIMIT_WINDOW_MS, max: 20, keyPrefix: "auth" }));
   app.use(express.json({ limit: "2mb" }));
   app.use(express.urlencoded({ extended: false }));
+  app.use("/api/twilio", requireTwilioSignature);
 
   app.get("/api/status", async (req, res, next) => {
     try {
@@ -1373,10 +1525,7 @@ async function startServer() {
 
       if (typeof webhook.url === "string") {
         const url = webhook.url.trim();
-        if (url && !/^https?:\/\//i.test(url)) {
-          return res.status(400).json({ error: "URL do webhook precisa começar com http:// ou https://." });
-        }
-        integration.webhook.url = url;
+        integration.webhook.url = url ? await validatePublicWebhookUrl(url) : "";
       }
 
       if (typeof webhook.enabled === "boolean") {
@@ -1477,7 +1626,7 @@ async function startServer() {
   } else {
     const distPath = path.join(process.cwd(), "dist");
     app.use(express.static(distPath));
-    app.get("*", (_req, res) => {
+    app.get(/.*/, (_req, res) => {
       res.sendFile(path.join(distPath, "index.html"));
     });
   }
