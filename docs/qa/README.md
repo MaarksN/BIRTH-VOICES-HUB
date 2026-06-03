@@ -1,34 +1,43 @@
-# QA e prontidao de producao
+# Sovereign Audit Agent v2.0 - Birth Voices Hub
 
-STATUS: READY
+Auditoria executada em 2026-06-03 no repositorio `BIRTH-VOICES-HUB`.
 
-Este diretorio contem o ciclo tecnico de auditoria 360 da plataforma Birth Voices Hub executado em 2026-06-03.
+## Resultado
 
-Decisao consolidada: NO-GO.
+Decisao final: NO-GO
+Confianca da auditoria: ALTA para local, BAIXA para staging/producao
+Branch auditada: `main`
+Commit base/final auditado antes dos relatorios: `92c1d9d`
 
-Motivo central: a aplicacao tem build, typecheck, smoke test local e varios fluxos reais de API aprovados, mas ainda nao possui evidencias obrigatorias para producao: lint, testes unitarios/integracao formais, E2E critico completo, smoke em staging, CI/CD, backup/restore, hardening HTTP, validacao real de Twilio/Gemini/webhook externo e banco transacional com migrations.
+## Evidencias principais
 
-Arquivos:
+- `npm ci`: PASS apos uso de Node/NPM temporarios fora do repositorio; 258 pacotes instalados e 259 auditados.
+- `npm run typecheck`: PASS.
+- `npm run build`: PASS; Vite gerou bundle frontend e `esbuild` gerou `dist/server.cjs`.
+- `npm run smoke`: PASS; validou status, cadastro, auth, agentes, sessoes e fallback de integracao.
+- `npm run qa`: PASS com shim temporario de `npm.cmd`; o script chama `npm` internamente.
+- `npm run lint`: FAIL; script ausente.
+- `npm run test`, `test:coverage`, `test:integration`: FAIL; scripts ausentes.
+- `npm audit --audit-level=low`: PASS; 0 vulnerabilidades conhecidas.
+- Browser E2E local: PASS para cadastro, agente, playground com fallback texto, sessao, resultados, dashboard, logout e rota protegida.
+- Smoke staging/producao: BLOCKED; `STAGING_URL`, `PRODUCTION_URL` e credenciais externas nao foram fornecidas.
+
+## Arquivos
 
 - `audit-environment.md`: ambiente, Git, runtimes e limitacoes.
-- `repository-inventory.md`: inventario de arquivos, stack e estrutura.
-- `architecture-map.md`: mapa de arquitetura.
-- `feature-matrix.md`: funcionalidades reais, parciais, UI-only e backend-only.
-- `database-audit.md`: persistencia, integridade e riscos de dados.
-- `api-audit.md`: endpoints e contratos.
-- `frontend-ux-accessibility-audit.md`: rotas, UX e acessibilidade.
+- `repository-inventory.md`: inventario de estrutura e stack.
+- `architecture-map.md`: arquitetura observada.
+- `feature-matrix.md`: funcionalidades reais, parciais e bloqueadas.
+- `database-audit.md`: persistencia local, dados e backups.
+- `api-audit.md`: endpoints, auth e contratos.
+- `frontend-ux-accessibility-audit.md`: rotas, E2E e acessibilidade.
 - `auth-authorization-multitenancy-audit.md`: autenticacao, autorizacao e isolamento.
-- `test-execution-report.md`: comandos executados e resultados.
-- `e2e-report.md`: validacoes de navegador.
-- `smoke-test-report.md`: smoke local de producao.
-- `security-audit.md`: riscos de seguranca de aplicacao.
-- `dependency-security-audit.md`: dependencias e audit.
+- `test-execution-report.md`, `e2e-report.md`, `smoke-test-report.md`: execucoes tecnicas.
+- `security-audit.md`, `dependency-security-audit.md`: seguranca aplicacional e dependencias.
 - `governance-privacy-compliance-audit.md`: governanca e privacidade.
-- `infrastructure-cicd-deployment-audit.md`: infraestrutura e deploy.
-- `observability-reliability-performance-audit.md`: operacao, confiabilidade e performance.
+- `infrastructure-cicd-deployment-audit.md`: infra, CI/CD e deploy.
+- `observability-reliability-performance-audit.md`: logs, health, performance e operacao.
 - `documentation-maintainability-audit.md`: documentacao e manutencao.
-- `technical-debt-register.md`: registro detalhado de divida tecnica.
-- `technical-debt-roadmap.md`: roadmap priorizado.
-- `missing-items-before-production.md`: lacunas impeditivas.
-- `final-readiness-report.md`: relatorio final no formato solicitado.
-
+- `technical-debt-register.md`, `technical-debt-roadmap.md`: divida tecnica e priorizacao.
+- `missing-items-before-production.md`: lacunas para producao.
+- `final-readiness-report.md`: decisao consolidada.

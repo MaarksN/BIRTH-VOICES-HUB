@@ -1,163 +1,137 @@
-# RELATORIO FINAL DE PRONTIDAO DA PLATAFORMA
+# RELATORIO FINAL DE PRONTIDAO
 
-## 1. Decisao final
+## 1. Decisao
 
 RESULTADO: NO-GO
-
+CONFIANCA DA AUDITORIA: MEDIA
 DATA: 2026-06-03
-
-BRANCH: `codex/audit-360-production-readiness`
-
-COMMIT BASE: `cc57e3f8e0625b0252cd75de83b6a4a0ad03530a`
-
-COMMIT FINAL: `cc57e3f8e0625b0252cd75de83b6a4a0ad03530a` com relatorios nao commitados no working tree
-
-RESPONSAVEL PELA AUDITORIA: Codex
+BRANCH: `main`
+COMMIT BASE: `92c1d9d`
+COMMIT FINAL: `92c1d9d` antes da escrita dos relatorios
 
 ## 2. Resumo executivo
 
-A plataforma funciona localmente para fluxos basicos: cadastro, autenticacao, criacao/listagem de agentes, criacao/listagem de sessoes, dashboards derivados de dados reais e fallback de integracao quando webhook nao esta configurado.
+A plataforma Birth Voices Hub esta funcional localmente para cadastro, autenticacao, criacao de agentes, conversa estruturada por fallback texto, salvamento de sessao, resultados, analytics basico e isolamento por usuario. Build, typecheck, smoke, audit de dependencias e E2E local passaram.
 
-Foram validados com evidencia: `npm ci`, typecheck, build, `npm audit`, smoke local de producao, rotas autenticadas em navegador e isolamento basico de agentes entre dois usuarios.
+A plataforma nao esta pronta para producao porque faltam gates obrigatorios: lint/testes automatizados, CI/CD, staging/producao validados, hardening de seguranca, backup/restore, observabilidade, LGPD e integracoes reais Gemini/Twilio/webhook.
 
-Falharam ou ficaram ausentes: lint, format check, testes unitarios, testes de integracao, CI/CD, banco produtivo/migrations, backup/restore, hardening HTTP, Twilio signature, staging smoke e E2E completo do playground.
+## 3. Funcionalidades
 
-A decisao e NO-GO porque varios gates obrigatorios para producao nao foram aprovados ou ficaram bloqueados.
-
-## 3. Escopo auditado
-
-Aplicacoes: React SPA e Express server.
-
-Servicos: API local, static hosting, Gemini opcional, Twilio opcional, webhook opcional.
-
-Pacotes: npm package unico.
-
-Banco: JSON local.
-
-Frontend: rotas em `App.tsx` e paginas em `pages/`.
-
-Backend: `server.ts`.
-
-APIs: auth, me, agents, sessions, integrations, telephony, chat.
-
-Infraestrutura: nao encontrada alem de build local.
-
-Testes: smoke script; sem suites formais.
-
-Seguranca, governanca, operacao e documentacao: auditadas pelos arquivos deste diretorio.
-
-## 4. Mapa da plataforma
-
-React SPA -> Express API -> JSON local. API opcionalmente chama Gemini, Twilio e webhooks externos.
-
-## 5. Funcionalidades
-
-| Funcionalidade | Status | Frontend | Backend | Banco | Teste E2E | Observacoes |
+| Funcionalidade | Status | Frontend | Backend | Banco | E2E | Obs |
 |---|---|---|---|---|---|---|
-| Auth | PASS | PASS | PASS | PASS | PARTIAL | Cadastro UI e smoke OK. |
-| Agentes | PASS | PASS | PASS | PASS | PASS | CRUD basico OK. |
-| Sessoes | PARTIAL | PASS | PASS | PASS | BLOCKED UI | Smoke/API OK; playground UI completo bloqueado em headless. |
-| Resultados/analytics | PASS | PASS | PASS | PASS | PASS rotas | Dados reais locais. |
-| Webhook | PARTIAL | PASS | PASS | PASS | NOT TESTED externo | Sem endpoint real. |
-| Twilio | BLOCKED | PASS | PARTIAL | PASS | BLOCKED | Sem credenciais; callback sem assinatura. |
-| Billing | PARTIAL | UI ONLY | MISSING | MISSING | PASS rota | Gateway ausente. |
-| Organizacao/time | PARTIAL | PARTIAL | PARTIAL | PARTIAL | PASS rota | Convites/RBAC ausentes. |
+| Cadastro/login/logout | REAL | PASS | PASS | PASS JSON | PASS | Token em localStorage e JSON e risco. |
+| Agentes | REAL | PASS | PASS | PASS JSON | PASS | Criacao/listagem persistem. |
+| Playground texto | REAL | PASS | PASS | PASS JSON | PASS | Microfone bloqueado, fallback ok. |
+| Resultados | REAL | PASS | PASS | PASS JSON | PASS | Sessao e campos exibidos. |
+| Analytics | REAL/PARTIAL | PASS | PASS | PASS JSON | PASS | Depende de dados reais. |
+| Webhook | PARTIAL | PASS UI | PARTIAL | PASS JSON | PARTIAL | Externo nao testado. |
+| Gemini | PARTIAL | PASS fallback | BLOCKED | N/A | BLOCKED | Sem chave. |
+| Twilio | PARTIAL | PASS UI | BLOCKED | PASS JSON | BLOCKED | Sem credenciais/public URL. |
+| Billing | UI ONLY | PASS UI | MISSING | MISSING | PASS render | Fora de producao. |
+| Auditoria admin | UI ONLY/PARTIAL | PARTIAL | MISSING | MISSING | PARTIAL | Eventos reais nao habilitados. |
 
-## 6. Resultados tecnicos
+## 4. Resultados tecnicos
 
-| Verificacao | Comando | Resultado | Status | Evidencia |
-|---|---|---|---|---|
-| Instalacao limpa | `npm ci` | 258 pacotes, 0 vuln | PASS | PATH corrigido para Node runtime. |
-| Lint | `npm run lint` | script ausente | FAIL | npm Missing script. |
-| Formatacao | `npm run format:check` | script ausente | FAIL | npm Missing script. |
-| Typecheck | `npm run typecheck` | sem erros | PASS | tsc noEmit. |
-| Testes unitarios | `npm test` | script ausente | FAIL | npm Missing script. |
-| Testes de integracao | N/A | suite ausente | FAIL | `tests/` ausente. |
-| Testes de banco | smoke + isolamento | basico OK | PARTIAL | sem DB real. |
-| Testes de API | smoke | basico OK | PASS | auth/agents/sessions. |
-| Auditoria deps | `npm audit --audit-level=low` | 0 vuln | PASS | npm audit. |
-| Build | `npm run build` | OK | PASS | Vite/esbuild. |
-| E2E | Playwright/Chrome | rotas OK; playground bloqueado | PARTIAL | docs/qa/e2e-report.md. |
-| Smoke staging | N/A | sem URL | BLOCKED | staging ausente. |
-| Backup | N/A | ausente | FAIL | sem estrategia. |
-| Restore | N/A | ausente | FAIL | sem teste. |
-| Rollback | N/A | ausente | FAIL | sem runbook. |
-
-## 7. Seguranca
-
-| Item | Status | Risco | Evidencia | Correcao necessaria |
-|---|---|---|---|---|
-| Segredos versionados | PASS | baixo | somente `.env.example` | manter scan em CI. |
-| Senha hash | PASS | baixo | PBKDF2 | parametrizar politica. |
-| Token localStorage | FAIL | alto | `lib/auth.ts` | cookie HttpOnly ou equivalente. |
-| Twilio signature | FAIL | alto | `/api/twilio/*` | validar assinatura. |
-| Rate limit | FAIL | alto | ausente | adicionar rate limiting. |
-| HTTP headers/CSP | FAIL | alto | Tailwind CDN, sem helmet | adicionar Helmet/CSP. |
-| Webhook SSRF | FAIL | alto | URL arbitraria | validar destino/timeout. |
-
-## 8. Governanca
-
-| Item | Status | Risco | Acao necessaria |
+| Verificacao | Comando | Resultado | Status |
 |---|---|---|---|
-| CI/CD | FAIL | releases nao reprodutiveis | criar pipeline. |
-| CODEOWNERS | FAIL | ownership indefinido | adicionar. |
-| SECURITY.md | FAIL | canal de vulnerabilidade ausente | adicionar. |
-| Runbook | FAIL | operacao improvisada | documentar. |
-| Privacidade/LGPD | FAIL | dados pessoais sem politica | definir retencao/exclusao. |
+| Instalacao limpa | `npm ci` | 258 pacotes instalados, 0 vulns | PASS |
+| Lint | `npm run lint` | Missing script | FAIL |
+| Typecheck | `npm run typecheck` | sem erro | PASS |
+| Build | `npm run build` | Vite + esbuild ok | PASS |
+| Unit tests | `npm run test` | Missing script | FAIL |
+| Integration tests | `npm run test:integration` | Missing script | FAIL |
+| E2E local | Browser manual | fluxo critico local ok | PASS |
+| Smoke local | `npm run smoke` | status/auth/agentes/sessoes ok | PASS |
+| Smoke staging | `curl STAGING_URL` | URL ausente | BLOCKED |
+| Dep. audit | `npm audit --audit-level=low` | 0 vulns | PASS |
+| Backup/Restore | N/A | nao documentado/testado | FAIL |
 
-## 9. Divida tecnica consolidada
+## 5. Divida tecnica
 
 | Prioridade | Quantidade | Bloqueia producao |
 |---|---:|---|
-| P0 | 0 | NAO |
-| P1 | 9 | SIM |
-| P2 | 8 | NAO para ambiente controlado, mas devem ser planejadas |
-| P3 | 1 | NAO |
-| P4 | 0 | NAO |
+| P0 | 0 | Nao |
+| P1 | 8 | Sim |
+| P2 | 5 | Parcial |
+| P3 | 2 | Nao |
+| P4 | 0 | Nao |
 
-## 10. Bloqueadores
+## 6. Top 5 por ICE Score
 
-| ID | Bloqueador | Area | Impacto | Proxima acao | Criterio de resolucao |
-|---|---|---|---|---|---|
-| B-001 | Sem DB/migrations/backup/restore | Banco | perda de dados | escolher banco e migrar | restore testado |
-| B-002 | Sem lint/test/CI | QA | regressao | criar pipeline | CI verde |
-| B-003 | Twilio sem assinatura | Seguranca | callback falso | validar assinatura | testes 403/200 |
-| B-004 | Sem staging smoke | Deploy | release sem evidencia | provisionar staging | smoke aprovado |
-| B-005 | E2E critico incompleto | QA | fluxo principal nao comprovado | E2E deterministico | conversa salva via UI |
+| Rank | ID | Tipo | ICE | Acao prioritaria |
+|---:|---|---|---:|---|
+| 1 | DT-010 | Arquitetura | 21.0 | Modularizar `server.ts` e componentes grandes. |
+| 2 | DT-001 | Testes | 14.4 | Adicionar lint e testes core. |
+| 3 | DT-003 | Seguranca | 13.3 | Headers, rate limit e cookies seguros. |
+| 4 | DT-007 | Seguranca/API | 13.0 | Twilio signature e SSRF guard para webhooks. |
+| 5 | DT-008 | Multi-tenancy | 12.9 | Formalizar tenant/RBAC/quota. |
 
-## 11. O que ainda esta faltando
+## 7. Bloqueadores
 
-Ver `missing-items-before-production.md`.
+| ID | Bloqueador | Impacto | Proxima acao | Criterio |
+|---|---|---|---|---|
+| DT-001 | Sem lint/testes | Regressao invisivel | Criar piramide minima | CI verde |
+| DT-002 | Sem CI/CD/staging | Deploy nao governado | Criar pipeline e staging | Smoke staging PASS |
+| DT-003 | Hardening web ausente | Risco appsec | Helmet/rate/cookies | Headers e auth tests PASS |
+| DT-005 | LGPD incompleta | Risco legal | Retencao/consentimento/delete/export | Testes e politica aprovados |
+| DT-006 | JSON local sem backup | Perda/corrupcao de dados | Banco/backup/restore | Restore testado |
+| DT-015 | Integracoes externas nao validadas | Fluxos criticos incertos | Credenciais sandbox | Gemini/Twilio/webhook PASS |
 
-## 12. Correcoes realizadas
+## 8. O que ainda falta
 
-| Commit | Alteracao | Problema resolvido | Testes executados |
+1. CI/CD completo.
+2. Lint e testes automatizados.
+3. Staging e smoke real.
+4. Hardening de seguranca.
+5. Persistencia e backup adequados a producao.
+6. Observabilidade e runbooks.
+7. Politica e implementacao LGPD.
+8. Validacao de Gemini, Twilio e webhook com credenciais sandbox.
+
+## 9. Criterios para sair do NO-GO
+
+1. `npm run lint`, `npm run test`, `npm run test:integration`, `npm run build`, `npm audit` e E2E versionado passando no CI.
+2. Staging com `STAGING_URL` e smoke real aprovado.
+3. Headers de seguranca/rate limiting/cookies seguros implantados e verificados.
+4. Backup/restore testado.
+5. Consentimento, retencao, exclusao e exportacao implementados.
+6. Twilio/Gemini/webhook sandbox testados.
+
+## 10. Riscos residuais
+
+| Risco | Severidade | Mitigacao | Aceito por |
 |---|---|---|---|
-| N/A | Relatorios `docs/qa/*` | Rastreabilidade da auditoria | N/A |
+| Dados sensiveis em JSON local | ALTA | Banco seguro/criptografia | Pendente |
+| Token em localStorage | ALTA | Cookie HttpOnly ou estrategia equivalente | Pendente |
+| Webhook SSRF | ALTA | allowlist/bloqueio rede privada/HTTPS | Pendente |
+| Sem testes | ALTA | Piramide automatizada | Pendente |
+| Sem observabilidade | MEDIA | Logs/metricas/alertas | Pendente |
 
-## 13. Criterios obrigatorios para atingir GO
+## 11. Proximos passos priorizados
 
-1. CI com instalacao limpa, lint, format, typecheck, unit, integration, build, audit, smoke e E2E.
-2. Banco produtivo com migrations, backup, restore e rollback testados.
-3. E2E critico aprovado: cadastro, login, agente, playground, sessao, resultado, webhook e telefonia sandbox.
-4. Twilio callbacks assinados e testados.
-5. Auth hardening com sessao protegida e rate limit.
-6. Staging smoke aprovado com variaveis reais de sandbox.
-7. Observabilidade minima e runbook operacional.
-8. Politica de privacidade/retencao/exclusao para transcricoes.
+| Ordem | Acao | P | Esforco | Criterio |
+|---:|---|---|---|---|
+| 1 | Criar CI e scripts lint/test | P1 | M | Pipeline verde |
+| 2 | Aplicar hardening de seguranca | P1 | M | Headers/rate/auth verificados |
+| 3 | Criar staging e smoke | P1 | M | Smoke staging PASS |
+| 4 | Definir banco/backup | P1 | L | Restore PASS |
+| 5 | Implementar LGPD minima | P1 | L | Fluxos testados |
+| 6 | Validar integracoes sandbox | P2 | M | Gemini/Twilio/webhook PASS |
 
-## 14. Riscos residuais
+## 12. Limitacoes desta auditoria
 
-Nenhum risco P1 pode ser aceito para GO. Para ambiente local/controlado, podem ser aceitos temporariamente billing UI-only, convites ausentes e integracoes parciais se forem explicitamente rotuladas como nao produtivas.
+- Analisado estaticamente: codigo, package, docs, infra ausente, seguranca, privacidade.
+- Executado dinamicamente: install, typecheck, build, smoke, audit, madge, jscpd, ts-prune, API isolation, Browser E2E local.
+- INFERRED: algumas garantias de arquitetura e contratos sem teste automatizado formal.
+- BLOCKED: staging/producao, Gemini real, Twilio real, webhook externo real, microfone real, politicas GitHub.
 
-## 15. Proximos passos priorizados
+## Conclusao obrigatoria
 
-| Ordem | Acao | Prioridade | Esforco | Dependencias | Criterio de aceite |
-|---|---|---|---|---|---|
-| 1 | Adicionar CI/lint/test | P1 | M | escolha ferramentas | pipeline verde |
-| 2 | Migrar storage | P1 | L | banco escolhido | migrations + restore |
-| 3 | Hardening auth/API | P1 | M | estrategia sessao | testes negativos |
-| 4 | Twilio signature | P1 | M | PUBLIC_BASE_URL | callbacks seguros |
-| 5 | E2E playground | P1 | M | stubs de speech | fluxo salvo via UI |
-| 6 | Staging e smoke | P1 | M | infra | smoke aprovado |
-
+1. A plataforma esta pronta para producao? NAO.
+2. Evidencias: build/typecheck/smoke/E2E local passam, mas lint/test/CI/staging/security/backup/LGPD faltam.
+3. Testes executados: `npm ci`, typecheck, build, smoke, qa, audit, Browser E2E, API isolation. Falharam por ausencia: lint/test/coverage/integration. Bloqueados: staging, Gemini, Twilio, webhook real.
+4. Funcionalidades nao reais: billing/metering, auditoria administrativa, integracoes externas sem credenciais, voz real no navegador bloqueada.
+5. Riscos de seguranca: localStorage tokens, headers ausentes, rate limiting ausente, secrets/tokens em JSON, Twilio sem assinatura, webhook SSRF.
+6. Dividas tecnicas: P1=8, P2=5, P3=2.
+7. Acoes obrigatorias: CI/testes, hardening, staging, backup/restore, LGPD, validacao integracoes.
+8. Confidence Score: MEDIA.

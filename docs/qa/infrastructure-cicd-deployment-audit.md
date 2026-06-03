@@ -1,42 +1,50 @@
-# Auditoria de infraestrutura, CI/CD e deploy
+# Auditoria de Infraestrutura, CI/CD e Deploy
 
-STATUS: FAIL
+STATUS: FAIL para producao
 
-Local:
+## Evidencias
 
-- `npm ci` passou com Node runtime e PATH corrigido.
-- `npm run build` passou.
-- `npm run smoke` passou.
-- Servidor de producao local `dist/server.cjs` iniciou em porta temporaria.
+| Item | Resultado |
+|---|---|
+| `.github/workflows` | Ausente. |
+| Dockerfile | Ausente. |
+| IaC (`*.tf`, Pulumi) | Ausente. |
+| `.env.example` | Presente com variaveis principais. |
+| Build local | PASS. |
+| Smoke local | PASS. |
+| Staging | BLOCKED, URL ausente. |
+| Producao | BLOCKED, URL ausente. |
 
-Ausencias:
+## `.env.example`
 
-- Sem Dockerfile.
-- Sem docker-compose/compose.
-- Sem `.github/workflows`.
-- Sem pipeline de lint/typecheck/test/build/audit.
-- Sem deploy script.
-- Sem staging URL.
-- Sem production URL.
-- Sem healthcheck dedicado alem de `/api/status`.
-- Sem readiness/liveness checks.
-- Sem migration step.
-- Sem secrets manager documentado.
-- Sem rollback de deploy.
-- Sem backup/restore.
+Inclui:
 
-Tabela de ambientes:
+- `GEMINI_API_KEY`
+- `PORT`
+- `TWILIO_ACCOUNT_SID`
+- `TWILIO_AUTH_TOKEN`
+- `TWILIO_FROM_NUMBER`
+- `PUBLIC_BASE_URL`
+
+Nao inclui:
+
+- segredo de sessao/token;
+- webhook secret default;
+- configuracao de banco externo;
+- origem/CORS;
+- variaveis de seguranca/observabilidade.
+
+## Matriz de ambientes
 
 | Item | Local | Teste | Staging | Producao |
 |---|---|---|---|---|
-| Runtime | Node validado via Codex | BLOCKED | BLOCKED | BLOCKED |
-| Banco | JSON local | JSON temporario | BLOCKED | BLOCKED |
-| Variaveis | `.env.example` | parciais | BLOCKED | BLOCKED |
-| Storage | arquivo local | temp dir | BLOCKED | BLOCKED |
-| HTTPS | NOT APPLICABLE local | BLOCKED | BLOCKED | BLOCKED |
-| Backup | FAIL | FAIL | BLOCKED | BLOCKED |
-| Restore | FAIL | FAIL | BLOCKED | BLOCKED |
-| Monitoramento | FAIL | FAIL | BLOCKED | BLOCKED |
+| Banco | JSON local | Temp JSON em smoke | BLOCKED | BLOCKED |
+| Variaveis | `.env.example` parcial | temp env nos scripts | BLOCKED | BLOCKED |
+| Migrations | N/A | N/A | FAIL | FAIL |
+| Storage | Arquivo local | Arquivo temp | BLOCKED | BLOCKED |
+| Monitoramento | Nenhum | Nenhum | BLOCKED | BLOCKED |
+| Backup | Ausente | Nao testado | BLOCKED | BLOCKED |
 
-Decisao: FAIL para producao.
+## Decisao
 
+Deploy local e reproduzivel apos bootstrap de Node/NPM. Deploy de producao nao e reproduzivel nem governado por CI/CD, containers, IaC, backup/restore ou observabilidade.

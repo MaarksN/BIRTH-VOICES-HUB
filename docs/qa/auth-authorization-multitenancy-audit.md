@@ -1,48 +1,55 @@
-# Auditoria de autenticacao, autorizacao e isolamento
+# Auditoria de Autenticacao, Autorizacao e Multi-Tenancy
 
 STATUS: PARTIAL
 
-Autenticacao:
+## Autenticacao
 
-| Item | Status | Evidencia |
-|---|---|---|
-| Cadastro | PASS | Smoke e browser UI. |
-| Login | PASS | Smoke e codigo. |
-| Logout | PARTIAL | Remove token atual; sem revogacao global. |
-| Hash de senha | PASS | PBKDF2 SHA-512, salt e timing-safe compare. |
-| Sessao expira | PASS codigo | Token expira em 30 dias. |
-| Recuperacao de senha | MISSING | Ausente. |
-| Verificacao de email | MISSING | Ausente. |
-| MFA | NOT APPLICABLE atual | Nao implementado. |
-| Cookies HttpOnly/SameSite/Secure | FAIL | Token bearer em `localStorage`. |
-| Bloqueio por tentativas invalidas | FAIL | Ausente. |
+PASS:
 
-Autorizacao:
+- Senha hasheada com PBKDF2 SHA-512 em `server.ts:153`.
+- Comparacao com `crypto.timingSafeEqual` em `server.ts:161`.
+- Token de 32 bytes aleatorios em `server.ts:372`.
+- Expiracao de token em 30 dias em `server.ts:374`.
+- Logout remove token do store em `server.ts:955`.
+- Browser confirmou logout e redirecionamento de rota protegida.
 
-- Nao ha RBAC real alem de `role: "Owner"` no usuario.
-- Rota Admin e acessivel para qualquer usuario autenticado.
-- A maior parte dos recursos usa `ownerId`, nao `companyId`/`tenantId` compartilhado.
-- Modelo de organizacao e single-user; equipe/convites nao existem.
+PARTIAL/RISK:
 
-Isolamento validado:
+- Tokens bearer ficam em claro no arquivo JSON (`tokens`) e em `localStorage` (`lib/auth.ts:17`, `lib/api.ts:13`).
+- Nao ha cookie `HttpOnly`, `Secure`, `SameSite`.
+- Nao ha refresh token, revogacao global, bloqueio por tentativas invalidas ou MFA.
+- Erros de login nao parecem rate limited.
 
-Teste executado com dois usuarios em storage temporario:
+## Autorizacao
 
-- Usuario A criou agente: HTTP 201.
-- Usuario B listou agentes: 0 registros.
-- Usuario B tentou editar agente de A: HTTP 404.
-- Usuario B tentou excluir agente de A: HTTP 404.
-- Usuario A manteve 1 agente apos tentativas de B.
+PASS local:
 
-Status: PASS para isolamento basico de agentes por `ownerId`.
+- Endpoints de agentes/sessoes/integracoes exigem `requireAuth`.
+- Recursos sao filtrados por `ownerId`.
+- Teste dinamico confirmou que Tenant B nao acessou recursos do Tenant A:
+  - lista de agentes vazia para B;
+  - `PUT /api/agents/:id` de A por B -> 404;
+  - `DELETE /api/agents/:id` de A por B -> 404;
+  - lista de sessoes vazia para B;
+  - retry de entrega de A por B -> 404.
 
-Escopo nao validado:
+PARTIAL:
 
-- Isolamento de sessoes por IDs manipulados.
-- Isolamento de integration deliveries.
-- Isolamento de telephony calls.
-- Isolamento de relatorios futuros.
-- Usuarios de mesma empresa/organizacao, pois o modelo multi-member nao existe.
+- `role` existe no usuario, mas nao ha RBAC granular por papel.
+- Rotas Admin/Billing/Developers/Organization ficam disponiveis para qualquer usuario autenticado.
 
-Decisao da fase: PARTIAL. O isolamento basico por usuario tem evidencia positiva, mas autenticacao/authorization/multi-tenant ainda nao atendem producao.
+## Multi-tenancy
 
+Classificacao: PARTIAL.
+
+O sistema isola por usuario/owner, nao por tenant/organizacao formal. Isso passou no teste basico de isolamento, mas nao cumpre requisitos de multi-tenancy empresarial:
+
+- Sem tabela/entidade tenant separada.
+- Sem membership multiusuario por organizacao.
+- Sem roles por tenant.
+- Sem quota/rate limit por tenant.
+- Sem auditoria administrativa por tenant.
+
+## Decisao
+
+Nao houve vazamento confirmado. Mesmo assim, readiness de producao fica NO-GO ate tokens/cookies, RBAC, tenant formal, rate limiting e auditoria serem implementados ou formalmente aceitos como fora de escopo.

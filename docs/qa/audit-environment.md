@@ -1,61 +1,54 @@
-# Ambiente da auditoria
+# Ambiente da Auditoria
 
-STATUS: PASS
+STATUS: PASS com limitacoes ambientais documentadas
 
-Data e hora: 2026-06-03T12:42:20.1764346-03:00
+## Identificacao
 
-Repositorio: `C:\Users\Marks\Documents\GitHub\BIRTH-VOICES-HUB`
+| Campo | Valor |
+|---|---|
+| Repositorio | `C:\Users\Marks\Documents\GitHub\BIRTH-VOICES-HUB` |
+| Branch | `main` |
+| Commit base | `92c1d9d` |
+| Data | 2026-06-03 |
+| Sistema | Windows / PowerShell |
+| Modo | FULL |
 
-Branch inicial: `main`
+## Estado Git
 
-Branch de auditoria: `codex/audit-360-production-readiness`
+Comandos executados:
 
-Commit base: `cc57e3f8e0625b0252cd75de83b6a4a0ad03530a`
+- `git status --short`: sem alteracoes antes da geracao destes relatorios.
+- `git log --oneline -5`: `92c1d9d`, `cc57e3f`, `dd1f9ba`, `d45ea4d`, `ef67ba8`.
+- `git branch -a`: branch local atual `main`; tambem existe branch local `codex/audit-360-production-readiness` e remotes `origin/main`, `origin/codex/*`.
 
-Estado inicial do Git: limpo em `main`; branch tecnico criado antes dos relatorios.
+## Ferramentas
 
-Sistema operacional:
+| Ferramenta | Status | Evidencia |
+|---|---|---|
+| Node pelo PATH | FAIL | `node --version` usou `WindowsApps\OpenAI.Codex...\node.exe` e retornou `Acesso negado`. |
+| NPM pelo PATH | FAIL | `npm --version`: comando nao reconhecido. |
+| Node empacotado | PASS | `C:\Users\Marks\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe --version` -> `v24.14.0`. |
+| NPM temporario | PASS | Baixado em `%TEMP%\codex-npm-cli`; `npm --version` -> `11.16.0`. |
+| Python | PASS | `Python 3.11.9`. |
+| Docker | BLOCKED | `docker --version`: comando nao reconhecido. |
 
-- Microsoft Windows 11 Pro
-- Versao: 10.0.26200
-- Arquitetura: 64 bits
+## Ambiente e segredos
 
-Runtimes:
+- Variaveis de ambiente com nomes contendo `SECRET`, `TOKEN`, `PASSWORD`, `API`, `KEY` ou `AUTH`: nenhuma visivel no shell auditado.
+- Arquivo `.env.example` contem placeholders vazios para `GEMINI_API_KEY`, `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM_NUMBER`, `PUBLIC_BASE_URL`.
+- Nenhum segredo hardcoded foi confirmado pelos padroes de Quick Scan.
 
-- Node global do app Codex em PATH: bloqueado por `Acesso negado`.
-- Node usado nos testes: `C:\Users\Marks\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe`, versao `v24.14.0`.
-- `npm` global: ausente no PATH.
-- `npm` temporario usado na auditoria: `11.16.0`, baixado do registry em `%TEMP%\codex-npm-cli`.
-- Python: `3.11.9`.
-- pip: `24.0`.
-- Git: `2.52.0.windows.1`.
+## Servicos externos
 
-Servicos externos esperados:
+| Servico | Status | Motivo |
+|---|---|---|
+| Gemini | BLOCKED/PARTIAL | `GEMINI_API_KEY` nao configurada. Fluxo salva registro deterministico sem LLM. |
+| Twilio | BLOCKED | Credenciais e `PUBLIC_BASE_URL` ausentes. |
+| Webhook externo | BLOCKED | Nenhum endpoint sandbox fornecido. Fallback `not_configured` validado. |
+| Staging | BLOCKED | `STAGING_URL` ausente. |
+| Producao | BLOCKED | `PRODUCTION_URL` ausente. |
 
-- Gemini: `GEMINI_API_KEY`.
-- Twilio: `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM_NUMBER`, `PUBLIC_BASE_URL`.
-- Webhook CRM/ATS/backend: configurado pelo usuario em Developers.
+## Observacoes
 
-Variaveis de ambiente documentadas em `.env.example`:
-
-- `GEMINI_API_KEY`
-- `PORT`
-- `TWILIO_ACCOUNT_SID`
-- `TWILIO_AUTH_TOKEN`
-- `TWILIO_FROM_NUMBER`
-- `PUBLIC_BASE_URL`
-
-Limitacoes encontradas:
-
-- `node.exe` do PATH padrao retornou `Acesso negado`.
-- `npm`, `pnpm`, `yarn` e `bun` nao estavam disponiveis no PATH.
-- Playwright estava instalado no runtime, mas sem Chromium baixado; a auditoria usou Chrome instalado em `C:\Program Files\Google\Chrome\Application\chrome.exe`.
-- Nao havia credenciais reais de Gemini, Twilio, webhook externo, staging ou producao.
-- Nao havia banco real; a persistencia e um arquivo JSON local.
-
-Riscos de executar alteracoes:
-
-- `node_modules` e `dist` foram gerados localmente e estao ignorados pelo Git.
-- Nenhum arquivo de dados real em `data/` foi encontrado antes dos testes.
-- Testes que precisaram de persistencia usaram diretorios temporarios via `BIRTH_VOICES_DATA_DIR`.
-
+- `npm ci` inicialmente falhou por `ENOTEMPTY`/`EPERM` ao limpar `node_modules`; `node_modules` foi removido apos verificacao de caminho dentro do workspace e a instalacao passou com o Node empacotado no inicio do `PATH`.
+- O servidor local de E2E foi executado com `BIRTH_VOICES_DATA_DIR` temporario para nao tocar dados locais do projeto.

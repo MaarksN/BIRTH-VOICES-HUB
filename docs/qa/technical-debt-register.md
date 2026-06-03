@@ -1,260 +1,159 @@
-# Registro de divida tecnica
+# Registro Consolidado de Divida Tecnica
 
-STATUS: READY
+STATUS: Divida presente
 
-## Matriz consolidada
+## Resumo
 
-| ID | Area | Problema | Prioridade | Impacto | Esforco | Bloqueia producao | Acao recomendada |
-|---|---|---|---|---|---|---|---|
-| TD-001 | Banco | JSON local sem transacao/migrations/backup | P1 | perda/corrupcao de dados | L | SIM | Migrar para banco real com migrations e backup. |
-| TD-002 | QA | Sem lint/format/test scripts | P1 | gates obrigatorios ausentes | M | SIM | Adicionar ESLint/Prettier/Vitest. |
-| TD-003 | QA | Sem testes unitarios/integracao formais | P1 | regressao invisivel | L | SIM | Cobrir auth, agents, sessions, webhooks. |
-| TD-004 | Seguranca | Twilio callbacks sem assinatura | P1 | manipulacao de chamada/status | M | SIM | Validar `X-Twilio-Signature`. |
-| TD-005 | Auth | Token em localStorage | P1 | sequestro em XSS | M | SIM | Migrar para cookie HttpOnly ou hardening equivalente. |
-| TD-006 | Seguranca | Sem rate limit/headers/CSP | P1 | brute force/XSS/clickjacking | M | SIM | Adicionar helmet, CSP e rate limit. |
-| TD-007 | Operacao | Sem backup/restore/rollback | P1 | perda de dados e indisponibilidade | L | SIM | Definir e testar runbooks. |
-| TD-008 | Deploy | Sem CI/CD/staging smoke | P1 | release nao reproduzivel | M | SIM | Criar pipeline e ambiente staging. |
-| TD-009 | Webhook | SSRF/timeout/idempotencia fracos | P1 | abuso de rede e duplicidade | M | SIM | Validar URLs, timeout, fila e idempotencia. |
-| TD-010 | Produto | Billing UI-only | P2 | expectativa falsa de faturamento | M | NAO | Integrar gateway ou ocultar feature. |
-| TD-011 | Produto/Authz | Times/convites/RBAC ausentes | P2 | organizacao nao e multiusuario real | L | NAO | Modelar membros, papeis e convites. |
-| TD-012 | Produto | Cards de integracao sem acao | P2 | UX enganosa | S | NAO | Conectar ou remover cards. |
-| TD-013 | Frontend | Tailwind CDN/importmap em producao | P2 | performance e CSP fracos | M | NAO | Buildar Tailwind no pipeline. |
-| TD-014 | Codigo | `any` e modulos grandes | P2 | manutencao dificil | L | NAO | Modularizar e tipar contratos. |
-| TD-015 | Observabilidade | Sem logs estruturados/metricas/alertas | P2 | incidente invisivel | M | NAO | Adicionar logger, metricas e dashboards. |
-| TD-016 | Dependencias | Scripts de instalacao pendentes | P3 | supply chain governance | S | NAO | Revisar/registrar aprovacao de scripts. |
-| TD-017 | Admin | Admin sem RBAC | P2 | permissao confusa | M | NAO | Criar roles reais ou renomear escopo. |
+| Prioridade | Quantidade | Bloqueia producao |
+|---|---:|---|
+| P0 | 0 | Nao |
+| P1 | 8 | Sim |
+| P2 | 5 | Parcial |
+| P3 | 2 | Nao |
+| P4 | 0 | Nao |
 
-## Detalhamento
+## Itens
 
-### TD-001
+| ID | Tipo | Area | Problema | P | Sev | ICE | Esforco | Bloqueia |
+|---|---|---|---|---|---|---:|---|---|
+| DT-001 | 03 | Testes | Sem `lint`, `test`, `coverage`, `integration` e sem arquivos de teste. | P1 | ALTA | 14.4 | M | SIM |
+| DT-002 | 04 | Infra/DevOps | Sem CI/CD, Docker, IaC, staging validado ou deploy reproduzivel. | P1 | ALTA | 11.2 | M | SIM |
+| DT-003 | 05 | Seguranca | Sem headers de seguranca, rate limiting, helmet/cookies seguros. | P1 | ALTA | 13.3 | M | SIM |
+| DT-004 | 05/11 | Seguranca | Tokens em `localStorage` e tokens/secrets persistidos em JSON. | P1 | ALTA | 12.5 | M | SIM |
+| DT-005 | 11 | Compliance | Sem consentimento, retencao, exclusao real, portabilidade completa e auditoria imutavel. | P1 | ALTA | 12.6 | L | SIM |
+| DT-006 | 06 | Dados | Persistencia JSON sem migrations, backup, restore, indices ou transacoes reais. | P1 | ALTA | 11.2 | L | SIM |
+| DT-007 | 05 | Seguranca/API | Webhook configuravel permite HTTP e nao tem protecao SSRF; Twilio callbacks sem assinatura. | P1 | ALTA | 13.0 | M | SIM |
+| DT-008 | 09 | Multi-tenancy | Isolamento por `ownerId` passou, mas sem tenant formal/RBAC/quota. | P2 | MEDIA | 12.9 | L | NAO imediato |
+| DT-009 | 08 | Observabilidade | Sem tracing, logs estruturados, `request_id`, alertas ou SLO. | P2 | MEDIA | 10.7 | M | NAO imediato |
+| DT-010 | 01/02 | Arquitetura | `server.ts` monolitico (1297 linhas) e componentes grandes. | P2 | MEDIA | 21.0 | M | NAO imediato |
+| DT-011 | 10 | Billing | Billing/metering e UI informativa; sem provedor/back-end. | P2 | MEDIA | 12.3 | L | Depende do escopo |
+| DT-012 | 11/UX | Acessibilidade | Inputs com labels visuais sem associacao semantica. | P2 | MEDIA | 10.0 | S | NAO imediato |
+| DT-013 | 07 | Documentacao | Sem OpenAPI, ADRs, runbook, rollback e guia de testes. | P3 | MEDIA | 5.6 | M | NAO |
+| DT-014 | 02 | Codigo | JSCPD achou 7 clones; ts-prune listou exports possivelmente mortos. | P3 | BAIXA | 7.7 | S | NAO |
+| DT-015 | 04/09 | Operacao | Smoke staging/producao e integracoes externas nao executados. | P1 | ALTA | 12.0 | M | SIM |
 
-Titulo: Persistencia JSON local sem garantias produtivas
+## Detalhes por tipo
 
-Area: Banco de dados
+### TIPO 01 - Divida arquitetural
 
-Prioridade: P1 - ALTO
+STATUS: Divida presente
+SEVERIDADE: MEDIA
+ICE: Impact=9, Confidence=7, Effort=3 -> 21.0
 
-Status: OPEN
+Achados:
 
-Descricao: A aplicacao usa `data/birth-voices.json` como banco.
+1. `server.ts` tem 1297 linhas e concentra API, auth, persistencia, Gemini, Twilio e webhooks.
+2. `components/AgentForm.tsx` tem 588 linhas e `Playground.tsx` 560.
+3. Madge nao encontrou ciclos, portanto o risco e concentracao/acoplamento, nao dependencia circular.
 
-Evidencia: `server.ts` linhas 76-138.
+Acoes: separar servicos de auth/persistencia/integracoes; criar camada repository; extrair componentes grandes.
 
-Arquivo(s): `server.ts`
+### TIPO 02 - Divida de codigo
 
-Linha(s): 76-138
+STATUS: Divida presente
+SEVERIDADE: BAIXA/MEDIA
+ICE: Impact=6, Confidence=9, Effort=7 -> 7.7
 
-Impacto tecnico: sem transacoes, indices, migrations, backup e restore.
+Achados:
 
-Impacto para usuario: risco de perda ou corrupcao de dados.
+1. JSCPD: 7 clones, 110 linhas duplicadas.
+2. Duplicacao Login/Register e stat cards de dashboards.
+3. ts-prune: `useVoiceConversation`, `D3Chart`, `WebhookIntegration` possivelmente nao usados.
 
-Impacto para negocio: bloqueia operacao confiavel.
+Acoes: adicionar lint; remover exports mortos; criar componentes compartilhados.
 
-Risco: alto.
+### TIPO 03 - Divida de testes
 
-Causa provavel: prototipo/local-first.
+STATUS: Divida critica
+SEVERIDADE: ALTA
+ICE: Impact=8, Confidence=9, Effort=5 -> 14.4
 
-Solucao recomendada: Postgres/Supabase/SQLite gerenciado com migrations, backup e restore testado.
+Achados:
 
-Alternativas: manter JSON apenas para modo local explicitamente nao produtivo.
+1. 0 arquivos `*.test.*`/`*.spec.*`.
+2. `npm run test`: missing script.
+3. `npm run test:coverage` e `test:integration`: missing script.
 
-Esforco estimado: L
+Acoes: adicionar Vitest/Testing Library; criar testes API; versionar Playwright.
 
-Dependencias: escolha de banco e hospedagem.
+### TIPO 04 - Infra/DevOps
 
-Criterio de aceite: migrations do zero, backup e restore aprovados em staging.
+STATUS: Divida critica
+SEVERIDADE: ALTA
+ICE: Impact=7, Confidence=8, Effort=5 -> 11.2
 
-Testes necessarios: unitarios, integracao DB, concorrencia, restore.
+Achados:
 
-Bloqueia producao: SIM
+1. `.github/workflows` ausente.
+2. Dockerfile ausente.
+3. Staging/producao nao validaveis.
 
-Responsavel sugerido: Backend/DevOps
+Acoes: CI com ci/typecheck/lint/test/build/audit/smoke; Dockerfile; ambiente staging.
 
-Sprint ou milestone sugerida: Release readiness 1
+### TIPO 05 - Seguranca
 
-### TD-002
+STATUS: Divida critica
+SEVERIDADE: ALTA
+ICE: Impact=10, Confidence=8, Effort=6 -> 13.3
 
-Titulo: Gates de lint/format/test ausentes
+Achados:
 
-Area: QA
+1. Headers HTTP de seguranca ausentes.
+2. Tokens em localStorage e JSON.
+3. Webhooks/Twilio sem hardening suficiente.
 
-Prioridade: P1 - ALTO
+Acoes: helmet/rate limit/cookies seguros; validar Twilio signature; SSRF guard.
 
-Status: OPEN
+### TIPO 06 - Dados
 
-Descricao: `npm run lint`, `npm run format:check` e `npm test` nao existem.
+STATUS: Divida presente
+SEVERIDADE: ALTA
+ICE: Impact=8, Confidence=7, Effort=5 -> 11.2
 
-Evidencia: comandos retornaram Missing script.
+Achados:
 
-Arquivo(s): `package.json`
+1. JSON local sem migrations.
+2. Sem backup/restore.
+3. Sem indices/constraints/transacoes.
 
-Linha(s): scripts
+Acoes: banco gerenciado; migrations; backup/restore testado.
 
-Impacto tecnico: regressao e inconsistencia nao sao bloqueadas.
+### TIPO 07 - Documentacao
 
-Impacto para usuario: bugs chegam ao produto.
+STATUS: Divida presente
+SEVERIDADE: MEDIA
+ICE: Impact=5, Confidence=9, Effort=8 -> 5.6
 
-Impacto para negocio: release sem qualidade verificavel.
+Achados: sem OpenAPI, runbook, rollback, ADRs.
 
-Risco: alto.
+### TIPO 08 - Observabilidade
 
-Causa provavel: projeto ainda em fase inicial.
+STATUS: Divida presente
+SEVERIDADE: MEDIA
+ICE: Impact=8, Confidence=8, Effort=6 -> 10.7
 
-Solucao recomendada: adicionar ESLint, Prettier, Vitest e scripts obrigatorios.
+Achados: sem tracing, logs estruturados, alertas e SLO.
 
-Alternativas: Biome como ferramenta unica.
+### TIPO 09 - Multi-Tenancy
 
-Esforco estimado: M
+STATUS: Divida presente
+SEVERIDADE: MEDIA
+ICE: Impact=10, Confidence=9, Effort=7 -> 12.9
 
-Dependencias: padrao de estilo.
+Achados: owner isolation passou, mas sem tenant formal, roles, quota.
 
-Criterio de aceite: scripts passam local e em CI.
+### TIPO 10 - Billing/Metering
 
-Testes necessarios: CI completo.
+STATUS: Divida presente
+SEVERIDADE: MEDIA
+ICE: Impact=7, Confidence=7, Effort=4 -> 12.3
 
-Bloqueia producao: SIM
+Achados: tela declara ausencia de provedor; sem metering/cobranca real.
 
-Responsavel sugerido: Fullstack/QA
+### TIPO 11 - Compliance LGPD/GDPR
 
-Sprint ou milestone sugerida: Release readiness 1
+STATUS: Divida critica
+SEVERIDADE: ALTA
+ICE: Impact=9, Confidence=7, Effort=5 -> 12.6
 
-### TD-003
-
-Titulo: Ausencia de testes unitarios e integracao
-
-Area: Testes
-
-Prioridade: P1 - ALTO
-
-Status: OPEN
-
-Descricao: So existe smoke customizado; nao ha suites por camada.
-
-Evidencia: diretorios `tests/` e `e2e/` ausentes.
-
-Arquivo(s): repositorio
-
-Linha(s): N/A
-
-Impacto tecnico: regras de auth, storage e integracoes podem quebrar sem alerta.
-
-Impacto para usuario: instabilidade em fluxos criticos.
-
-Impacto para negocio: maior custo de manutencao.
-
-Risco: alto.
-
-Causa provavel: foco em entrega funcional inicial.
-
-Solucao recomendada: cobrir auth, agents, sessions, webhooks, isolation e frontend.
-
-Alternativas: expandir smoke inicialmente.
-
-Esforco estimado: L
-
-Dependencias: framework de testes.
-
-Criterio de aceite: cobertura dos fluxos criticos e negativos.
-
-Testes necessarios: unit, integration, e2e.
-
-Bloqueia producao: SIM
-
-Responsavel sugerido: QA/Fullstack
-
-Sprint ou milestone sugerida: Release readiness 1
-
-### TD-004
-
-Titulo: Callbacks Twilio sem assinatura
-
-Area: Seguranca/API
-
-Prioridade: P1 - ALTO
-
-Status: OPEN
-
-Descricao: Endpoints Twilio aceitam chamadas publicas sem validar origem.
-
-Evidencia: `/api/twilio/voice/:callId`, `/answer` e `/status` nao verificam `X-Twilio-Signature`.
-
-Arquivo(s): `server.ts`
-
-Linha(s): 1190-1310
-
-Impacto tecnico: status/transcricoes podem ser manipulados.
-
-Impacto para usuario: sessoes falsas ou alteradas.
-
-Impacto para negocio: risco de fraude e dados incorretos.
-
-Risco: alto.
-
-Causa provavel: integracao direta inicial.
-
-Solucao recomendada: validar assinatura Twilio com auth token e URL canonica.
-
-Alternativas: proxy autenticado dedicado.
-
-Esforco estimado: M
-
-Dependencias: `PUBLIC_BASE_URL` estavel.
-
-Criterio de aceite: callbacks invalidos retornam 403 e testes passam.
-
-Testes necessarios: positivos/negativos de assinatura.
-
-Bloqueia producao: SIM
-
-Responsavel sugerido: Backend/Security
-
-Sprint ou milestone sugerida: Release readiness 1
-
-### TD-005
-
-Titulo: Sessao bearer em localStorage
-
-Area: Autenticacao
-
-Prioridade: P1 - ALTO
-
-Status: OPEN
-
-Descricao: Token fica persistido em `localStorage`.
-
-Evidencia: `lib/auth.ts` e `lib/api.ts`.
-
-Arquivo(s): `lib/auth.ts`, `lib/api.ts`
-
-Linha(s): N/A
-
-Impacto tecnico: XSS compromete token.
-
-Impacto para usuario: sequestro de sessao.
-
-Impacto para negocio: incidente de seguranca.
-
-Risco: alto.
-
-Causa provavel: SPA simples.
-
-Solucao recomendada: cookie HttpOnly/SameSite/Secure, CSRF conforme necessario, refresh/revocation.
-
-Alternativas: manter bearer somente em memoria com CSP forte.
-
-Esforco estimado: M
-
-Dependencias: estrategia de auth.
-
-Criterio de aceite: token nao acessivel por JS e logout/revogacao testados.
-
-Testes necessarios: auth e security tests.
-
-Bloqueia producao: SIM
-
-Responsavel sugerido: Backend/Frontend
-
-Sprint ou milestone sugerida: Release readiness 1
-
-Demais itens da matriz seguem o mesmo criterio de aceite indicado na tabela consolidada.
-
+Achados: sem consentimento, retencao, delete/export completo, auditoria imutavel.
