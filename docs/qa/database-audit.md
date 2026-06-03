@@ -1,14 +1,21 @@
-# Auditoria de banco de dados
+# Auditoria de Banco de Dados e Persistencia
 
-STATUS: FAIL
+STATUS: FAIL para producao; PASS local
 
-Tipo de persistencia: arquivo JSON local.
+## Modelo real
 
-Arquivo padrao: `data/birth-voices.json`.
+Nao ha banco relacional/NoSQL externo. A persistencia real e um arquivo JSON:
 
-Override de teste: `BIRTH_VOICES_DATA_DIR`.
+- `server.ts:76`: `DATA_DIR = process.env.BIRTH_VOICES_DATA_DIR || path.join(process.cwd(), "data")`.
+- `server.ts:77`: `DATA_FILE = path.join(DATA_DIR, "birth-voices.json")`.
+- `server.ts:109`: `readDatabase`.
+- `server.ts:134`: `writeDatabase`.
+- `server.ts:137`: grava JSON formatado em arquivo temporario.
+- `server.ts:138`: renomeia temporario para arquivo final.
 
-Colecoes logicas:
+## Entidades persistidas
+
+`Database` inclui:
 
 - `users`
 - `tokens`
@@ -18,34 +25,34 @@ Colecoes logicas:
 - `telephonyCalls`
 - `integrationDeliveries`
 
-Evidencias positivas:
+## Migrations e schema
 
-- `readDatabase` cria diretorio/arquivo quando ausente.
-- `writeDatabase` grava em arquivo temporario e renomeia.
-- Agentes, sessoes, integracoes, chamadas e entregas carregam `ownerId`.
-- Smoke usou storage temporario e validou criacao/listagem de usuario, agente e sessao.
-- Teste de isolamento criou Usuario A e Usuario B; Usuario B listou 0 agentes, recebeu 404 ao editar/deletar agente de A, e A manteve 1 agente.
+Comandos executados:
 
-Falhas para producao:
+- Busca por `migrations`, `*.sql`, `schema.prisma`: nenhum resultado.
+- Busca por ORM: nao ha Prisma/Sequelize/Mongoose.
 
-- Nao ha banco relacional/documental real.
-- Nao ha migrations.
-- Nao ha schema versioning.
-- Nao ha indices.
-- Nao ha constraints.
-- Nao ha transacoes.
-- Nao ha locking para concorrencia entre requisicoes/processos.
-- Nao ha backup configurado.
-- Nao ha restore testado.
-- Nao ha rollback de schema.
-- Nao ha estrategia de retencao/exclusao/portabilidade de dados.
+Status: NOT APPLICABLE para migrations de banco porque nao ha banco estruturado. FAIL para readiness de producao porque schema versionado, rollback e restore nao existem.
+
+## Integridade e isolamento
+
+PASS local:
+
+- Agentes filtrados por `ownerId` em `server.ts:994`.
+- Sessoes filtradas por `ownerId` em `server.ts:1064`.
+- Entregas filtradas por `ownerId` em `server.ts:1329`.
+- Teste dinamico de isolamento passou: Tenant B nao listou, atualizou, removeu ou retentou recursos do Tenant A.
 
 Riscos:
 
-- Corrupcao ou perda de dados em concorrencia, falha de disco ou deploy.
-- Dificuldade de evoluir schema sem drift.
-- Escalabilidade limitada.
-- Backups manuais ou inexistentes bloqueiam producao.
+- Sem constraints de unicidade alem de checagens em codigo.
+- Sem transacoes reais entre entrega webhook e gravacao da sessao.
+- Tokens e webhook secrets ficam no arquivo JSON local.
+- Sem criptografia em repouso.
+- Sem backup/restore documentado ou testado.
+- Sem indices; busca/filtros dependem de array em memoria.
 
-Decisao da fase: FAIL para prontidao de producao. O JSON local e aceitavel para prototipo/local sandbox, nao para plataforma produtiva sem controles adicionais.
+## Decisao
 
+Local/prototipo: PASS.
+Producao: FAIL ate substituir ou envolver a persistencia com banco gerenciado, migrations, backups, restore testado, criptografia/secret management e estrategia de concorrencia.

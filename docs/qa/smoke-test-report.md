@@ -1,42 +1,48 @@
-# Relatorio de smoke test
+# Relatorio de Smoke Test
 
-STATUS: PASS
+STATUS: PASS local; BLOCKED staging/producao
 
-Comando:
+## Smoke local automatizado
 
-`npm run smoke`
-
-Ambiente:
-
-- Executado apos `npm run build`.
-- Servidor `dist/server.cjs` iniciado pelo script em porta aleatoria.
-- `BIRTH_VOICES_DATA_DIR` temporario.
+Comando: `npm run smoke`
 
 Resultado:
 
 `Smoke test passed: status, auth, agents, sessions and integration fallback are healthy.`
 
-Fluxos validados:
+O script `scripts/smoke-test.mjs` executa:
 
-- `/api/status` usando storage temporario.
-- Cadastro com usuario novo.
-- Token retornado.
-- `/api/me` com token.
-- Criacao de agente.
-- Listagem de agente.
-- Criacao de sessao.
-- Registro de `integrationDelivery.status = not_configured`.
-- Listagem de sessao.
-- Encerramento e limpeza do storage temporario.
+1. Sobe `dist/server.cjs` em porta temporaria.
+2. Usa `BIRTH_VOICES_DATA_DIR` temporario.
+3. Valida `/api/status`.
+4. Registra usuario.
+5. Valida `/api/me`.
+6. Cria agente.
+7. Lista agente.
+8. Cria sessao.
+9. Confirma fallback de integracao `not_configured`.
+10. Lista sessoes.
 
-Escopo nao coberto:
+## Smoke local manual/browser
 
-- Browser UI completo.
-- Gemini real.
-- Twilio real.
-- Webhook externo real.
-- Backup/restore.
-- Staging/producao.
-- Concorrencia.
-- Casos negativos extensivos.
+PASS para fluxo:
 
+- cadastro;
+- agente;
+- playground por texto;
+- sessao;
+- resultados;
+- dashboard;
+- logout.
+
+## Smoke staging/producao
+
+BLOCKED:
+
+- `STAGING_URL` nao fornecida.
+- `PRODUCTION_URL` nao fornecida.
+- credenciais sandbox nao fornecidas.
+
+## Decisao
+
+Smoke local e forte o suficiente para validar funcionamento basico. Nao e suficiente para GO de producao sem staging/producao real.

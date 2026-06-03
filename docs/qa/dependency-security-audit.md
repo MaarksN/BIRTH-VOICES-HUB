@@ -1,33 +1,37 @@
-# Auditoria de dependencias
+# Auditoria de Seguranca de Dependencias
 
-STATUS: PASS_WITH_WARNINGS
+STATUS: PASS com ressalvas
 
-Comandos:
+## Instalacao e audit
+
+Comandos executados com NPM temporario 11.16.0:
 
 - `npm ci`
 - `npm audit --audit-level=low`
 
-Resultado:
+Resultados:
 
 - 258 pacotes instalados.
 - 259 pacotes auditados.
 - 0 vulnerabilidades conhecidas pelo npm audit.
 
-Warnings:
+## Warnings
+
+`npm ci` emitiu:
 
 - `node-domexception@1.0.0` deprecated.
-- `npm` 11 indicou scripts de instalacao ainda nao revisados/permitidos para:
-  - `@google/genai@2.7.0`
-  - `esbuild@0.28.0`
-  - `protobufjs@7.6.2`
-  - `esbuild@0.25.12`
+- `allow-scripts` pendente para `@google/genai`, `esbuild`, `protobufjs`.
 
-Riscos:
+Esses avisos nao quebraram instalacao/build, mas devem entrar em governanca de supply chain.
 
+## Lacunas
+
+- Sem Dependabot/Renovate.
+- Sem CI executando `npm audit`.
 - Sem SBOM.
-- Sem politica de licencas.
-- Sem Dependabot/Renovate/CI audit.
-- Sem lockfile policy documentada.
+- Sem pinning estrito em `package.json` (varios `^`).
+- Sem revisao formal de scripts de instalacao.
 
-Decisao: PASS para vulnerabilidades conhecidas no momento da auditoria; warnings devem entrar no backlog.
+## Decisao
 
+PASS para CVEs conhecidas no momento da auditoria. PARTIAL para supply chain/governanca.

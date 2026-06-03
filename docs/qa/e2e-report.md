@@ -2,36 +2,42 @@
 
 STATUS: PARTIAL
 
-Ferramenta: Playwright via pacote do runtime Codex e Chrome instalado localmente.
+## Ambiente
 
-Ambiente: servidor de producao local em `http://127.0.0.1:3300` com `BIRTH_VOICES_DATA_DIR` temporario.
+- Servidor local de producao: `NODE_ENV=production`, `PORT=4517`.
+- Storage isolado: `%TEMP%\birth-voices-browser-audit-4517`.
+- Navegador: Browser in-app controlado por Playwright.
 
-Passou:
+## Fluxos executados
 
-- Rota protegida `/dashboard` redirecionou para login quando sem token.
-- Cadastro via UI funcionou.
-- Rota `/dashboard/agents/new` abriu e salvou agente no backend.
-- Rotas autenticadas renderizaram texto esperado:
-  - dashboard
-  - agents/new
-  - playground
-  - results
-  - analytics
-  - developers
-  - organization
-  - admin
-  - billing
-  - telephony
-- Nenhum `pageerror` nas passagens de rota.
+| Fluxo | Resultado |
+|---|---|
+| Landing abre | PASS |
+| Cadastro | PASS |
+| Dashboard autenticado | PASS |
+| Criar agente | PASS |
+| Persistencia apos refresh | PASS |
+| Playground com fallback texto | PASS |
+| Salvar sessao | PASS |
+| Results mostra sessao | PASS |
+| Dashboard recalcula metricas | PASS |
+| Logout | PASS |
+| Rota protegida sem sessao | PASS |
+| Console errors | PASS, nenhum erro registrado |
 
-Bloqueado:
+## Bloqueios
 
-- Fluxo completo do playground via UI, com respostas e salvamento de sessao, ficou bloqueado em Chrome headless antes do input de resposta habilitar.
-- Tentativas de stub em `speechSynthesis` nao produziram estado testavel de forma confiavel.
+- Microfone/voz real: BLOCKED por permissao do navegador (`not-allowed`).
+- Gemini real: BLOCKED por ausencia de `GEMINI_API_KEY`.
+- Twilio real: BLOCKED por ausencia de credenciais e URL publica.
+- Webhook externo real: BLOCKED por ausencia de endpoint sandbox.
+- Staging/producao: BLOCKED por ausencia de URLs.
 
-Warnings:
+## Evidencia funcional
 
-- Tailwind CDN em producao.
+Sessao salva via Browser: ID `SES-1780504618271`, 4 campos estruturados, dashboard com 1 agente e 1 sessao, resultados exibindo dados extraidos.
 
-Decisao E2E: PARTIAL. Ha cobertura basica de navegacao e renderizacao, mas o fluxo critico de conversa/salvamento precisa de E2E dedicado e deterministico.
+## Decisao
 
+E2E local critico: PASS.
+E2E real completo de producao: BLOCKED. Como o prompt exige E2E critico e smoke staging para GO, a decisao final permanece NO-GO.

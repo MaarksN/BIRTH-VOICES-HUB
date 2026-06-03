@@ -1,32 +1,35 @@
-# Roadmap de divida tecnica
+# Roadmap de Divida Tecnica
 
-STATUS: READY
+STATUS: Plano recomendado
 
-## Release readiness 1 - Bloqueadores de producao
+## Semana 1 - Bloqueadores de release
 
-1. Migrar persistencia para banco com migrations, backup e restore.
-2. Criar CI com `npm ci`, lint, format check, typecheck, unit/integration tests, build, audit e smoke.
-3. Implementar testes unitarios/integracao para auth, agents, sessions, isolation e webhooks.
-4. Validar assinatura Twilio.
-5. Trocar armazenamento de sessao para cookie HttpOnly ou alternativa equivalente.
-6. Adicionar rate limiting, Helmet/CSP e politica de erros.
-7. Criar staging e executar smoke real.
-8. Implementar backup/restore e rollback documentado.
+1. Criar CI com `npm ci`, typecheck, build, smoke, audit e scripts faltantes.
+2. Adicionar `lint`, `test`, `test:coverage`, `test:integration`.
+3. Implementar headers de seguranca, rate limiting e sanitizacao de erros.
+4. Definir staging e rodar smoke real.
+5. Documentar rollback, backup e runbook minimo.
 
-## Release readiness 2 - Produto e operacao controlada
+## Semanas 2-3 - Seguranca e dados
 
-1. Definir modelo real de organizacao, membros, convites e RBAC.
-2. Conectar ou remover billing.
-3. Conectar ou remover cards de integracoes de AgentForm.
-4. Hardening de webhook: SSRF protection, timeout, fila, retry, idempotencia.
-5. Observabilidade minima: logs estruturados, request id, metricas, alertas.
-6. E2E deterministico do playground e telefonia.
+1. Migrar tokens para cookie HttpOnly/SameSite/Secure ou estrategia equivalente.
+2. Hash/criptografar tokens e webhook secrets em repouso.
+3. Validar assinatura Twilio nos callbacks.
+4. Restringir webhooks contra SSRF e exigir HTTPS em producao.
+5. Definir banco persistente com migrations e backup/restore testado.
 
-## Release readiness 3 - Maturidade
+## Mes 1 - Produto operacional
 
-1. OpenAPI e contratos.
-2. SBOM e politica de licencas.
-3. ADRs, CODEOWNERS, SECURITY.md, CONTRIBUTING.md.
-4. Testes de carga e concorrencia.
-5. LGPD: retencao, exclusao, portabilidade, consentimento e auditoria.
+1. Implementar tenant formal, roles e auditoria administrativa.
+2. Criar testes E2E versionados para cadastro, login, agente, playground, resultados e logout.
+3. Implementar observabilidade: logs estruturados, `request_id`, metricas e alertas.
+4. Criar politica LGPD: consentimento, retencao, exclusao e exportacao.
+5. Se billing estiver no escopo, implementar provedor real, webhooks assinados e idempotencia.
 
+## Criterios de saida do NO-GO
+
+- P1 zerados ou mitigados formalmente.
+- E2E e smoke staging aprovados.
+- Lint/test/build/audit/CI aprovados.
+- Backup/restore testado.
+- Seguranca minima web/API aplicada.

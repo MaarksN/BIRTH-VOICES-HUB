@@ -1,40 +1,46 @@
-# Mapa de arquitetura
+# Mapa de Arquitetura
 
-STATUS: PASS
+STATUS: PARTIAL
 
-Arquitetura observada:
+## Visao
 
 ```mermaid
 flowchart LR
-  Browser["React SPA (HashRouter)"] --> API["Express server.ts"]
-  API --> JSON["data/birth-voices.json"]
-  API --> Gemini["Gemini API (optional)"]
-  API --> Twilio["Twilio REST + TwiML callbacks (optional)"]
-  API --> Webhook["CRM/ATS/n8n/backend webhook (optional)"]
+  Browser["React SPA / HashRouter"] --> ApiClient["lib/api.ts"]
+  ApiClient --> Express["Express server.ts"]
+  Express --> JsonStore["JSON store birth-voices.json"]
+  Express --> Gemini["Gemini API quando GEMINI_API_KEY existe"]
+  Express --> Twilio["Twilio API quando credenciais existem"]
+  Express --> Webhook["Webhook externo configuravel"]
 ```
 
-Camadas:
+## Camadas observadas
 
-- Frontend: rotas em `App.tsx`; paginas em `pages/`; componentes em `components/`; cliente HTTP em `lib/api.ts`.
-- Backend: `server.ts` contem modelos in-memory tipados, validadores, regras, rotas, integracao Gemini, Twilio, webhook e serving do frontend.
-- Persistencia: leitura/escrita atomica simples via temp file + rename em `writeDatabase`, sem locking multi-processo.
-- Autenticacao: bearer token salvo no JSON e no `localStorage`.
-- Autorizacao/isolamento: escopo por `ownerId` em agents, sessions, integrations, telephonyCalls e deliveries.
+| Camada | Evidencia | Status |
+|---|---|---|
+| UI | `pages/**`, `components/**` | PASS |
+| Cliente API | `lib/api.ts` | PASS |
+| Auth browser | `lib/auth.ts`, `localStorage` | PARTIAL |
+| Backend/API | `server.ts` endpoints Express | PASS |
+| Dominio/servicos | Funcoes no proprio `server.ts` | PARTIAL |
+| Persistencia | JSON file por `readDatabase`/`writeDatabase` | PARTIAL |
+| Infra/operacao | Sem CI, Docker, IaC | FAIL |
 
-Pontos fortes:
+## Dependencias e ciclos
 
-- SPA e API rodam no mesmo origin, reduzindo superficie CORS.
-- Smoke de producao usa storage temporario isolado.
-- Rotas principais de dados filtram por `ownerId`.
-- Senhas usam PBKDF2 com salt e comparacao timing-safe.
-- Webhook de saida pode assinar payload com HMAC.
+Comando executado:
 
-Riscos arquiteturais:
+`npm exec --yes madge -- --circular --extensions ts,tsx --exclude "node_modules|dist" .`
 
-- `server.ts` concentra responsabilidades demais: storage, auth, dominio, integracoes, API e static hosting.
-- JSON local substitui banco transacional; nao ha migrations, schema versioning, backup ou restore.
-- Ausencia de CI, Docker e documentacao operacional limita reprodutibilidade.
-- Integracoes externas nao possuem filas, retries com backoff, idempotencia ou timeouts explicitos.
-- Twilio callbacks publicos nao validam `X-Twilio-Signature`.
-- Admin e organizacao nao tem RBAC real nem modelo de membros/convites.
+Resultado: `No circular dependency found!` em 25 arquivos processados.
 
+## Riscos arquiteturais
+
+1. `server.ts` e um modulo monolitico de 1297 linhas com regras de auth, persistencia, integracoes, Twilio, Gemini, validacao e rotas.
+2. Nao ha repositorios/servicos separados para persistencia, entrega webhook, chamadas Twilio e analise LLM.
+3. A persistencia por JSON local e adequada para prototipo/local, mas nao para producao multiusuario sem locks distribuidos, backup, indices e controle transacional.
+4. UI e backend usam modelo de isolamento por `ownerId`, mas nao existe conceito formal de tenant/organizacao com RBAC granular.
+
+## Conclusao
+
+Arquitetura pequena e funcional localmente, mas ainda insuficiente para producao real. O principal risco nao e ciclo de dependencia, e sim concentracao de responsabilidades e ausencia de infraestrutura operacional.

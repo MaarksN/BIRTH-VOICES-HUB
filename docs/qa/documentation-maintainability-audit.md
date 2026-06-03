@@ -1,33 +1,41 @@
-# Auditoria de documentacao e manutenibilidade
+# Auditoria de Documentacao e Manutenibilidade
 
 STATUS: PARTIAL
 
-Documentacao existente:
+## Documentacao
 
-- README em portugues com instalacao local, variaveis, integracoes, Twilio e build.
-- `.env.example` com variaveis principais.
-- Smoke test documenta implicitamente fluxo minimo.
+PASS:
 
-Lacunas:
+- `README.md` explica objetivo, setup local, Gemini, webhook, Twilio e build.
+- `.env.example` existe.
+- `docs/qa/**` contem esta auditoria.
 
-- Sem arquitetura documentada antes desta auditoria.
-- Sem API docs/OpenAPI.
-- Sem troubleshooting.
-- Sem runbook.
-- Sem incident response.
-- Sem backup/restore.
-- Sem rollback.
-- Sem guia de testes.
-- Sem governanca de contribuicao.
-- Sem SECURITY.md.
+FAIL/PARTIAL:
 
-Manutenibilidade:
+- Sem OpenAPI/Swagger.
+- Sem ADRs.
+- Sem runbook operacional.
+- Sem rollback/restore.
+- Sem arquitetura antes desta auditoria.
+- Sem guia de contribuicao/testes.
+- Sem documentacao de privacidade/retencao/consentimento.
 
-- `server.ts` e grande e concentra muitas responsabilidades.
-- `AgentForm.tsx` e `Playground.tsx` sao componentes extensos.
-- Uso amplo de `any`.
-- Falta lint/format/test automatizado.
-- Ausencia de contratos/schema aumenta custo de evolucao.
+## Manutenibilidade
 
-Decisao: PARTIAL. README ajuda a rodar localmente, mas ainda nao sustenta manutencao por equipe ou operacao.
+Ferramentas:
 
+- Madge: sem dependencias circulares.
+- JSCPD: 7 clones, 1.68% de linhas duplicadas.
+- ts-prune: possiveis exports nao usados: `WebhookIntegration`, `D3Chart default`, `useVoiceConversation`, `ApiError` usado no modulo, etc.
+
+Riscos:
+
+- `server.ts` com 1297 linhas.
+- `AgentForm.tsx` com 588 linhas.
+- `Playground.tsx` com 560 linhas.
+- Duplicacao em paginas de dashboard e Login/Register.
+- Ausencia de lint/testes automatizados facilita regressao.
+
+## Decisao
+
+Documentacao de uso local e suficiente para outro dev subir o projeto, mas manutenibilidade de producao requer modularizacao, testes, lint, API docs e runbooks.

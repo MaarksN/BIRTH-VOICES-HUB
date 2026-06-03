@@ -1,40 +1,38 @@
-# Auditoria de governanca, privacidade e conformidade
+# Auditoria de Governanca, Privacidade e Compliance
 
-STATUS: FAIL
+STATUS: FAIL para producao
 
-Governanca de codigo:
+## Governanca tecnica
 
-- Sem CI/CD.
-- Sem branch protection verificavel no repositorio local.
-- Sem CODEOWNERS.
-- Sem SECURITY.md.
-- Sem CONTRIBUTING.md.
-- Sem changelog/releases/tags documentados.
-- Sem ADRs.
-- Sem politica de secrets.
+| Item | Status | Evidencia |
+|---|---|---|
+| Branch protection | BLOCKED | Nao validado sem acesso remoto/politicas GitHub. |
+| CI bloqueante | FAIL | `.github/workflows` ausente. |
+| Revisao obrigatoria PR | BLOCKED | Nao validado. |
+| Rollback documentado | FAIL | README nao documenta rollback. |
+| Runbook/incidente | FAIL | Nao ha runbook. |
+| RPO/RTO | FAIL | Nao documentado. |
+| Rotacao de credenciais | FAIL | Nao documentado. |
 
-Governanca de dados:
+## Privacidade/LGPD
 
-- Nao ha inventario formal de dados pessoais.
-- A plataforma armazena email, empresa, caller, transcricao, resumo, tags, campos extraidos e possiveis dados sensiveis.
+Riscos:
+
+- Plataforma armazena transcricoes, nomes/contatos, campos extraidos e dados potencialmente sensiveis de saude/RH.
+- Nao ha consentimento com timestamp/versao.
 - Nao ha politica de retencao.
-- Nao ha exclusao de conta/dados.
-- Nao ha exportacao/portabilidade alem de CSV de sessoes filtradas.
-- Nao ha mascaramento de dados em logs/testes.
-- Nao ha trilha de auditoria administrativa.
+- Nao ha exclusao real de conta/dados do usuario.
+- Nao ha exportacao/portabilidade completa; existe CSV de sessoes em `pages/Dashboard/Results.tsx:97`.
+- Nao ha segregacao formal entre ambiente de teste e producao.
+- Nao ha trilha de auditoria imutavel.
 
-Governanca operacional:
+## Evidencias
 
-- Sem runbook.
-- Sem playbook de incidentes.
-- Sem RPO/RTO.
-- Sem backup/restore.
-- Sem status page.
-- Sem processo de rollback.
-- Sem monitoramento/alertas.
+- `pages/Dashboard/Organization.tsx:148-155`: tela informa que eventos reais de auditoria ainda nao estao habilitados.
+- `server.ts:1070`: cria sessoes com transcricao/resumo.
+- `server.ts:134-138`: grava todo o banco JSON local.
+- `server.ts:1045`: ha delete de agente, mas nao delete/export de conta completa.
 
-LGPD/privacidade:
+## Decisao
 
-- BLOCKED: nao ha requisitos legais/termos/politica anexados.
-- FAIL para prontidao porque transcricoes podem conter dados pessoais/sensiveis sem controles de retencao, consentimento, acesso e exclusao.
-
+FAIL para prontidao de producao, especialmente se houver dados de saude, RH, candidatos, pacientes ou clientes reais.

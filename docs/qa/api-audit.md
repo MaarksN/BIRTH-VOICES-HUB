@@ -2,52 +2,50 @@
 
 STATUS: PARTIAL
 
-Endpoints mapeados:
+## Endpoints mapeados
+
+`rg -n "app\.(get|post|put|patch|delete)" server.ts` identificou:
 
 | Metodo | Caminho | Auth | Status |
 |---|---|---|---|
-| GET | `/api/status` | opcional | PASS |
-| POST | `/api/auth/register` | nao | PASS |
-| POST | `/api/auth/login` | nao | PASS |
-| POST | `/api/auth/logout` | sim | PARTIAL |
-| GET | `/api/me` | sim | PASS |
-| PATCH | `/api/me` | sim | PASS |
-| GET | `/api/agents` | sim | PASS |
-| POST | `/api/agents` | sim | PASS |
-| PUT | `/api/agents/:id` | sim | PASS |
-| DELETE | `/api/agents/:id` | sim | PASS |
-| GET | `/api/sessions` | sim | PASS |
-| POST | `/api/sessions` | sim | PASS |
-| POST | `/api/sessions/analyze-and-save` | sim | PASS local sem Gemini |
-| GET | `/api/telephony/calls` | sim | PARTIAL |
-| POST | `/api/telephony/calls` | sim | BLOCKED sem Twilio |
-| POST | `/api/twilio/voice/:callId` | nao | FAIL seguranca |
-| POST | `/api/twilio/voice/:callId/answer` | nao | FAIL seguranca |
-| POST | `/api/twilio/status/:callId` | nao | FAIL seguranca |
-| GET | `/api/integrations` | sim | PASS |
-| GET | `/api/integrations/deliveries` | sim | PASS |
-| POST | `/api/integrations/deliveries/:id/retry` | sim | PARTIAL |
-| PATCH | `/api/integrations` | sim | PARTIAL |
-| POST | `/api/integrations/test-webhook` | sim | PARTIAL |
-| POST | `/api/chat` | sim | BACKEND ONLY/BLOCKED sem Gemini |
+| GET | `/api/status` | Opcional por bearer | PASS |
+| POST | `/api/auth/register` | Publico | PASS |
+| POST | `/api/auth/login` | Publico | PASS |
+| POST | `/api/auth/logout` | Bearer | PASS |
+| GET | `/api/me` | Bearer | PASS |
+| PATCH | `/api/me` | Bearer | PASS |
+| GET/POST/PUT/DELETE | `/api/agents` e `/api/agents/:id` | Bearer | PASS |
+| GET/POST | `/api/sessions` | Bearer | PASS |
+| POST | `/api/sessions/analyze-and-save` | Bearer | PASS |
+| GET/POST | `/api/telephony/calls` | Bearer | PARTIAL |
+| POST | `/api/twilio/voice/:callId` | Publico | PARTIAL/RISK |
+| POST | `/api/twilio/voice/:callId/answer` | Publico | PARTIAL/RISK |
+| POST | `/api/twilio/status/:callId` | Publico | PARTIAL/RISK |
+| GET/PATCH | `/api/integrations` | Bearer | PASS |
+| GET/POST | `/api/integrations/deliveries` | Bearer | PASS/PARTIAL |
+| POST | `/api/integrations/test-webhook` | Bearer | PARTIAL |
+| POST | `/api/chat` | Bearer | BLOCKED sem Gemini |
 
-Validacoes positivas:
+## Validacoes dinamicas
 
-- Smoke validou `/api/status`, cadastro, `/api/me`, CRUD basico de agente, criacao/listagem de sessao e fallback de integracao.
-- Isolamento de agentes por usuario validado com dois usuarios.
-- Payload JSON limitado a 2 MB.
-- Erros de autenticacao retornam 401.
+PASS:
 
-Lacunas:
+- `scripts/smoke-test.mjs`: status, cadastro, `/api/me`, criar agente, listar agente, criar sessao, listar sessao, fallback de integracao.
+- Teste API customizado: `/api/me` sem token retorna 401; dois usuarios isolados; cross-tenant update/delete/retry retorna 404.
 
-- Nao ha rate limiting.
-- Nao ha schemas centralizados com Zod/Yup/JSON Schema.
-- Nao ha OpenAPI/contratos.
-- Nao ha testes automatizados negativos formais.
-- Nao ha paginacao server-side para sessoes/agentes.
-- Webhook de saida aceita URL arbitraria `http://` ou `https://`, sem allowlist, bloqueio de IP privado, timeout ou limite de resposta forte.
-- Twilio callbacks nao validam assinatura.
-- Tratador global retorna status 400 para muitos erros internos.
+BLOCKED:
 
-Decisao da fase: PARTIAL. APIs locais principais funcionam, mas seguranca e contratos nao atendem producao.
+- Gemini real, Twilio real, webhook externo real e staging nao foram validados por falta de credenciais/URLs.
 
+## Riscos de contrato
+
+- Nao ha OpenAPI/Swagger.
+- Nao ha testes unitarios/contrato versionados no repo.
+- Handler global retorna sempre `400` em erro generico (`server.ts:1487`), o que pode mascarar 500 reais.
+- `express.json({ limit: "2mb" })` existe (`server.ts:871`), mas nao ha rate limiting.
+- Webhook aceita `http://` alem de `https://` (`server.ts:1376`), util localmente, mas inseguro para producao.
+- Twilio webhooks publicos nao validam assinatura Twilio; dependem de `callId` nao adivinhavel.
+
+## Decisao
+
+API local esta funcional para fluxos principais. Producao exige OpenAPI, testes automatizados, status codes mais precisos, rate limiting, validacao de assinaturas Twilio, hardening de webhooks e observabilidade.

@@ -1,34 +1,37 @@
-# Relatorio de execucao de testes
+# Relatorio de Execucao de Testes
 
-STATUS: PARTIAL
+STATUS: FAIL para piramide automatizada; PASS para smoke local
 
-Comandos executados:
+## Comandos
 
 | Verificacao | Comando | Resultado | Status |
 |---|---|---|---|
-| Git estado inicial | `git status --short --branch` | `main`, limpo | PASS |
-| Node PATH padrao | `node --version` | `Acesso negado` | BLOCKED ambiental |
-| Node runtime Codex | `node.exe --version` | `v24.14.0` | PASS |
-| npm temporario | `node npm-cli.js --version` | `11.16.0` | PASS |
-| Instalacao limpa tentativa 1 | `npm ci` | falhou por postinstall chamando node bloqueado | FAIL ambiental inicial |
-| Instalacao limpa tentativa 2 | `npm ci` com PATH corrigido | 258 pacotes, 0 vulnerabilidades | PASS |
-| Typecheck | `npm run typecheck` | sem erros | PASS |
-| Build | `npm run build` | Vite + esbuild OK; JS 376.05 kB, gzip 107.41 kB | PASS |
-| Smoke | `npm run smoke` | status/auth/agents/sessions/integration fallback OK | PASS |
-| Audit deps | `npm audit --audit-level=low` | 0 vulnerabilidades | PASS |
-| QA agregado | `npm run qa` via CLI temporario | falhou ao resolver `npm` interno no ambiente shim | PARTIAL |
-| Lint | `npm run lint` | script ausente | FAIL |
-| Format check | `npm run format:check` | script ausente | FAIL |
-| Unit tests | `npm test` | script ausente | FAIL |
-| E2E rotas | Playwright + Chrome | rotas renderizadas, sem pageerror | PASS |
-| E2E playground completo | Playwright + Chrome | bloqueado antes de input habilitado | BLOCKED |
-| Isolamento basico | Node script temporario | Usuario B nao acessou agente de A | PASS limitado |
+| Instalacao limpa | `npm ci` com NPM temporario 11.16.0 | 258 pacotes instalados, 259 auditados, 0 vulnerabilidades | PASS |
+| Typecheck | `npm run typecheck` | `tsc --noEmit` sem erro | PASS |
+| Lint | `npm run lint` | `Missing script: "lint"` | FAIL |
+| Build | `npm run build` | Vite + esbuild concluidos | PASS |
+| Unit tests | `npm run test` | `Missing script: "test"` | FAIL |
+| Coverage | `npm run test:coverage` | `Missing script: "test:coverage"` | FAIL |
+| Integration | `npm run test:integration` | `Missing script: "test:integration"` | FAIL |
+| Smoke | `npm run smoke` | `Smoke test passed: status, auth, agents, sessions and integration fallback are healthy.` | PASS |
+| QA agregado | `npm run qa` | PASS com shim temporario de `npm.cmd` | PASS |
+| Dependency audit | `npm audit --audit-level=low` | 0 vulnerabilidades | PASS |
+| Madge | `npm exec --yes madge ...` | Sem ciclos | PASS |
+| JSCPD | `npm exec --yes jscpd ...` | 7 clones, 1.68% linhas duplicadas | PARTIAL |
+| ts-prune | `npm exec --yes ts-prune` | exports possivelmente nao usados listados | PARTIAL |
 
-Warnings relevantes:
+## Testes dinamicos adicionais
 
-- `node-domexception@1.0.0` deprecated durante `npm ci`.
-- `npm` 11 informou scripts de instalacao pendentes de aprovacao: `@google/genai`, `esbuild`, `protobufjs`, `esbuild`.
-- Browser console: Tailwind CDN nao deve ser usado em producao.
+- API isolation test customizado: PASS.
+- Browser E2E manual: PASS para fluxo local principal.
 
-Conclusao: gates de build/typecheck/smoke passam; piramide de testes, lint e E2E critico completo nao existem ou ficaram bloqueados.
+## Lacunas
 
+- Nao ha arquivos `*.test.*` ou `*.spec.*`.
+- Nao ha Vitest/Jest/Testing Library configurado.
+- Nao ha Playwright/Cypress versionado no projeto.
+- Nao ha testes de contrato, banco, integracao externa, seguranca ou performance.
+
+## Decisao
+
+O produto funciona localmente nos fluxos testados, mas a piramide automatizada e insuficiente. Gate de producao permanece FAIL enquanto lint e testes essenciais nao existirem.
