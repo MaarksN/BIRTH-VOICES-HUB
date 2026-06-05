@@ -1,0 +1,18 @@
+#!/usr/bin/env sh
+set -eu
+
+repo_root="$(git rev-parse --show-toplevel)"
+
+if [ -n "${GITLEAKS_BIN:-}" ]; then
+  scanner="$GITLEAKS_BIN"
+elif [ -x "$repo_root/.tmp/tools/gitleaks/gitleaks.exe" ]; then
+  scanner="$repo_root/.tmp/tools/gitleaks/gitleaks.exe"
+elif command -v gitleaks >/dev/null 2>&1; then
+  scanner="gitleaks"
+else
+  echo "gitleaks is required for pre-commit secret scanning." >&2
+  echo "Install gitleaks or set GITLEAKS_BIN to the scanner executable." >&2
+  exit 1
+fi
+
+"$scanner" protect --source "$repo_root" --staged --redact=100 --verbose
