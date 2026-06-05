@@ -19,6 +19,20 @@ data/*.json
 data/*.tmp
 backups
 
+# Secrets and local environment
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p8
+*.p12
+*.crt
+*.cer
+*.jks
+*.keystore
+secrets/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
