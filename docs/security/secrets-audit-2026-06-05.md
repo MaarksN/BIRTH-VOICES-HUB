@@ -103,8 +103,20 @@ GitHub response:
 Secret scanning is not available for this repository. (HTTP 422)
 ```
 
-This remains blocked until repository/account settings support Secret Scanning, for example by enabling the required GitHub security feature for this private repository.
+Follow-up attempts:
+
+```text
+Advanced security has not been purchased. (HTTP 422)
+Secret scanning is not available for this repository. (HTTP 422)
+```
+
+The authenticated GitHub user has repository admin permissions, so this is a product/license availability blocker, not a local permission issue.
+
+Compensating control:
+
+- `.github/workflows/ci.yml` installs gitleaks 8.30.1 and runs `gitleaks detect --source . --log-opts="--all" --redact=100 --verbose` as a blocking CI gate.
+- This does not replace native GitHub Secret Scanning or push protection, but it prevents PRs and pushes from passing CI when gitleaks detects committed secrets.
 
 ## Phase 0 Decision
 
-Phase 0 is not closed. The Git repository scan is clean, but an externally exposed Gemini key remains active and GitHub Secret Scanning could not be enabled for this private repository.
+Phase 0 is not closed. The Git repository scan is clean and a blocking CI compensating control exists, but an externally exposed Gemini key remains active and native GitHub Secret Scanning could not be enabled for this private repository.
