@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Activity, Bot, Database, Loader2, Server } from 'lucide-react';
 import { api } from '../../lib/api';
+import { getErrorMessage } from '../../lib/errors';
 import { RuntimeStatus, SessionRecord, StoredAgent } from '../../types';
 
 export default function AdminPage() {
@@ -26,8 +27,8 @@ export default function AdminPage() {
           setAgents(agentsResponse.agents);
           setSessions(sessionsResponse.sessions);
         }
-      } catch (err: any) {
-        if (!cancelled) setError(err.message);
+      } catch (error) {
+        if (!cancelled) setError(getErrorMessage(error));
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -101,7 +102,7 @@ export default function AdminPage() {
   );
 }
 
-function StatCard({ icon: Icon, label, value }: any) {
+function StatCard({ icon: Icon, label, value }: { icon: React.ElementType; label: string; value: string }) {
   return (
     <div className="flex items-center gap-4 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
       <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-brand-50 text-brand">

@@ -82,7 +82,7 @@ Quando o roteiro termina ou uma palavra de risco interrompe a conversa, a plataf
 
 ## Segurança e QA técnico
 
-A API aplica um primeiro conjunto de proteções de produção: headers HTTP de segurança, rate limit global para `/api/*`, rate limit mais restritivo para login/cadastro, bloqueio de webhooks apontando para localhost/redes privadas/reservadas e validação de assinatura nos callbacks públicos da Twilio.
+A API aplica um primeiro conjunto de proteções de produção: headers HTTP de segurança com CSP, `request_id`, logs JSON sanitizados, rate limit global para `/api/*`, rate limit mais restritivo para login/cadastro e webhooks, bloqueio de webhooks apontando para localhost/redes privadas/reservadas e validação de assinatura nos callbacks públicos da Twilio.
 
 Para ajustar timeout de entrega webhook, configure:
 
@@ -90,13 +90,52 @@ Para ajustar timeout de entrega webhook, configure:
 WEBHOOK_TIMEOUT_MS=10000
 ```
 
-Antes de considerar uma alteração pronta, execute:
+Antes de considerar uma alteração pronta, execute o mesmo conjunto de gates do CI:
+
+```bash
+npm ci
+npm run lint
+npm run test
+npm run test:integration
+npm run typecheck
+npm run build
+npm audit --audit-level=low
+npm run smoke
+npx playwright test
+```
+
+Ou, durante desenvolvimento local:
 
 ```bash
 npm run qa
 ```
 
-Esse ciclo executa typecheck, build de produção e smoke test cobrindo autenticação, agentes, sessões, fallback de integração, headers de segurança, proteção anti-SSRF e rejeição de callback Twilio sem assinatura válida.
+Esse ciclo executa lint, testes unitários, integração, typecheck, build de produção, smoke e Playwright.
+
+## Operação
+
+- Privacidade e LGPD: `docs/privacy.md`
+- Observabilidade, health, métricas e alertas: `docs/operations.md`
+- Persistência, backup/restore e migration futura: `docs/database.md`
+- Billing fora do escopo atual: `docs/billing.md`
+- Mapa de refatoração incremental: `docs/refactor-map.md`
+
+Scripts de persistência local:
+
+```bash
+npm run db:migrate
+npm run db:seed
+npm run db:backup
+npm run db:restore -- backups/arquivo.json
+```
+
+## Branch protection recomendada
+
+- Exigir o workflow `CI / Quality gates` em pull requests.
+- Bloquear merge com checks falhando.
+- Exigir branch atualizada com `main`.
+- Exigir revisão antes de merge.
+- Bloquear push direto em `main` após estabilizar o fluxo de PR.
 
 ## Build
 

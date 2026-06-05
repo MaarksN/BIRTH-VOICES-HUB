@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Trash, Save, Mic, Settings, MessageSquare, Database, Link as LinkIcon, Brain } from 'lucide-react';
+import { Plus, Trash, Save, Mic, MessageSquare, Database, Link as LinkIcon, Brain } from 'lucide-react';
 import { AgentConfig, AgentTemplate, Question, StoredAgent } from '../types';
 import { api } from '../lib/api';
+import { getErrorMessage } from '../lib/errors';
 
 const CATARINA_BASE_PROMPT = `Você é Catarina, uma agente de inteligência artificial especializada em conduzir conversas profissionais por voz em português brasileiro.
 Sua comunicação é natural, humana, clara e empática.
@@ -159,8 +160,8 @@ export function AgentForm() {
       try {
         const response = await api.listAgents();
         setSavedConfigs(response.agents);
-      } catch (error: any) {
-        setStatusMessage(error.message);
+      } catch (error) {
+        setStatusMessage(getErrorMessage(error));
       }
     };
 
@@ -171,7 +172,7 @@ export function AgentForm() {
     sessionStorage.setItem('birth_voices_current_config', JSON.stringify(config));
   }, [config]);
 
-  const updateConfig = (field: keyof AgentConfig, value: any) => {
+  const updateConfig = <K extends keyof AgentConfig>(field: K, value: AgentConfig[K]) => {
     setConfig(prev => ({ ...prev, [field]: value }));
   };
 
@@ -234,8 +235,8 @@ export function AgentForm() {
       const response = await api.listAgents();
       setSavedConfigs(response.agents);
       setStatusMessage('Agente salvo no backend com sucesso.');
-    } catch (error: any) {
-      setStatusMessage(error.message);
+    } catch (error) {
+      setStatusMessage(getErrorMessage(error));
     } finally {
       setIsSaving(false);
     }
@@ -259,8 +260,8 @@ export function AgentForm() {
           setConfig(INITIAL_MATERNAL_CONFIG);
         }
         setStatusMessage('Agente excluído.');
-      } catch (error: any) {
-        setStatusMessage(error.message);
+      } catch (error) {
+        setStatusMessage(getErrorMessage(error));
       }
     }
   };
@@ -273,8 +274,8 @@ export function AgentForm() {
         setSelectedAgentId(null);
         setConfig(INITIAL_MATERNAL_CONFIG);
         setStatusMessage('Todos os agentes foram excluídos.');
-      } catch (error: any) {
-        setStatusMessage(error.message);
+      } catch (error) {
+        setStatusMessage(getErrorMessage(error));
       }
     }
   };
@@ -587,7 +588,7 @@ export function AgentForm() {
   );
 }
 
-function TabButton({ active, onClick, icon: Icon, label }: any) {
+function TabButton({ active, onClick, icon: Icon, label }: { active: boolean; onClick: () => void; icon: React.ElementType; label: string }) {
   return (
     <button
       onClick={onClick}
@@ -603,7 +604,7 @@ function TabButton({ active, onClick, icon: Icon, label }: any) {
   );
 }
 
-function TemplateButton({ active, onClick, label }: any) {
+function TemplateButton({ active, onClick, label }: { active: boolean; onClick: () => void; label: string }) {
     return (
         <button
           onClick={onClick}

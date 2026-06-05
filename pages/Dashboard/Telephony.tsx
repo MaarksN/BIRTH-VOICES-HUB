@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, CheckCircle2, Loader2, Phone, PhoneCall, RefreshCw, Send, Shield, Settings } from 'lucide-react';
 import { api } from '../../lib/api';
+import { getErrorMessage } from '../../lib/errors';
 import { RuntimeStatus, StoredAgent, TelephonyCall, TelephonyCallStatus } from '../../types';
 
 export default function TelephonyPage() {
@@ -31,8 +32,8 @@ export default function TelephonyPage() {
       setAgents(agentsResponse.agents);
       setCalls(callsResponse.calls);
       setSelectedAgentId((current) => current || agentsResponse.agents[0]?.id || '');
-    } catch (error: any) {
-      setMessage(error.message);
+    } catch (error) {
+      setMessage(getErrorMessage(error));
     } finally {
       setLoading(false);
     }
@@ -67,8 +68,8 @@ export default function TelephonyPage() {
       setMessage(`Chamada enviada para ${response.call.to}. A Catarina seguirá o roteiro "${response.call.agentName}" pelo telefone.`);
       setTo('');
       setCaller('');
-    } catch (error: any) {
-      setMessage(error.message);
+    } catch (error) {
+      setMessage(getErrorMessage(error));
     } finally {
       setStarting(false);
     }

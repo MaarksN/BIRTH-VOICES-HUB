@@ -45,10 +45,10 @@ export const api = {
       body: JSON.stringify({ email, password }),
     }),
 
-  register: (companyName: string, email: string, password: string) =>
+  register: (companyName: string, email: string, password: string, consentSource = 'register_form') =>
     apiFetch<{ token: string; user: User }>('/api/auth/register', {
       method: 'POST',
-      body: JSON.stringify({ companyName, email, password }),
+      body: JSON.stringify({ companyName, email, password, consentSource }),
     }),
 
   logout: () =>

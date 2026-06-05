@@ -12,8 +12,17 @@ import {
   Plus,
 } from 'lucide-react';
 import { api } from '../../lib/api';
+import { getErrorMessage } from '../../lib/errors';
 import { formatDuration, parseDurationToSeconds, riskClass, sentimentClass } from '../../lib/format';
 import { RuntimeStatus, SessionRecord, StoredAgent } from '../../types';
+
+type OverviewMetric = {
+  label: string;
+  value: string;
+  helper: string;
+  icon: React.ElementType;
+  danger?: boolean;
+};
 
 export default function Overview() {
   const [agents, setAgents] = useState<StoredAgent[]>([]);
@@ -38,8 +47,8 @@ export default function Overview() {
           setSessions(sessionsResponse.sessions);
           setStatus(runtimeResponse);
         }
-      } catch (err: any) {
-        if (!cancelled) setError(err.message);
+      } catch (error) {
+        if (!cancelled) setError(getErrorMessage(error));
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -248,7 +257,7 @@ export default function Overview() {
   );
 }
 
-function MetricCard({ metric }: { metric: any }) {
+function MetricCard({ metric }: { metric: OverviewMetric }) {
   const Icon = metric.icon;
 
   return (

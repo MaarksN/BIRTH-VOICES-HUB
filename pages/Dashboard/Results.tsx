@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { api } from '../../lib/api';
+import { getErrorMessage } from '../../lib/errors';
 import { formatDuration, parseDurationToSeconds, riskClass, sentimentClass, toCsvCell } from '../../lib/format';
 import { RiskLevel, Sentiment, SessionRecord } from '../../types';
 
@@ -40,8 +41,8 @@ export default function ResultsPage() {
           setSessions(response.sessions);
           setSelectedSession(response.sessions[0] || null);
         }
-      } catch (err: any) {
-        if (!cancelled) setError(err.message);
+      } catch (error) {
+        if (!cancelled) setError(getErrorMessage(error));
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -385,7 +386,19 @@ function SessionDetail({ session }: { session: SessionRecord }) {
   );
 }
 
-function MetricCard({ label, value, helper, icon: Icon, danger }: any) {
+function MetricCard({
+  label,
+  value,
+  helper,
+  icon: Icon,
+  danger,
+}: {
+  label: string;
+  value: string;
+  helper: string;
+  icon: React.ElementType;
+  danger?: boolean;
+}) {
   return (
     <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
       <div className="flex items-start justify-between gap-4">

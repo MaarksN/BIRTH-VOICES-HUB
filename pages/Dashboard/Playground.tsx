@@ -13,13 +13,18 @@ import {
   Volume2,
 } from 'lucide-react';
 import { api } from '../../lib/api';
+import { getErrorMessage } from '../../lib/errors';
+import {
+  BrowserSpeechRecognition,
+  getSpeechRecognitionConstructor,
+  speechRecognitionSupported,
+  SpeechRecognitionErrorEventLike,
+  SpeechRecognitionEventLike,
+} from '../../lib/speechRecognition';
 import { Question, RuntimeStatus, SessionRecord, StoredAgent, StructuredDraft, StructuredRisk } from '../../types';
 
 type Message = { role: 'agent' | 'user'; text: string };
 type CallStatus = 'idle' | 'speaking' | 'listening' | 'processing' | 'completed';
-
-const speechRecognitionSupported = () =>
-  typeof window !== 'undefined' && ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window);
 
 const createEmptyStructuredDraft = (): StructuredDraft => ({
   extracted: [],
@@ -101,7 +106,7 @@ export default function PlaygroundPage() {
   const [saving, setSaving] = useState(false);
   const [structuredDraft, setStructuredDraft] = useState<StructuredDraft>(() => createEmptyStructuredDraft());
 
-  const recognitionRef = useRef<any>(null);
+  const recognitionRef = useRef<BrowserSpeechRecognition | null>(null);
   const startedAtRef = useRef<number | null>(null);
   const completedAtRef = useRef<number | null>(null);
 
@@ -125,8 +130,8 @@ export default function PlaygroundPage() {
           setRuntime(statusResponse);
           setSelectedAgentId(agentsResponse.agents[0]?.id || '');
         }
-      } catch (error: any) {
-        if (!cancelled) setStatusMessage(error.message);
+      } catch (error) {
+        if (!cancelled) setStatusMessage(getErrorMessage(error));
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -238,14 +243,16 @@ export default function PlaygroundPage() {
       return;
     }
 
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    const SpeechRecognition = getSpeechRecognitionConstructor();
+    if (!SpeechRecognition) return;
+
     const recognition = new SpeechRecognition();
     recognition.continuous = false;
     recognition.interimResults = true;
     recognition.lang = 'pt-BR';
 
     recognition.onstart = () => setCallStatus('listening');
-    recognition.onresult = (event: any) => {
+    recognition.onresult = (event: SpeechRecognitionEventLike) => {
       let finalText = '';
       let interim = '';
 
@@ -260,7 +267,7 @@ export default function PlaygroundPage() {
         handleUserAnswer(finalText.trim());
       }
     };
-    recognition.onerror = (event: any) => {
+    recognition.onerror = (event: SpeechRecognitionErrorEventLike) => {
       setCallStatus('listening');
       setStatusMessage(`Reconhecimento de voz: ${event.error}. Você pode responder por texto.`);
     };
@@ -341,8 +348,8 @@ export default function PlaygroundPage() {
         ? 'Sessão analisada e registrada com sucesso.'
         : 'Sessão registrada com campos e regras do roteiro. Configure GEMINI_API_KEY para análise semântica do Gemini.';
       setStatusMessage(`${analysisText}${deliveryText}`);
-    } catch (error: any) {
-      setStatusMessage(error.message);
+    } catch (error) {
+      setStatusMessage(getErrorMessage(error));
     } finally {
       setSaving(false);
     }

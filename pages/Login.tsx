@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Mic, ArrowRight } from 'lucide-react';
 import { auth } from '../lib/auth';
+import { getErrorMessage } from '../lib/errors';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -18,8 +19,8 @@ export default function LoginPage() {
     try {
       await auth.login(email, password);
       navigate('/dashboard');
-    } catch (err: any) {
-      setError(err.message);
+    } catch (error) {
+      setError(getErrorMessage(error));
       setLoading(false);
     }
   };

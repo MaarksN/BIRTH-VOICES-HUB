@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Loader2, Save, Shield, UserPlus } from 'lucide-react';
 import { api } from '../../lib/api';
 import { auth } from '../../lib/auth';
+import { getErrorMessage } from '../../lib/errors';
 import { useSessionStore } from '../../store/useSessionStore';
 import { User } from '../../types';
 
@@ -29,7 +30,7 @@ export default function OrganizationPage() {
         }
       })
       .catch((error) => {
-        if (!cancelled) setMessage(error.message);
+        if (!cancelled) setMessage(getErrorMessage(error));
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -53,8 +54,8 @@ export default function OrganizationPage() {
       auth.setToken(auth.getToken() || '', response.user);
       setBrandColor(branding.color);
       setMessage('Organização atualizada no backend.');
-    } catch (error: any) {
-      setMessage(error.message);
+    } catch (error) {
+      setMessage(getErrorMessage(error));
     } finally {
       setSaving(false);
     }
