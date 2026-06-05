@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { AlertTriangle, CheckCircle2, Copy, History, Loader2, RefreshCw, Save, ShieldCheck, Webhook } from 'lucide-react';
 import { api } from '../../lib/api';
+import { getErrorMessage } from '../../lib/errors';
 import { IntegrationDelivery, IntegrationSettings } from '../../types';
 
 export default function DevelopersPage() {
@@ -31,8 +32,8 @@ export default function DevelopersPage() {
           setEnabled(response.webhook.enabled);
           setDeliveries(deliveriesResponse.deliveries);
         }
-      } catch (error: any) {
-        if (!cancelled) setMessage(error.message);
+      } catch (error) {
+        if (!cancelled) setMessage(getErrorMessage(error));
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -59,8 +60,8 @@ export default function DevelopersPage() {
       setSettings(response);
       setWebhookSecret('');
       setMessage('Integração salva. Novas sessões serão entregues automaticamente quando o webhook estiver ativo.');
-    } catch (error: any) {
-      setMessage(error.message);
+    } catch (error) {
+      setMessage(getErrorMessage(error));
     } finally {
       setSaving(false);
     }
@@ -81,8 +82,8 @@ export default function DevelopersPage() {
       setMessage(response.delivery.status === 'delivered'
         ? 'Teste entregue com sucesso ao endpoint.'
         : `Teste enviado, mas o endpoint respondeu falha: ${response.delivery.message}`);
-    } catch (error: any) {
-      setMessage(error.message);
+    } catch (error) {
+      setMessage(getErrorMessage(error));
     } finally {
       setTesting(false);
     }
@@ -100,8 +101,8 @@ export default function DevelopersPage() {
       setMessage(response.delivery.status === 'delivered'
         ? 'Entrega reenviada com sucesso.'
         : `Nova tentativa registrada com falha: ${response.delivery.message}`);
-    } catch (error: any) {
-      setMessage(error.message);
+    } catch (error) {
+      setMessage(getErrorMessage(error));
     } finally {
       setRetryingId('');
     }

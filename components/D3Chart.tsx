@@ -42,11 +42,13 @@ export default function LineChart({ data = [] }: { data?: ChartPoint[] }) {
     const y = d3.scaleLinear()
       .domain([0, d3.max(data, d => d.value) as number + 20])
       .range([innerHeight, 0]);
+    const formatDateTick = (value: Date | d3.NumberValue) =>
+      d3.timeFormat('%d/%m')(value instanceof Date ? value : new Date(Number(value)));
 
     // X Axis
     svg.append('g')
       .attr('transform', `translate(0,${innerHeight})`)
-      .call(d3.axisBottom(x).ticks(5).tickFormat(d3.timeFormat('%d/%m') as any))
+      .call(d3.axisBottom(x).ticks(5).tickFormat(formatDateTick))
       .attr('color', '#94a3b8');
 
     // Y Axis

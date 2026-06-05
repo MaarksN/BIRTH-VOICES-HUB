@@ -41,13 +41,23 @@ export type StructuredDraft = {
   requiredMissing?: string[];
 };
 
+export type OrganizationRole = 'owner' | 'admin' | 'operator' | 'viewer' | 'suspended';
+
+export type PrivacyConsent = {
+  acceptedAt: string;
+  version: string;
+  source: string;
+};
+
 export interface User {
   id?: string;
   name: string;
   company: string;
-  role?: string;
+  role?: OrganizationRole | string;
   email?: string;
   brandColor?: string;
+  organizationId?: string;
+  privacyConsent?: PrivacyConsent;
 }
 
 export type Sentiment = 'Positivo' | 'Neutro' | 'Negativo';
@@ -109,6 +119,18 @@ export type RuntimeStatus = {
   telephonyOutboundConfigured: boolean;
   publicBaseUrlConfigured: boolean;
   integrationConfigured: boolean;
+};
+
+export type AuditLogEntry = {
+  id: string;
+  organizationId: string;
+  userId?: string;
+  action: string;
+  createdAt: string;
+  requestId?: string;
+  metadata?: Record<string, string | number | boolean | null>;
+  previousHash?: string;
+  hash: string;
 };
 
 export type IntegrationDelivery = {

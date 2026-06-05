@@ -2,11 +2,13 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Mic, ArrowRight } from 'lucide-react';
 import { auth } from '../lib/auth';
+import { getErrorMessage } from '../lib/errors';
 
 export default function RegisterPage() {
   const [companyName, setCompanyName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [acceptedPrivacy, setAcceptedPrivacy] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const navigate = useNavigate();
@@ -17,10 +19,10 @@ export default function RegisterPage() {
     setError('');
 
     try {
-      await auth.register(companyName, email, password);
+      await auth.register(companyName, email, password, 'register_form');
       navigate('/dashboard');
-    } catch (err: any) {
-      setError(err.message);
+    } catch (error) {
+      setError(getErrorMessage(error));
       setLoading(false);
     }
   };
@@ -81,11 +83,21 @@ export default function RegisterPage() {
             </div>
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || !acceptedPrivacy}
               className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg transition-all flex items-center justify-center gap-2 disabled:opacity-50"
             >
               {loading ? 'Criando...' : <>Começar Grátis <ArrowRight className="h-4 w-4" /></>}
             </button>
+            <label className="flex items-start gap-2 text-xs leading-5 text-slate-600">
+              <input
+                type="checkbox"
+                checked={acceptedPrivacy}
+                onChange={(event) => setAcceptedPrivacy(event.target.checked)}
+                className="mt-1"
+                required
+              />
+              Aceito o tratamento dos dados da organização para autenticação, transcrições, integrações e auditoria operacional.
+            </label>
           </form>
 
           <div className="mt-6 text-center text-sm text-slate-500">

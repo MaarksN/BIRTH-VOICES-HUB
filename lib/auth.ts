@@ -25,8 +25,8 @@ export const auth = {
     return user;
   },
 
-  register: async (companyName: string, email: string, password: string) => {
-    const { token, user } = await api.register(companyName, email, password);
+  register: async (companyName: string, email: string, password: string, consentSource = 'register_form') => {
+    const { token, user } = await api.register(companyName, email, password, consentSource);
     auth.setToken(token, user);
     return user;
   },

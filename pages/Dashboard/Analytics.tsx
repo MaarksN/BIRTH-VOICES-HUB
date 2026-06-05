@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Activity, BarChart3, Bot, Clock, Loader2, PieChart } from 'lucide-react';
+import { Activity, BarChart3, Clock, Loader2, PieChart } from 'lucide-react';
 import { api } from '../../lib/api';
+import { getErrorMessage } from '../../lib/errors';
 import { formatDuration, parseDurationToSeconds } from '../../lib/format';
 import { SessionRecord, StoredAgent } from '../../types';
 
@@ -24,8 +25,8 @@ export default function AnalyticsPage() {
           setSessions(sessionsResponse.sessions);
           setAgents(agentsResponse.agents);
         }
-      } catch (err: any) {
-        if (!cancelled) setError(err.message);
+      } catch (error) {
+        if (!cancelled) setError(getErrorMessage(error));
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -133,7 +134,7 @@ export default function AnalyticsPage() {
   );
 }
 
-function StatCard({ icon: Icon, label, value }: any) {
+function StatCard({ icon: Icon, label, value }: { icon: React.ElementType; label: string; value: string }) {
   return (
     <div className="flex items-center gap-4 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
       <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-brand-50 text-brand">

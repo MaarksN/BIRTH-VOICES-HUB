@@ -8,8 +8,11 @@ import { createServer as createViteServer } from "vite";
 import { GoogleGenAI } from "@google/genai";
 import type {
   AgentConfig,
+  AuditLogEntry,
   IntegrationDelivery,
   IntegrationSettings,
+  OrganizationRole,
+  PrivacyConsent,
   RuntimeStatus,
   SessionRecord,
   StoredAgent,
@@ -22,9 +25,27 @@ import type {
 } from "./types";
 
 type StoredUser = Required<Pick<User, "id" | "name" | "company" | "email" | "brandColor">> & {
-  role: string;
+  role: OrganizationRole;
+  privacyConsent?: PrivacyConsent;
   passwordHash: string;
   salt: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+type StoredOrganization = {
+  id: string;
+  name: string;
+  brandColor: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+type StoredMembership = {
+  id: string;
+  userId: string;
+  organizationId: string;
+  role: OrganizationRole;
   createdAt: string;
   updatedAt: string;
 };
@@ -63,24 +84,67 @@ type StoredIntegrationDelivery = IntegrationDelivery & {
 type Database = {
   users: StoredUser[];
   tokens: TokenRecord[];
+  organizations: StoredOrganization[];
+  memberships: StoredMembership[];
   agents: Array<StoredAgent & { ownerId: string }>;
   sessions: StoredSession[];
   integrations: StoredIntegration[];
   telephonyCalls: StoredTelephonyCall[];
   integrationDeliveries: StoredIntegrationDelivery[];
+  auditLogs: AuditLogEntry[];
 };
 
 type AuthedRequest = Request & {
   user?: StoredUser;
   data?: Database;
+  tenantId?: string;
+  role?: OrganizationRole;
+  requestId?: string;
 };
 
 const DATA_DIR = process.env.BIRTH_VOICES_DATA_DIR || path.join(process.cwd(), "data");
 const DATA_FILE = path.join(DATA_DIR, "birth-voices.json");
 const DEFAULT_BRAND_COLOR = "#2563eb";
 const WEBHOOK_TIMEOUT_MS = Number(process.env.WEBHOOK_TIMEOUT_MS || 10000);
-const RATE_LIMIT_WINDOW_MS = 60 * 1000;
-const AUTH_RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000;
+const RATE_LIMIT_WINDOW_MS = Number(process.env.RATE_LIMIT_WINDOW_MS || 60 * 1000);
+const AUTH_RATE_LIMIT_WINDOW_MS = Number(process.env.AUTH_RATE_LIMIT_WINDOW_MS || 15 * 60 * 1000);
+const API_RATE_LIMIT_MAX = Number(process.env.API_RATE_LIMIT_MAX || 240);
+const AUTH_RATE_LIMIT_MAX = Number(process.env.AUTH_RATE_LIMIT_MAX || 20);
+const WEBHOOK_RATE_LIMIT_MAX = Number(process.env.WEBHOOK_RATE_LIMIT_MAX || 120);
+const PRIVACY_TERMS_VERSION = process.env.PRIVACY_TERMS_VERSION || "2026-06-05";
+const DATA_RETENTION_DAYS = Number(process.env.DATA_RETENTION_DAYS || 365);
+const AI_TIMEOUT_MS = Number(process.env.AI_TIMEOUT_MS || 15000);
+
+const metrics = {
+  requests: 0,
+  status4xx: 0,
+  status5xx: 0,
+  totalLatencyMs: 0,
+  webhookFailures: 0,
+  geminiFailures: 0,
+  twilioFailures: 0,
+};
+
+type JsonRecord = Record<string, unknown>;
+
+function isRecord(value: unknown): value is JsonRecord {
+  return typeof value === "object" && value !== null;
+}
+
+function errorMessage(error: unknown, fallback = "Erro interno do servidor.") {
+  if (error instanceof Error && error.message) return error.message;
+  if (isRecord(error) && typeof error.message === "string" && error.message.trim()) return error.message;
+  if (typeof error === "string" && error.trim()) return error;
+  return fallback;
+}
+
+function errorName(error: unknown) {
+  return error instanceof Error ? error.name : isRecord(error) && typeof error.name === "string" ? error.name : "";
+}
+
+function isNodeError(error: unknown): error is NodeJS.ErrnoException {
+  return error instanceof Error && "code" in error;
+}
 
 async function loadLocalEnv() {
   const envFile = path.join(process.cwd(), ".env");
@@ -96,20 +160,59 @@ async function loadLocalEnv() {
       const value = trimmed.slice(separator + 1).trim().replace(/^['"]|['"]$/g, "");
       if (!process.env[key]) process.env[key] = value;
     }
-  } catch (error: any) {
-    if (error.code !== "ENOENT") throw error;
+  } catch (error) {
+    if (!isNodeError(error) || error.code !== "ENOENT") throw error;
   }
 }
 
 const emptyDatabase = (): Database => ({
   users: [],
   tokens: [],
+  organizations: [],
+  memberships: [],
   agents: [],
   sessions: [],
   integrations: [],
   telephonyCalls: [],
   integrationDeliveries: [],
+  auditLogs: [],
 });
+
+function normalizeRole(value: unknown): OrganizationRole {
+  const role = String(value || "").toLowerCase();
+  if (["owner", "admin", "operator", "viewer", "suspended"].includes(role)) return role as OrganizationRole;
+  return "owner";
+}
+
+function migrateTenancy(data: Database) {
+  const now = new Date().toISOString();
+  for (const user of data.users) {
+    user.role = normalizeRole(user.role);
+    let organization = data.organizations.find((item) => item.id === user.id);
+    if (!organization) {
+      organization = {
+        id: user.id,
+        name: user.company,
+        brandColor: user.brandColor || DEFAULT_BRAND_COLOR,
+        createdAt: user.createdAt || now,
+        updatedAt: user.updatedAt || now,
+      };
+      data.organizations.push(organization);
+    }
+
+    const membership = data.memberships.find((item) => item.userId === user.id && item.organizationId === organization.id);
+    if (!membership) {
+      data.memberships.push({
+        id: crypto.randomUUID(),
+        userId: user.id,
+        organizationId: organization.id,
+        role: user.role,
+        createdAt: user.createdAt || now,
+        updatedAt: user.updatedAt || now,
+      });
+    }
+  }
+}
 
 async function readDatabase(): Promise<Database> {
   await fs.mkdir(DATA_DIR, { recursive: true });
@@ -117,19 +220,24 @@ async function readDatabase(): Promise<Database> {
   try {
     const raw = await fs.readFile(DATA_FILE, "utf8");
     const parsed = JSON.parse(raw);
-    return {
+    const data: Database = {
       ...emptyDatabase(),
       ...parsed,
       users: Array.isArray(parsed.users) ? parsed.users : [],
       tokens: Array.isArray(parsed.tokens) ? parsed.tokens : [],
+      organizations: Array.isArray(parsed.organizations) ? parsed.organizations : [],
+      memberships: Array.isArray(parsed.memberships) ? parsed.memberships : [],
       agents: Array.isArray(parsed.agents) ? parsed.agents : [],
       sessions: Array.isArray(parsed.sessions) ? parsed.sessions : [],
       integrations: Array.isArray(parsed.integrations) ? parsed.integrations : [],
       telephonyCalls: Array.isArray(parsed.telephonyCalls) ? parsed.telephonyCalls : [],
       integrationDeliveries: Array.isArray(parsed.integrationDeliveries) ? parsed.integrationDeliveries : [],
+      auditLogs: Array.isArray(parsed.auditLogs) ? parsed.auditLogs : [],
     };
-  } catch (error: any) {
-    if (error.code !== "ENOENT") throw error;
+    migrateTenancy(data);
+    return data;
+  } catch (error) {
+    if (!isNodeError(error) || error.code !== "ENOENT") throw error;
     const data = emptyDatabase();
     await writeDatabase(data);
     return data;
@@ -151,7 +259,91 @@ function publicUser(user: StoredUser): User {
     role: user.role,
     email: user.email,
     brandColor: user.brandColor,
+    organizationId: user.id,
+    privacyConsent: user.privacyConsent,
   };
+}
+
+type Permission =
+  | "admin:read"
+  | "agent:write"
+  | "billing:read"
+  | "integration:write"
+  | "organization:write"
+  | "privacy:delete"
+  | "privacy:export"
+  | "session:write"
+  | "telephony:write";
+
+const rolePermissions: Record<OrganizationRole, Set<Permission>> = {
+  owner: new Set(["admin:read", "agent:write", "billing:read", "integration:write", "organization:write", "privacy:delete", "privacy:export", "session:write", "telephony:write"]),
+  admin: new Set(["admin:read", "agent:write", "billing:read", "integration:write", "organization:write", "privacy:export", "session:write", "telephony:write"]),
+  operator: new Set(["agent:write", "session:write", "telephony:write"]),
+  viewer: new Set([]),
+  suspended: new Set([]),
+};
+
+function can(role: OrganizationRole | undefined, permission: Permission) {
+  return Boolean(role && rolePermissions[role]?.has(permission));
+}
+
+function requirePermission(permission: Permission) {
+  return (req: AuthedRequest, res: Response, next: NextFunction) => {
+    if (!can(req.role, permission)) {
+      return res.status(req.role === "suspended" ? 403 : 403).json({ error: "Permissão insuficiente para esta ação." });
+    }
+
+    next();
+  };
+}
+
+function sanitizeMetadata(metadata: Record<string, unknown> = {}) {
+  const blocked = /password|token|secret|transcript|authorization|cookie/i;
+  const sanitized: NonNullable<AuditLogEntry["metadata"]> = {};
+
+  for (const [key, value] of Object.entries(metadata)) {
+    if (blocked.test(key)) {
+      sanitized[key] = "[redacted]";
+    } else if (value === null) {
+      sanitized[key] = null;
+    } else if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
+      sanitized[key] = value;
+    } else if (value !== undefined) {
+      sanitized[key] = JSON.stringify(value).slice(0, 200);
+    }
+  }
+
+  return sanitized;
+}
+
+function hashAuditLog(entry: Omit<AuditLogEntry, "hash">) {
+  return crypto.createHash("sha256").update(JSON.stringify(entry)).digest("hex");
+}
+
+function appendAuditLog(data: Database, params: {
+  organizationId: string;
+  userId?: string;
+  action: string;
+  requestId?: string;
+  metadata?: Record<string, unknown>;
+}) {
+  const previous = data.auditLogs[data.auditLogs.length - 1];
+  const entryWithoutHash: Omit<AuditLogEntry, "hash"> = {
+    id: crypto.randomUUID(),
+    organizationId: params.organizationId,
+    userId: params.userId,
+    action: params.action,
+    createdAt: new Date().toISOString(),
+    requestId: params.requestId,
+    metadata: sanitizeMetadata(params.metadata),
+    previousHash: previous?.hash,
+  };
+  const entry = {
+    ...entryWithoutHash,
+    hash: hashAuditLog(entryWithoutHash),
+  };
+  data.auditLogs.push(entry);
+  return entry;
 }
 
 function createPasswordHash(password: string, salt = crypto.randomBytes(16).toString("hex")) {
@@ -229,6 +421,11 @@ async function validatePublicWebhookUrl(rawUrl: string) {
   }
 
   const hostname = parsed.hostname.toLowerCase();
+  const allowLocalWebhookSandbox = process.env.NODE_ENV !== "production" && process.env.ALLOW_LOCAL_WEBHOOKS_FOR_TESTS === "true";
+  if (allowLocalWebhookSandbox && ["localhost", "127.0.0.1", "::1"].includes(hostname)) {
+    return parsed.toString();
+  }
+
   if (["localhost", "localhost.localdomain"].includes(hostname) || hostname.endsWith(".localhost")) {
     throw new Error("URL do webhook não pode apontar para localhost.");
   }
@@ -279,6 +476,57 @@ function securityHeaders(_req: Request, res: Response, next: NextFunction) {
   res.setHeader("Referrer-Policy", "no-referrer");
   res.setHeader("Permissions-Policy", "camera=(), geolocation=(), payment=()");
   res.setHeader("Cross-Origin-Opener-Policy", "same-origin");
+  res.setHeader(
+    "Content-Security-Policy",
+    [
+      "default-src 'self'",
+      "base-uri 'self'",
+      "frame-ancestors 'none'",
+      "object-src 'none'",
+      "img-src 'self' data:",
+      "style-src 'self' 'unsafe-inline'",
+      "script-src 'self' 'unsafe-inline'",
+      "connect-src 'self' https://generativelanguage.googleapis.com",
+    ].join("; "),
+  );
+  next();
+}
+
+function requestContext(req: AuthedRequest, res: Response, next: NextFunction) {
+  const incoming = String(req.header("X-Request-Id") || "").trim();
+  req.requestId = incoming && incoming.length <= 128 ? incoming : crypto.randomUUID();
+  res.setHeader("X-Request-Id", req.requestId);
+  next();
+}
+
+function currentRequestId(req: Request) {
+  return (req as AuthedRequest).requestId;
+}
+
+function structuredLogger(req: AuthedRequest, res: Response, next: NextFunction) {
+  const startedAt = Date.now();
+  metrics.requests += 1;
+
+  res.on("finish", () => {
+    const latencyMs = Date.now() - startedAt;
+    metrics.totalLatencyMs += latencyMs;
+    if (res.statusCode >= 500) metrics.status5xx += 1;
+    else if (res.statusCode >= 400) metrics.status4xx += 1;
+
+    console.log(JSON.stringify({
+      timestamp: new Date().toISOString(),
+      level: res.statusCode >= 500 ? "error" : "info",
+      message: "http_request",
+      request_id: req.requestId,
+      method: req.method,
+      path: req.path,
+      status: res.statusCode,
+      latency_ms: latencyMs,
+      user_id: req.user?.id,
+      tenant_id: req.tenantId,
+    }));
+  });
+
   next();
 }
 
@@ -286,34 +534,41 @@ function uniqueStrings(values: string[]) {
   return [...new Set(values.map((value) => value.trim()).filter(Boolean))];
 }
 
-function normalizeStructuredDraft(value: any): StructuredDraft {
-  const extracted = Array.isArray(value?.extracted)
-    ? value.extracted
-        .map((item: any) => ({
-          label: String(item?.label || "").trim(),
-          value: String(item?.value || "").trim(),
-        }))
-        .filter((item: any) => item.label && item.value)
+function normalizeStructuredDraft(value: unknown): StructuredDraft {
+  const source = isRecord(value) ? value : {};
+  const extracted = Array.isArray(source.extracted)
+    ? source.extracted
+        .map((item: unknown) => {
+          const record = isRecord(item) ? item : {};
+          return {
+            label: String(record.label || "").trim(),
+            value: String(record.value || "").trim(),
+          };
+        })
+        .filter((item) => item.label && item.value)
         .slice(0, 80)
     : [];
 
-  const triggeredRisks = Array.isArray(value?.triggeredRisks)
-    ? value.triggeredRisks
-        .map((risk: any) => ({
-          questionId: risk?.questionId ? String(risk.questionId) : undefined,
-          question: String(risk?.question || "").trim(),
-          keyword: String(risk?.keyword || "").trim(),
-          answer: String(risk?.answer || "").trim(),
-          detectedAt: risk?.detectedAt ? String(risk.detectedAt) : new Date().toISOString(),
-        }))
-        .filter((risk: any) => risk.question && risk.keyword && risk.answer)
+  const triggeredRisks = Array.isArray(source.triggeredRisks)
+    ? source.triggeredRisks
+        .map((risk: unknown) => {
+          const record = isRecord(risk) ? risk : {};
+          return {
+            questionId: record.questionId ? String(record.questionId) : undefined,
+            question: String(record.question || "").trim(),
+            keyword: String(record.keyword || "").trim(),
+            answer: String(record.answer || "").trim(),
+            detectedAt: record.detectedAt ? String(record.detectedAt) : new Date().toISOString(),
+          };
+        })
+        .filter((risk) => risk.question && risk.keyword && risk.answer)
         .slice(0, 40)
     : [];
 
   return {
     extracted,
     triggeredRisks,
-    requiredMissing: uniqueStrings(normalizeList(value?.requiredMissing)).slice(0, 40),
+    requiredMissing: uniqueStrings(normalizeList(source.requiredMissing)).slice(0, 40),
   };
 }
 
@@ -378,7 +633,7 @@ function getRequiredMissing(agent: StoredAgent, draft: StructuredDraft) {
 }
 
 function publicTelephonyCall(call: StoredTelephonyCall): TelephonyCall {
-  const { ownerId, ...publicCall } = call;
+  const { ownerId: _ownerId, ...publicCall } = call;
   return publicCall;
 }
 
@@ -504,8 +759,19 @@ async function requireAuth(req: AuthedRequest, res: Response, next: NextFunction
       return res.status(401).json({ error: "Usuário da sessão não encontrado." });
     }
 
+    const membership = data.memberships.find((item) => item.userId === user.id);
+    if (!membership) {
+      return res.status(403).json({ error: "Usuário sem organização vinculada." });
+    }
+
+    if (membership.role === "suspended") {
+      return res.status(403).json({ error: "Usuário suspenso." });
+    }
+
     req.user = user;
     req.data = data;
+    req.tenantId = membership.organizationId;
+    req.role = membership.role;
     next();
   } catch (error) {
     next(error);
@@ -528,7 +794,7 @@ function validateAgentConfig(body: Partial<AgentConfig>) {
     speed: Number(body.speed || 1),
     systemInstruction: String(body.systemInstruction),
     analysisPrompt: String(body.analysisPrompt || ""),
-    questions: body.questions.map((question: any, index: number) => ({
+    questions: body.questions.map((question, index: number) => ({
       id: String(question.id || crypto.randomUUID()),
       text: String(question.text || `Pergunta ${index + 1}`),
       type: question.type === "closed" ? "closed" : "open",
@@ -558,7 +824,10 @@ function validateSession(body: Partial<SessionRecord>) {
     tags: Array.isArray(body.tags) ? body.tags.map(String) : [],
     followUp: String(body.followUp || "Revisar e definir próxima ação."),
     extracted: Array.isArray(body.extracted)
-      ? body.extracted.map((item: any) => ({ label: String(item.label || ""), value: String(item.value || "") }))
+      ? body.extracted.map((item: unknown) => {
+          const record = isRecord(item) ? item : {};
+          return { label: String(record.label || ""), value: String(record.value || "") };
+        })
       : [],
     structuredDraft: body.structuredDraft ? normalizeStructuredDraft(body.structuredDraft) : undefined,
     integrationDelivery: body.integrationDelivery,
@@ -630,6 +899,7 @@ async function sendWebhook(url: string, secret: string | undefined, event: strin
       signal: controller.signal,
     });
     const responseBody = await response.text();
+    if (!response.ok) metrics.webhookFailures += 1;
 
     return {
       status: response.ok ? "delivered" : "failed",
@@ -639,11 +909,12 @@ async function sendWebhook(url: string, secret: string | undefined, event: strin
       deliveredAt,
       responseBody: responseBody.slice(0, 2000),
     };
-  } catch (error: any) {
+  } catch (error) {
+    metrics.webhookFailures += 1;
     return {
       status: "failed",
       target: safeUrl,
-      message: error.name === "AbortError" ? "Timeout ao entregar webhook." : error.message || "Falha ao entregar webhook.",
+      message: errorName(error) === "AbortError" ? "Timeout ao entregar webhook." : errorMessage(error, "Falha ao entregar webhook."),
       deliveredAt,
     };
   } finally {
@@ -856,14 +1127,17 @@ Retorne somente JSON válido, sem markdown, no formato:
   "extracted": [{"label": "campo", "value": "valor"}]
 }`;
 
-  const response = await ai.models.generateContent({
-    model: "gemini-2.5-flash",
-    contents: [{ role: "user", parts: [{ text: prompt }] }],
-    config: {
-      temperature: 0.2,
-      responseMimeType: "application/json",
-    },
-  });
+  const response = await Promise.race([
+    ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      config: {
+        temperature: 0.2,
+        responseMimeType: "application/json",
+      },
+    }),
+    new Promise<never>((_, reject) => setTimeout(() => reject(new Error("Timeout ao analisar transcrição com Gemini.")), AI_TIMEOUT_MS)),
+  ]);
 
   const parsed = extractJson(response.text || "{}");
   return {
@@ -874,7 +1148,12 @@ Retorne somente JSON válido, sem markdown, no formato:
     tags: Array.isArray(parsed.tags) ? parsed.tags.map(String).slice(0, 8) : [],
     followUp: String(parsed.followUp || "Revisar resultado e definir próxima ação."),
     extracted: Array.isArray(parsed.extracted)
-      ? parsed.extracted.map((item: any) => ({ label: String(item.label || ""), value: String(item.value || "") })).filter((item: any) => item.label)
+      ? parsed.extracted
+          .map((item: unknown) => {
+            const record = isRecord(item) ? item : {};
+            return { label: String(record.label || ""), value: String(record.value || "") };
+          })
+          .filter((item) => item.label)
       : [],
   };
 }
@@ -895,17 +1174,33 @@ async function createSessionFromConversation(params: {
     requiredMissing: getRequiredMissing(agent, params.structuredDraft),
   };
   const transcript = transcriptToText(transcriptItems);
-  const baseAnalysis = process.env.GEMINI_API_KEY
-    ? await analyzeTranscript(agent, transcript, durationSeconds, structuredDraft)
-    : buildDeterministicAnalysis(agent, transcript, durationSeconds, structuredDraft);
+  let baseAnalysis: AnalysisResult;
+  if (process.env.GEMINI_API_KEY) {
+    try {
+      baseAnalysis = await analyzeTranscript(agent, transcript, durationSeconds, structuredDraft);
+    } catch (error) {
+      metrics.geminiFailures += 1;
+      console.error(JSON.stringify({
+        timestamp: new Date().toISOString(),
+        level: "error",
+        message: "gemini_analysis_failed",
+        tenant_id: ownerId,
+        error: errorMessage(error),
+      }));
+      baseAnalysis = buildDeterministicAnalysis(agent, transcript, durationSeconds, structuredDraft);
+    }
+  } else {
+    baseAnalysis = buildDeterministicAnalysis(agent, transcript, durationSeconds, structuredDraft);
+  }
   const analysis = mergeStructuredFindings(baseAnalysis, structuredDraft);
   const now = new Date().toISOString();
+  const totalSeconds = Math.max(0, Math.round(durationSeconds));
   const session: SessionRecord = {
     id: `SES-${Date.now()}`,
     agentName: agent.name,
     caller: caller || "Contato não informado",
     dateTime: now.slice(0, 16).replace("T", " "),
-    duration: `${Math.floor(durationSeconds / 60).toString().padStart(2, "0")}:${Math.round(durationSeconds % 60).toString().padStart(2, "0")}`,
+    duration: `${Math.floor(totalSeconds / 60).toString().padStart(2, "0")}:${(totalSeconds % 60).toString().padStart(2, "0")}`,
     transcript,
     structuredDraft: hasStructuredDraft(structuredDraft) ? structuredDraft : undefined,
     audioUrl,
@@ -929,7 +1224,7 @@ async function finalizeTelephonyCall(data: Database, call: StoredTelephonyCall, 
   if (call.sessionId) {
     const existing = data.sessions.find((session) => session.id === call.sessionId && session.ownerId === call.ownerId);
     if (existing) {
-      const { ownerId, createdAt, ...publicSession } = existing;
+      const { ownerId: _ownerId, createdAt: _createdAt, ...publicSession } = existing;
       return publicSession;
     }
   }
@@ -1016,11 +1311,14 @@ async function startServer() {
   const app = express();
   const PORT = Number(process.env.PORT || 3000);
 
+  app.use(requestContext);
   app.use(securityHeaders);
-  app.use("/api/", rateLimit({ windowMs: RATE_LIMIT_WINDOW_MS, max: 240, keyPrefix: "api" }));
-  app.use(["/api/auth/login", "/api/auth/register"], rateLimit({ windowMs: AUTH_RATE_LIMIT_WINDOW_MS, max: 20, keyPrefix: "auth" }));
+  app.use(structuredLogger);
+  app.use("/api/", rateLimit({ windowMs: RATE_LIMIT_WINDOW_MS, max: API_RATE_LIMIT_MAX, keyPrefix: "api" }));
+  app.use(["/api/auth/login", "/api/auth/register"], rateLimit({ windowMs: AUTH_RATE_LIMIT_WINDOW_MS, max: AUTH_RATE_LIMIT_MAX, keyPrefix: "auth" }));
   app.use(express.json({ limit: "2mb" }));
   app.use(express.urlencoded({ extended: false }));
+  app.use("/api/twilio", rateLimit({ windowMs: RATE_LIMIT_WINDOW_MS, max: WEBHOOK_RATE_LIMIT_MAX, keyPrefix: "twilio" }));
   app.use("/api/twilio", requireTwilioSignature);
 
   app.get("/api/status", async (req, res, next) => {
@@ -1032,7 +1330,8 @@ async function startServer() {
 
       const data = await readDatabase();
       const tokenRecord = data.tokens.find((item) => item.token === token);
-      res.json(runtimeStatus(data, tokenRecord?.userId));
+      const membership = tokenRecord ? data.memberships.find((item) => item.userId === tokenRecord.userId) : undefined;
+      res.json(runtimeStatus(data, membership?.organizationId));
     } catch (error) {
       next(error);
     }
@@ -1060,16 +1359,45 @@ async function startServer() {
         name: normalizedEmail.split("@")[0],
         company: String(companyName).trim(),
         email: normalizedEmail,
-        role: "Owner",
+        role: "owner",
         brandColor: DEFAULT_BRAND_COLOR,
+        privacyConsent: {
+          acceptedAt: now,
+          version: PRIVACY_TERMS_VERSION,
+          source: String(req.body.consentSource || "account_registration"),
+        },
         passwordHash: hash,
         salt,
         createdAt: now,
         updatedAt: now,
       };
+      const organization: StoredOrganization = {
+        id: user.id,
+        name: user.company,
+        brandColor: user.brandColor,
+        createdAt: now,
+        updatedAt: now,
+      };
+      const membership: StoredMembership = {
+        id: crypto.randomUUID(),
+        userId: user.id,
+        organizationId: organization.id,
+        role: "owner",
+        createdAt: now,
+        updatedAt: now,
+      };
 
       data.users.push(user);
+      data.organizations.push(organization);
+      data.memberships.push(membership);
       const token = createToken(data, user.id);
+      appendAuditLog(data, {
+        organizationId: organization.id,
+        userId: user.id,
+        action: "account_register",
+        requestId: currentRequestId(req),
+        metadata: { email: normalizedEmail, consentVersion: PRIVACY_TERMS_VERSION },
+      });
       await writeDatabase(data);
 
       res.status(201).json({ token, user: publicUser(user) });
@@ -1092,6 +1420,15 @@ async function startServer() {
       }
 
       const token = createToken(data, user.id);
+      const membership = data.memberships.find((item) => item.userId === user.id);
+      if (membership) {
+        appendAuditLog(data, {
+          organizationId: membership.organizationId,
+          userId: user.id,
+          action: "login",
+          requestId: currentRequestId(req),
+        });
+      }
       await writeDatabase(data);
 
       res.json({ token, user: publicUser(user) });
@@ -1105,6 +1442,12 @@ async function startServer() {
       const token = String(req.headers.authorization || "").replace(/^Bearer\s+/i, "").trim();
       const data = req.data || await readDatabase();
       data.tokens = data.tokens.filter((item) => item.token !== token);
+      appendAuditLog(data, {
+        organizationId: req.tenantId!,
+        userId: req.user!.id,
+        action: "logout",
+        requestId: req.requestId,
+      });
       await writeDatabase(data);
       res.json({ ok: true });
     } catch (error) {
@@ -1116,13 +1459,118 @@ async function startServer() {
     res.json({ user: publicUser(req.user!) });
   });
 
+  app.get("/api/privacy/policy", (_req, res) => {
+    res.json({
+      termsVersion: PRIVACY_TERMS_VERSION,
+      retentionDays: DATA_RETENTION_DAYS,
+      exportEndpoint: "/api/privacy/export",
+      deleteEndpoint: "/api/privacy/delete",
+    });
+  });
+
+  app.get("/api/privacy/export", requireAuth, requirePermission("privacy:export"), async (req: AuthedRequest, res, next) => {
+    try {
+      const data = req.data || await readDatabase();
+      const tenantId = req.tenantId!;
+      appendAuditLog(data, {
+        organizationId: tenantId,
+        userId: req.user!.id,
+        action: "privacy_export",
+        requestId: req.requestId,
+      });
+      await writeDatabase(data);
+
+      const organization = data.organizations.find((item) => item.id === tenantId);
+      const integration = data.integrations.find((item) => item.ownerId === tenantId);
+      res.json({
+        exportedAt: new Date().toISOString(),
+        policy: {
+          termsVersion: PRIVACY_TERMS_VERSION,
+          retentionDays: DATA_RETENTION_DAYS,
+        },
+        organization,
+        user: publicUser(req.user!),
+        agents: data.agents.filter((item) => item.ownerId === tenantId).map(({ ownerId: _ownerId, ...agent }) => agent),
+        sessions: data.sessions.filter((item) => item.ownerId === tenantId).map(({ ownerId: _ownerId, createdAt: _createdAt, ...session }) => session),
+        integrations: integration ? publicIntegration(integration) : undefined,
+        integrationDeliveries: data.integrationDeliveries.filter((item) => item.ownerId === tenantId).map(publicDelivery),
+        auditLogs: data.auditLogs.filter((item) => item.organizationId === tenantId),
+      });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.post("/api/privacy/delete", requireAuth, requirePermission("privacy:delete"), async (req: AuthedRequest, res, next) => {
+    try {
+      if (req.body.confirmation !== "DELETE") {
+        return res.status(400).json({ error: "Confirme a exclusão enviando confirmation=DELETE." });
+      }
+
+      const data = req.data || await readDatabase();
+      const tenantId = req.tenantId!;
+      const userId = req.user!.id;
+      appendAuditLog(data, {
+        organizationId: tenantId,
+        userId,
+        action: "account_delete",
+        requestId: req.requestId,
+        metadata: { policy: "anonymize_user_remove_operational_data" },
+      });
+
+      data.tokens = data.tokens.filter((item) => item.userId !== userId);
+      data.agents = data.agents.filter((item) => item.ownerId !== tenantId);
+      data.sessions = data.sessions.filter((item) => item.ownerId !== tenantId);
+      data.integrations = data.integrations.filter((item) => item.ownerId !== tenantId);
+      data.telephonyCalls = data.telephonyCalls.filter((item) => item.ownerId !== tenantId);
+      data.integrationDeliveries = data.integrationDeliveries.filter((item) => item.ownerId !== tenantId);
+
+      const user = data.users.find((item) => item.id === userId);
+      if (user) {
+        user.name = "Usuário excluído";
+        user.company = "Conta excluída";
+        user.email = `deleted-${user.id}@deleted.local`;
+        user.role = "suspended";
+        user.brandColor = DEFAULT_BRAND_COLOR;
+        user.privacyConsent = undefined;
+        const deletedPassword = createPasswordHash(crypto.randomUUID());
+        user.passwordHash = deletedPassword.hash;
+        user.salt = deletedPassword.salt;
+        user.updatedAt = new Date().toISOString();
+      }
+
+      const organization = data.organizations.find((item) => item.id === tenantId);
+      if (organization) {
+        organization.name = "Conta excluída";
+        organization.brandColor = DEFAULT_BRAND_COLOR;
+        organization.updatedAt = new Date().toISOString();
+      }
+
+      data.memberships = data.memberships.map((membership) =>
+        membership.organizationId === tenantId
+          ? { ...membership, role: "suspended", updatedAt: new Date().toISOString() }
+          : membership,
+      );
+
+      await writeDatabase(data);
+      res.json({ ok: true, mode: "anonymized_user_removed_operational_data" });
+    } catch (error) {
+      next(error);
+    }
+  });
+
   app.patch("/api/me", requireAuth, async (req: AuthedRequest, res, next) => {
     try {
       const data = req.data || await readDatabase();
       const user = data.users.find((item) => item.id === req.user!.id)!;
+      const organization = data.organizations.find((item) => item.id === req.tenantId);
 
       if (typeof req.body.company === "string" && req.body.company.trim()) {
         user.company = req.body.company.trim();
+        if (organization) {
+          organization.name = user.company;
+          organization.updatedAt = new Date().toISOString();
+        }
       }
 
       if (typeof req.body.name === "string" && req.body.name.trim()) {
@@ -1131,9 +1579,20 @@ async function startServer() {
 
       if (typeof req.body.brandColor === "string" && /^#[0-9a-f]{6}$/i.test(req.body.brandColor)) {
         user.brandColor = req.body.brandColor;
+        if (organization) {
+          organization.brandColor = user.brandColor;
+          organization.updatedAt = new Date().toISOString();
+        }
       }
 
       user.updatedAt = new Date().toISOString();
+      appendAuditLog(data, {
+        organizationId: req.tenantId!,
+        userId: req.user!.id,
+        action: "organization_update",
+        requestId: req.requestId,
+        metadata: { changedCompany: typeof req.body.company === "string", changedBrandColor: typeof req.body.brandColor === "string" },
+      });
       await writeDatabase(data);
       res.json({ user: publicUser(user) });
     } catch (error) {
@@ -1143,12 +1602,44 @@ async function startServer() {
 
   app.get("/api/agents", requireAuth, (req: AuthedRequest, res) => {
     const agents = (req.data?.agents || [])
-      .filter((agent) => agent.ownerId === req.user!.id)
-      .map(({ ownerId, ...agent }) => agent);
+      .filter((agent) => agent.ownerId === req.tenantId)
+      .map(({ ownerId: _ownerId, ...agent }) => agent);
     res.json({ agents });
   });
 
-  app.post("/api/agents", requireAuth, async (req: AuthedRequest, res, next) => {
+  app.get("/api/health", async (_req, res) => {
+    const checks = {
+      api: true,
+      storage: false,
+      geminiConfigured: Boolean(process.env.GEMINI_API_KEY),
+      twilioConfigured: telephonyConfig().providerConfigured,
+      sentryConfigured: Boolean(process.env.SENTRY_DSN),
+      retentionDays: DATA_RETENTION_DAYS,
+    };
+
+    try {
+      await fs.mkdir(DATA_DIR, { recursive: true });
+      await fs.access(DATA_DIR);
+      checks.storage = true;
+    } catch {
+      checks.storage = false;
+    }
+
+    res.status(checks.storage ? 200 : 503).json({
+      status: checks.storage ? "ok" : "degraded",
+      checks,
+    });
+  });
+
+  app.get("/api/metrics", requireAuth, requirePermission("admin:read"), (_req: AuthedRequest, res) => {
+    const averageLatencyMs = metrics.requests ? Math.round(metrics.totalLatencyMs / metrics.requests) : 0;
+    res.json({
+      ...metrics,
+      averageLatencyMs,
+    });
+  });
+
+  app.post("/api/agents", requireAuth, requirePermission("agent:write"), async (req: AuthedRequest, res, next) => {
     try {
       const data = req.data || await readDatabase();
       const config = validateAgentConfig(req.body);
@@ -1156,24 +1647,31 @@ async function startServer() {
       const agent = {
         ...config,
         id: crypto.randomUUID(),
-        ownerId: req.user!.id,
+        ownerId: req.tenantId!,
         createdAt: now,
         updatedAt: now,
       };
 
       data.agents.push(agent);
+      appendAuditLog(data, {
+        organizationId: req.tenantId!,
+        userId: req.user!.id,
+        action: "agent_create",
+        requestId: req.requestId,
+        metadata: { agentId: agent.id, name: agent.name },
+      });
       await writeDatabase(data);
-      const { ownerId, ...publicAgent } = agent;
+      const { ownerId: _ownerId, ...publicAgent } = agent;
       res.status(201).json({ agent: publicAgent });
     } catch (error) {
       next(error);
     }
   });
 
-  app.put("/api/agents/:id", requireAuth, async (req: AuthedRequest, res, next) => {
+  app.put("/api/agents/:id", requireAuth, requirePermission("agent:write"), async (req: AuthedRequest, res, next) => {
     try {
       const data = req.data || await readDatabase();
-      const index = data.agents.findIndex((agent) => agent.id === req.params.id && agent.ownerId === req.user!.id);
+      const index = data.agents.findIndex((agent) => agent.id === req.params.id && agent.ownerId === req.tenantId);
 
       if (index < 0) {
         return res.status(404).json({ error: "Agente não encontrado." });
@@ -1187,23 +1685,38 @@ async function startServer() {
       };
 
       await writeDatabase(data);
-      const { ownerId, ...agent } = data.agents[index];
+      appendAuditLog(data, {
+        organizationId: req.tenantId!,
+        userId: req.user!.id,
+        action: "agent_update",
+        requestId: req.requestId,
+        metadata: { agentId: req.params.id },
+      });
+      await writeDatabase(data);
+      const { ownerId: _ownerId, ...agent } = data.agents[index];
       res.json({ agent });
     } catch (error) {
       next(error);
     }
   });
 
-  app.delete("/api/agents/:id", requireAuth, async (req: AuthedRequest, res, next) => {
+  app.delete("/api/agents/:id", requireAuth, requirePermission("agent:write"), async (req: AuthedRequest, res, next) => {
     try {
       const data = req.data || await readDatabase();
       const before = data.agents.length;
-      data.agents = data.agents.filter((agent) => !(agent.id === req.params.id && agent.ownerId === req.user!.id));
+      data.agents = data.agents.filter((agent) => !(agent.id === req.params.id && agent.ownerId === req.tenantId));
 
       if (data.agents.length === before) {
         return res.status(404).json({ error: "Agente não encontrado." });
       }
 
+      appendAuditLog(data, {
+        organizationId: req.tenantId!,
+        userId: req.user!.id,
+        action: "agent_delete",
+        requestId: req.requestId,
+        metadata: { agentId: req.params.id },
+      });
       await writeDatabase(data);
       res.json({ ok: true });
     } catch (error) {
@@ -1213,36 +1726,36 @@ async function startServer() {
 
   app.get("/api/sessions", requireAuth, (req: AuthedRequest, res) => {
     const sessions = (req.data?.sessions || [])
-      .filter((session) => session.ownerId === req.user!.id)
+      .filter((session) => session.ownerId === req.tenantId)
       .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))
-      .map(({ ownerId, createdAt, ...session }) => session);
+      .map(({ ownerId: _ownerId, createdAt: _createdAt, ...session }) => session);
     res.json({ sessions });
   });
 
-  app.post("/api/sessions", requireAuth, async (req: AuthedRequest, res, next) => {
+  app.post("/api/sessions", requireAuth, requirePermission("session:write"), async (req: AuthedRequest, res, next) => {
     try {
       const data = req.data || await readDatabase();
       const session = validateSession(req.body);
-      session.integrationDelivery = await deliverSession(data, req.user!.id, session);
+      session.integrationDelivery = await deliverSession(data, req.tenantId!, session);
       const storedSession: StoredSession = {
         ...session,
-        ownerId: req.user!.id,
+        ownerId: req.tenantId!,
         createdAt: new Date().toISOString(),
       };
 
       data.sessions.push(storedSession);
       await writeDatabase(data);
-      const { ownerId, createdAt, ...publicSession } = storedSession;
+      const { ownerId: _ownerId, createdAt: _createdAt, ...publicSession } = storedSession;
       res.status(201).json({ session: publicSession });
     } catch (error) {
       next(error);
     }
   });
 
-  app.post("/api/sessions/analyze-and-save", requireAuth, async (req: AuthedRequest, res, next) => {
+  app.post("/api/sessions/analyze-and-save", requireAuth, requirePermission("session:write"), async (req: AuthedRequest, res, next) => {
     try {
       const data = req.data || await readDatabase();
-      const agent = data.agents.find((item) => item.id === req.body.agentId && item.ownerId === req.user!.id);
+      const agent = data.agents.find((item) => item.id === req.body.agentId && item.ownerId === req.tenantId);
 
       if (!agent) {
         return res.status(404).json({ error: "Agente não encontrado." });
@@ -1256,7 +1769,7 @@ async function startServer() {
       const structuredDraft = normalizeStructuredDraft(req.body.structuredDraft);
       const session = await createSessionFromConversation({
         data,
-        ownerId: req.user!.id,
+        ownerId: req.tenantId!,
         agent,
         caller: String(req.body.caller || "Contato não informado"),
         transcriptItems: req.body.transcriptItems,
@@ -1272,13 +1785,13 @@ async function startServer() {
 
   app.get("/api/telephony/calls", requireAuth, (req: AuthedRequest, res) => {
     const calls = (req.data?.telephonyCalls || [])
-      .filter((call) => call.ownerId === req.user!.id)
+      .filter((call) => call.ownerId === req.tenantId)
       .sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt))
       .map(publicTelephonyCall);
     res.json({ calls });
   });
 
-  app.post("/api/telephony/calls", requireAuth, async (req: AuthedRequest, res, next) => {
+  app.post("/api/telephony/calls", requireAuth, requirePermission("telephony:write"), async (req: AuthedRequest, res, next) => {
     try {
       const config = telephonyConfig();
       if (!config.outboundConfigured) {
@@ -1288,7 +1801,7 @@ async function startServer() {
       }
 
       const data = req.data || await readDatabase();
-      const agent = data.agents.find((item) => item.id === req.body.agentId && item.ownerId === req.user!.id);
+      const agent = data.agents.find((item) => item.id === req.body.agentId && item.ownerId === req.tenantId);
       if (!agent) {
         return res.status(404).json({ error: "Agente não encontrado." });
       }
@@ -1300,7 +1813,7 @@ async function startServer() {
       const now = new Date().toISOString();
       const call: StoredTelephonyCall = {
         id: crypto.randomUUID(),
-        ownerId: req.user!.id,
+        ownerId: req.tenantId!,
         agentId: agent.id,
         agentName: agent.name,
         caller: String(req.body.caller || req.body.to || "Contato telefônico"),
@@ -1327,9 +1840,10 @@ async function startServer() {
         call.updatedAt = new Date().toISOString();
         await writeDatabase(data);
         res.status(201).json({ call: publicTelephonyCall(call) });
-      } catch (error: any) {
+      } catch (error) {
+        metrics.twilioFailures += 1;
         call.status = "failed";
-        call.error = error.message || "Falha ao iniciar chamada na Twilio.";
+        call.error = errorMessage(error, "Falha ao iniciar chamada na Twilio.");
         call.updatedAt = new Date().toISOString();
         await writeDatabase(data);
         res.status(502).json({ error: call.error, call: publicTelephonyCall(call) });
@@ -1468,7 +1982,7 @@ async function startServer() {
   app.get("/api/integrations", requireAuth, async (req: AuthedRequest, res, next) => {
     try {
       const data = req.data || await readDatabase();
-      const integration = getIntegration(data, req.user!.id);
+      const integration = getIntegration(data, req.tenantId!);
       await writeDatabase(data);
       res.json(publicIntegration(integration));
     } catch (error) {
@@ -1478,17 +1992,17 @@ async function startServer() {
 
   app.get("/api/integrations/deliveries", requireAuth, (req: AuthedRequest, res) => {
     const deliveries = (req.data?.integrationDeliveries || [])
-      .filter((delivery) => delivery.ownerId === req.user!.id)
+      .filter((delivery) => delivery.ownerId === req.tenantId)
       .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))
       .slice(0, 100)
       .map(publicDelivery);
     res.json({ deliveries });
   });
 
-  app.post("/api/integrations/deliveries/:id/retry", requireAuth, async (req: AuthedRequest, res, next) => {
+  app.post("/api/integrations/deliveries/:id/retry", requireAuth, requirePermission("integration:write"), async (req: AuthedRequest, res, next) => {
     try {
       const data = req.data || await readDatabase();
-      const previousDelivery = data.integrationDeliveries.find((delivery) => delivery.id === req.params.id && delivery.ownerId === req.user!.id);
+      const previousDelivery = data.integrationDeliveries.find((delivery) => delivery.id === req.params.id && delivery.ownerId === req.tenantId);
 
       if (!previousDelivery) {
         return res.status(404).json({ error: "Entrega não encontrada." });
@@ -1498,18 +2012,25 @@ async function startServer() {
         return res.status(400).json({ error: "Esta entrega não está vinculada a uma sessão." });
       }
 
-      const session = data.sessions.find((item) => item.id === previousDelivery.sessionId && item.ownerId === req.user!.id);
+      const session = data.sessions.find((item) => item.id === previousDelivery.sessionId && item.ownerId === req.tenantId);
       if (!session) {
         return res.status(404).json({ error: "Sessão original não encontrada." });
       }
 
-      const integration = getIntegration(data, req.user!.id);
+      const integration = getIntegration(data, req.tenantId!);
       if (!integration.webhook.enabled || !integration.webhook.url) {
         return res.status(400).json({ error: "Configure e ative o webhook antes de retentar a entrega." });
       }
 
-      const delivery = await deliverSession(data, req.user!.id, session);
+      const delivery = await deliverSession(data, req.tenantId!, session);
       session.integrationDelivery = delivery;
+      appendAuditLog(data, {
+        organizationId: req.tenantId!,
+        userId: req.user!.id,
+        action: "integration_delivery_retry",
+        requestId: req.requestId,
+        metadata: { deliveryId: req.params.id, sessionId: previousDelivery.sessionId },
+      });
       await writeDatabase(data);
       res.json({ delivery });
     } catch (error) {
@@ -1517,10 +2038,10 @@ async function startServer() {
     }
   });
 
-  app.patch("/api/integrations", requireAuth, async (req: AuthedRequest, res, next) => {
+  app.patch("/api/integrations", requireAuth, requirePermission("integration:write"), async (req: AuthedRequest, res, next) => {
     try {
       const data = req.data || await readDatabase();
-      const integration = getIntegration(data, req.user!.id);
+      const integration = getIntegration(data, req.tenantId!);
       const webhook = req.body.webhook || {};
 
       if (typeof webhook.url === "string") {
@@ -1537,6 +2058,13 @@ async function startServer() {
       }
 
       integration.webhook.updatedAt = new Date().toISOString();
+      appendAuditLog(data, {
+        organizationId: req.tenantId!,
+        userId: req.user!.id,
+        action: "webhook_update",
+        requestId: req.requestId,
+        metadata: { enabled: integration.webhook.enabled, hasUrl: Boolean(integration.webhook.url), hasSecret: Boolean(integration.webhook.secret) },
+      });
       await writeDatabase(data);
       res.json(publicIntegration(integration));
     } catch (error) {
@@ -1544,10 +2072,10 @@ async function startServer() {
     }
   });
 
-  app.post("/api/integrations/test-webhook", requireAuth, async (req: AuthedRequest, res, next) => {
+  app.post("/api/integrations/test-webhook", requireAuth, requirePermission("integration:write"), async (req: AuthedRequest, res, next) => {
     try {
       const data = req.data || await readDatabase();
-      const integration = getIntegration(data, req.user!.id);
+      const integration = getIntegration(data, req.tenantId!);
       const url = String(req.body.url || integration.webhook.url || "").trim();
       const secret = typeof req.body.secret === "string" ? req.body.secret : integration.webhook.secret;
 
@@ -1591,12 +2119,19 @@ async function startServer() {
       }
 
       const ai = new GoogleGenAI({ apiKey });
-      const history = currentMessages.map((message: any) => ({
-        role: message.role === "agent" ? "model" : "user",
-        parts: [{ text: String(message.text || "") }],
-      }));
+      const history = currentMessages.map((message: unknown) => {
+        const record = isRecord(message) ? message : {};
+        return {
+          role: record.role === "agent" ? "model" : "user",
+          parts: [{ text: String(record.text || "") }],
+        };
+      });
 
-      const config: any = {
+      const config: {
+        systemInstruction: string;
+        temperature: number;
+        tools?: Array<{ googleSearch: Record<string, never> }>;
+      } = {
         systemInstruction: String(prompt || "Você é um assistente útil."),
         temperature: Number(temperature),
       };
@@ -1631,9 +2166,18 @@ async function startServer() {
     });
   }
 
-  app.use((error: any, _req: Request, res: Response, _next: NextFunction) => {
-    console.error("API error:", error);
-    res.status(400).json({ error: error.message || "Erro interno do servidor." });
+  app.use((error: unknown, _req: Request, res: Response, _next: NextFunction) => {
+    const req = _req as AuthedRequest;
+    console.error(JSON.stringify({
+      timestamp: new Date().toISOString(),
+      level: "error",
+      message: "api_error",
+      request_id: req.requestId,
+      user_id: req.user?.id,
+      tenant_id: req.tenantId,
+      error: errorMessage(error),
+    }));
+    res.status(400).json({ error: errorMessage(error) });
   });
 
   app.listen(PORT, "0.0.0.0", () => {

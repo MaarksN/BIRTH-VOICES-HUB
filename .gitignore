@@ -10,9 +10,14 @@ lerna-debug.log*
 node_modules
 dist
 dist-ssr
+.tmp
+coverage
+playwright-report
+test-results
 *.local
 data/*.json
 data/*.tmp
+backups
 
 # Editor directories and files
 .vscode/*
