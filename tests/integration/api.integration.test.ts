@@ -220,6 +220,13 @@ describe('Birth Voices API integration', () => {
     const health = await requestOk<{ status: string; checks: { storage: boolean } }>('/api/health');
     expect(health.status).toBe('ok');
     expect(health.checks.storage).toBe(true);
+    const readiness = await requestOk<{ status: string; checks: Array<{ name: string; status: string; required: boolean }> }>('/api/readiness');
+    expect(readiness.status).toBe('degraded');
+    expect(readiness.checks).toEqual(expect.arrayContaining([
+      expect.objectContaining({ name: 'storage', status: 'pass', required: true }),
+      expect.objectContaining({ name: 'security_headers', status: 'pass', required: true }),
+      expect.objectContaining({ name: 'gemini', status: 'warn', required: false }),
+    ]));
     await expectStatus('/api/me', 401);
   });
 

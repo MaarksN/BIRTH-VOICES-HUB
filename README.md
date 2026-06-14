@@ -15,6 +15,7 @@ Plataforma local para criar agentes de voz estruturados, conduzir conversas no n
 - Entrega automática de sessões via webhook assinado com `X-Birth-Voices-Signature`.
 - Histórico de entregas webhook com auditoria e retentativa manual.
 - Dashboards sem dados fictícios: métricas aparecem somente a partir dos dados salvos.
+- Readiness operacional em `GET /api/readiness`, diferenciando bloqueios reais de avisos por integrações opcionais sem credenciais.
 
 ## Rodar localmente
 
@@ -83,6 +84,8 @@ Quando o roteiro termina ou uma palavra de risco interrompe a conversa, a plataf
 ## Segurança e QA técnico
 
 A API aplica um primeiro conjunto de proteções de produção: headers HTTP de segurança com CSP, `request_id`, logs JSON sanitizados, rate limit global para `/api/*`, rate limit mais restritivo para login/cadastro e webhooks, bloqueio de webhooks apontando para localhost/redes privadas/reservadas e validação de assinatura nos callbacks públicos da Twilio.
+
+Use `GET /api/health` para liveness/storage e `GET /api/readiness` para verificar se a instância está pronta. Sem `GEMINI_API_KEY`, Twilio ou webhook do tenant, a readiness retorna `degraded`: a plataforma continua funcionando com fallback determinístico e sem entregas externas, mas deixa claro o que precisa de credenciais reais para ativar IA, telefonia e CRM/ATS.
 
 Para ajustar timeout de entrega webhook, configure:
 

@@ -121,6 +121,21 @@ export type RuntimeStatus = {
   integrationConfigured: boolean;
 };
 
+export type ReadinessCheckStatus = 'pass' | 'warn' | 'fail';
+
+export type ReadinessCheck = {
+  name: string;
+  status: ReadinessCheckStatus;
+  detail: string;
+  required: boolean;
+};
+
+export type ReadinessStatus = {
+  status: 'ready' | 'degraded' | 'not_ready';
+  generatedAt: string;
+  checks: ReadinessCheck[];
+};
+
 export type AuditLogEntry = {
   id: string;
   organizationId: string;

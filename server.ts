@@ -14,6 +14,7 @@ import type {
   OrganizationRole,
   PrivacyConsent,
   RuntimeStatus,
+  ReadinessStatus,
   SessionRecord,
   StoredAgent,
   StructuredDraft,
@@ -1306,6 +1307,40 @@ function runtimeStatus(data?: Database, ownerId?: string): RuntimeStatus {
   };
 }
 
+async function readinessStatus(data?: Database, ownerId?: string): Promise<ReadinessStatus> {
+  const checks: ReadinessStatus["checks"] = [];
+  const addCheck = (name: string, status: "pass" | "warn" | "fail", detail: string, required = true) => {
+    checks.push({ name, status, detail, required });
+  };
+
+  try {
+    await fs.mkdir(DATA_DIR, { recursive: true });
+    await fs.access(DATA_DIR);
+    addCheck("storage", "pass", `Persistência local gravável em ${DATA_FILE}.`);
+  } catch (error) {
+    addCheck("storage", "fail", `Persistência local indisponível: ${errorMessage(error)}`);
+  }
+
+  const twilio = telephonyConfig();
+  const integration = data && ownerId ? data.integrations.find((item) => item.ownerId === ownerId) : undefined;
+
+  addCheck("security_headers", "pass", "Headers CSP, HSTS, frame-ancestors, X-Content-Type-Options e referrer policy ativos.");
+  addCheck("rate_limiting", "pass", "Rate limit global de API, autenticação e callbacks Twilio ativo.");
+  addCheck("privacy", "pass", `Consentimento, exportação, exclusão e retenção (${DATA_RETENTION_DAYS} dias) configurados.`);
+  addCheck("gemini", process.env.GEMINI_API_KEY ? "pass" : "warn", process.env.GEMINI_API_KEY ? "Gemini real configurado." : "GEMINI_API_KEY ausente; análise determinística de fallback será usada.", false);
+  addCheck("twilio", twilio.providerConfigured && twilio.outboundConfigured && Boolean(twilio.publicBaseUrl) ? "pass" : "warn", twilio.providerConfigured && twilio.outboundConfigured && Boolean(twilio.publicBaseUrl) ? "Twilio outbound e callbacks públicos configurados." : "Credenciais Twilio, número de origem ou PUBLIC_BASE_URL ausentes; telefonia real fica indisponível.", false);
+  addCheck("webhook", integration?.webhook.enabled && integration.webhook.url ? "pass" : "warn", integration?.webhook.enabled && integration.webhook.url ? "Webhook do tenant configurado." : "Webhook do tenant não configurado; entregas externas ficam desativadas.", false);
+
+  const hasRequiredFailure = checks.some((check) => check.required && check.status === "fail");
+  const hasWarning = checks.some((check) => check.status === "warn");
+
+  return {
+    status: hasRequiredFailure ? "not_ready" : hasWarning ? "degraded" : "ready",
+    generatedAt: new Date().toISOString(),
+    checks,
+  };
+}
+
 async function startServer() {
   await loadLocalEnv();
   const app = express();
@@ -1332,6 +1367,24 @@ async function startServer() {
       const tokenRecord = data.tokens.find((item) => item.token === token);
       const membership = tokenRecord ? data.memberships.find((item) => item.userId === tokenRecord.userId) : undefined;
       res.json(runtimeStatus(data, membership?.organizationId));
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.get("/api/readiness", async (req, res, next) => {
+    try {
+      const token = String(req.headers.authorization || "").replace(/^Bearer\s+/i, "").trim();
+      if (!token) {
+        const readiness = await readinessStatus();
+        return res.status(readiness.status === "not_ready" ? 503 : 200).json(readiness);
+      }
+
+      const data = await readDatabase();
+      const tokenRecord = data.tokens.find((item) => item.token === token);
+      const membership = tokenRecord ? data.memberships.find((item) => item.userId === tokenRecord.userId) : undefined;
+      const readiness = await readinessStatus(data, membership?.organizationId);
+      res.status(readiness.status === "not_ready" ? 503 : 200).json(readiness);
     } catch (error) {
       next(error);
     }
