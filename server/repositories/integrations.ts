@@ -1,21 +1,15 @@
 import crypto from "crypto";
-import { GoogleGenAI } from "@google/genai";
 import {
   Database,
   errorMessage,
   errorName,
-  isRecord,
-  StoredAgent,
   StoredIntegration,
   StoredIntegrationDelivery,
-  writeDatabase,
 } from "./database";
 import {
   IntegrationDelivery,
   IntegrationSettings,
   SessionRecord,
-  StructuredDraft,
-  TranscriptItem,
 } from "../../types";
 import { metrics } from "../middleware/common";
 

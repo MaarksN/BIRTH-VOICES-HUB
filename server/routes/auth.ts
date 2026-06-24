@@ -11,6 +11,7 @@ import {
   StoredOrganization,
   StoredMembership,
   writeDatabase,
+  Database,
 } from "../repositories/database";
 import { currentRequestId } from "../middleware/common";
 import { requireAuth } from "../middleware/auth";
@@ -20,16 +21,18 @@ const router = Router();
 const PRIVACY_TERMS_VERSION = process.env.PRIVACY_TERMS_VERSION || "2026-06-05";
 const DEFAULT_BRAND_COLOR = "#2563eb";
 
-function createToken(data: any, userId: string) {
+function createToken(data: Database, userId: string) {
   const token = crypto.randomBytes(32).toString("hex");
   const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24 * 30).toISOString();
   data.tokens.push({ token, userId, expiresAt });
   return token;
 }
 
+import { AuditLogEntry } from "../../types";
+
 function sanitizeMetadata(metadata: Record<string, unknown> = {}) {
   const blocked = /password|token|secret|transcript|authorization|cookie/i;
-  const sanitized: any = {};
+  const sanitized: NonNullable<AuditLogEntry["metadata"]> = {};
 
   for (const [key, value] of Object.entries(metadata)) {
     if (blocked.test(key)) {
@@ -46,11 +49,11 @@ function sanitizeMetadata(metadata: Record<string, unknown> = {}) {
   return sanitized;
 }
 
-function hashAuditLog(entry: any) {
+function hashAuditLog(entry: Omit<AuditLogEntry, "hash">) {
   return crypto.createHash("sha256").update(JSON.stringify(entry)).digest("hex");
 }
 
-function appendAuditLog(data: any, params: {
+function appendAuditLog(data: Database, params: {
   organizationId: string;
   userId?: string;
   action: string;
@@ -58,7 +61,7 @@ function appendAuditLog(data: any, params: {
   metadata?: Record<string, unknown>;
 }) {
   const previous = data.auditLogs[data.auditLogs.length - 1];
-  const entryWithoutHash: any = {
+  const entryWithoutHash: Omit<AuditLogEntry, "hash"> = {
     id: crypto.randomUUID(),
     organizationId: params.organizationId,
     userId: params.userId,

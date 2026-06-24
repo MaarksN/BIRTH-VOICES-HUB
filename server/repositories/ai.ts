@@ -6,7 +6,6 @@ import {
   StoredAgent,
   StoredSession,
   uniqueStrings,
-  normalizeStructuredDraft,
 } from "./database";
 import {
   AgentConfig,

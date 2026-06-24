@@ -11,7 +11,7 @@ import {
 import { requireAuth, requirePermission } from "../middleware/auth";
 import { appendAuditLog } from "./auth";
 import crypto from "crypto";
-import { getIntegration, publicIntegration, publicDelivery } from "../repositories/integrations";
+import { publicIntegration, publicDelivery } from "../repositories/integrations";
 import { createPasswordHash } from "../repositories/database";
 
 const router = Router();

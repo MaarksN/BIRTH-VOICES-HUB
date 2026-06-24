@@ -33,8 +33,10 @@ const API_RATE_LIMIT_MAX = Number(process.env.API_RATE_LIMIT_MAX || 240);
 const AUTH_RATE_LIMIT_MAX = Number(process.env.AUTH_RATE_LIMIT_MAX || 20);
 const WEBHOOK_RATE_LIMIT_MAX = Number(process.env.WEBHOOK_RATE_LIMIT_MAX || 120);
 
-function runtimeStatus(data?: any, ownerId?: string): RuntimeStatus {
-  const integration = data && ownerId ? data.integrations.find((item: any) => item.ownerId === ownerId) : undefined;
+import { Database } from "./repositories/database";
+
+function runtimeStatus(data?: Database, ownerId?: string): RuntimeStatus {
+  const integration = data && ownerId ? data.integrations.find((item) => item.ownerId === ownerId) : undefined;
   const twilio = telephonyConfig();
   return {
     geminiConfigured: Boolean(process.env.GEMINI_API_KEY),
@@ -129,14 +131,18 @@ export async function createApp() {
        }
 
        const ai = new GoogleGenAI({ apiKey });
-       const history = currentMessages.map((message: any) => {
+       const history = currentMessages.map((message: { role: string; text: string }) => {
          return {
            role: message.role === "agent" ? "model" : "user",
            parts: [{ text: String(message.text || "") }],
          };
        });
 
-       const config: any = {
+       const config: {
+         systemInstruction: string;
+         temperature: number;
+         tools?: Array<{ googleSearch: Record<string, never> }>;
+       } = {
          systemInstruction: String(prompt || "Você é um assistente útil."),
          temperature: Number(temperature),
        };

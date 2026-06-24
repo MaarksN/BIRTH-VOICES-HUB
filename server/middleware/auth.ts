@@ -1,8 +1,7 @@
 import crypto from "crypto";
-import { NextFunction, Response } from "express";
+import { NextFunction, Request, Response } from "express";
 import {
   AuthedRequest,
-  Database,
   OrganizationRole,
   readDatabase,
   writeDatabase,
@@ -94,7 +93,7 @@ function getPublicBaseUrl() {
   return String(process.env.PUBLIC_BASE_URL || "").trim().replace(/\/+$/, "");
 }
 
-function twilioSignaturePayload(req: any) {
+function twilioSignaturePayload(req: Request) {
   const baseUrl = getPublicBaseUrl();
   const requestUrl = baseUrl ? `${baseUrl}${req.originalUrl}` : `${req.protocol}://${req.get("host")}${req.originalUrl}`;
   const params = req.body && typeof req.body === "object" ? req.body : {};
@@ -105,7 +104,7 @@ function twilioSignaturePayload(req: any) {
   return `${requestUrl}${suffix}`;
 }
 
-export function verifyTwilioRequest(req: any) {
+export function verifyTwilioRequest(req: Request) {
   const authToken = String(process.env.TWILIO_AUTH_TOKEN || "").trim();
   const signature = String(req.header("X-Twilio-Signature") || "").trim();
   if (!authToken || !signature) return false;
@@ -134,7 +133,7 @@ function say(text: string) {
   return `<Say language="pt-BR" voice="alice">${escapeXml(text)}</Say>`;
 }
 
-export function requireTwilioSignature(req: any, res: Response, next: NextFunction) {
+export function requireTwilioSignature(req: Request, res: Response, next: NextFunction) {
   if (!process.env.TWILIO_AUTH_TOKEN) {
     return res.status(503).type("text/xml").send(twiml(`${say("Telefonia não configurada.")}<Hangup />`));
   }

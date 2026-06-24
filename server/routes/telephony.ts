@@ -7,9 +7,8 @@ import {
   errorMessage,
   StoredTelephonyCall,
   Database,
-  isNodeError,
 } from "../repositories/database";
-import { requireAuth, requirePermission, requireTwilioSignature } from "../middleware/auth";
+import { requireAuth, requirePermission } from "../middleware/auth";
 import { TelephonyCallStatus, TelephonyCall, StoredAgent } from "../../types";
 import { metrics } from "../middleware/common";
 import { createSessionFromConversation, detectStructuredRisk, applyAnswerToDraft } from "../repositories/ai";
