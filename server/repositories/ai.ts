@@ -3,8 +3,6 @@ import {
   Database,
   errorMessage,
   isRecord,
-  StoredAgent,
-  StoredSession,
   uniqueStrings,
 } from "./database";
 import {
@@ -13,6 +11,8 @@ import {
   StructuredDraft,
   StructuredRisk,
   TranscriptItem,
+  StoredAgent,
+  StoredSession,
 } from "../../types";
 import { metrics } from "../middleware/common";
 import { deliverSession } from "./integrations";

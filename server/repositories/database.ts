@@ -82,6 +82,16 @@ export type Database = {
   auditLogs: AuditLogEntry[];
 };
 
+import { Request } from "express";
+
+export type AuthedRequest = Request & {
+  user?: StoredUser;
+  data?: Database;
+  tenantId?: string;
+  role?: OrganizationRole;
+  requestId?: string;
+};
+
 export const DATA_DIR = process.env.BIRTH_VOICES_DATA_DIR || path.join(process.cwd(), "data");
 export const DATA_FILE = path.join(DATA_DIR, "birth-voices.json");
 export const DEFAULT_BRAND_COLOR = "#2563eb";

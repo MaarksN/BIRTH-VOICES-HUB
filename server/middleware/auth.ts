@@ -2,10 +2,10 @@ import crypto from "crypto";
 import { NextFunction, Request, Response } from "express";
 import {
   AuthedRequest,
-  OrganizationRole,
   readDatabase,
   writeDatabase,
 } from "../repositories/database";
+import { OrganizationRole } from "../../types";
 
 export async function requireAuth(req: AuthedRequest, res: Response, next: NextFunction) {
   try {
