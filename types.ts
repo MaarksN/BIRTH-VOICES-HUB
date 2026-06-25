@@ -71,6 +71,11 @@ export type StoredAgent = AgentConfig & {
   updatedAt: string;
 };
 
+export type StoredSession = SessionRecord & {
+  ownerId: string;
+  createdAt: string;
+};
+
 export type SessionRecord = {
   id: string;
   agentName: string;
