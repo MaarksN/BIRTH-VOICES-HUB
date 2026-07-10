@@ -34,6 +34,13 @@ export default function DevelopersPage() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [testWebhookModal, setTestWebhookModal] = useState<string | null>(null);
   const [webhookLog, setWebhookLog] = useState<{status: number, body: string} | null>(null);
+  
+  // Custom dialog state
+  const [dialogConfirm, setDialogConfirm] = useState<{
+    title: string;
+    message: string;
+    onConfirm: () => void;
+  } | null>(null);
 
   const handleTestWebhook = (e: React.FormEvent) => {
     e.preventDefault();
@@ -79,9 +86,14 @@ export default function DevelopersPage() {
   };
 
   const handleRevokeKey = (id: string) => {
-    if (window.confirm('Tem certeza de que deseja revogar esta chave de API? Quaisquer aplicações ou SDKs que utilizem esta chave deixarão de funcionar imediatamente.')) {
-      setKeys(keys.filter(k => k.id !== id));
-    }
+    setDialogConfirm({
+      title: 'Revogar Chave de API',
+      message: 'Tem certeza de que deseja revogar esta chave de API? Quaisquer aplicações ou SDKs que utilizem esta chave deixarão de funcionar imediatamente.',
+      onConfirm: () => {
+        setKeys(keys.filter(k => k.id !== id));
+        setDialogConfirm(null);
+      }
+    });
   };
 
   const handleCopy = (id: string, val: string) => {
@@ -341,6 +353,30 @@ export default function DevelopersPage() {
                             </button>
                         </div>
                     </form>
+                </div>
+            </div>
+        )}
+
+        {/* Custom Confirmation Modal */}
+        {dialogConfirm && (
+            <div className="fixed inset-0 z-55 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
+                <div className="bg-white rounded-xl shadow-xl max-w-sm w-full p-6 animate-in fade-in zoom-in-95 duration-200 border border-slate-200">
+                    <h3 className="font-bold text-slate-900 text-lg mb-2">{dialogConfirm.title}</h3>
+                    <p className="text-sm text-slate-600 mb-6">{dialogConfirm.message}</p>
+                    <div className="flex gap-3">
+                        <button 
+                            onClick={() => setDialogConfirm(null)}
+                            className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold rounded-lg text-sm transition-colors"
+                        >
+                            Cancelar
+                        </button>
+                        <button 
+                            onClick={dialogConfirm.onConfirm}
+                            className="flex-1 py-2.5 bg-red-600 text-white font-bold rounded-lg text-sm hover:bg-red-750 transition-colors"
+                        >
+                            Revogar
+                        </button>
+                    </div>
                 </div>
             </div>
         )}

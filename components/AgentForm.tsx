@@ -129,6 +129,14 @@ export function AgentForm() {
   const [isSaving, setIsSaving] = useState(false);
   const [savedConfigs, setSavedConfigs] = useState<AgentConfig[]>([]);
   const [showLoadModal, setShowLoadModal] = useState(false);
+  
+  // Custom dialogs states
+  const [dialogAlert, setDialogAlert] = useState<string | null>(null);
+  const [dialogConfirm, setDialogConfirm] = useState<{
+    title: string;
+    message: string;
+    onConfirm: () => void;
+  } | null>(null);
 
   useEffect(() => {
     const saved = localStorage.getItem('birth_voices_saved_agents');
@@ -190,24 +198,42 @@ export function AgentForm() {
     const newSavedConfigs = [...savedConfigs];
     const existingIndex = newSavedConfigs.findIndex(c => c.name === config.name);
 
-    if (existingIndex >= 0) {
-      if (confirm(`Já existe um agente com o nome "${config.name}". Deseja sobrescrever?`)) {
-        newSavedConfigs[existingIndex] = config;
+    const performSave = () => {
+      const updatedConfigs = [...savedConfigs];
+      if (existingIndex >= 0) {
+        updatedConfigs[existingIndex] = config;
       } else {
-        setIsSaving(false);
-        return;
+        updatedConfigs.push(config);
       }
+      setSavedConfigs(updatedConfigs);
+      localStorage.setItem('birth_voices_saved_agents', JSON.stringify(updatedConfigs));
+
+      setTimeout(() => {
+        setIsSaving(false);
+        setDialogAlert('Configurações do agente salvas com sucesso!');
+      }, 800);
+    };
+
+    if (existingIndex >= 0) {
+      setDialogConfirm({
+        title: 'Sobrescrever Agente',
+        message: `Já existe um agente cadastrado com o nome "${config.name}". Deseja substituir suas configurações?`,
+        onConfirm: () => {
+          performSave();
+          setDialogConfirm(null);
+        }
+      });
+      setIsSaving(false);
     } else {
       newSavedConfigs.push(config);
+      setSavedConfigs(newSavedConfigs);
+      localStorage.setItem('birth_voices_saved_agents', JSON.stringify(newSavedConfigs));
+
+      setTimeout(() => {
+        setIsSaving(false);
+        setDialogAlert('Novo agente criado com sucesso!');
+      }, 800);
     }
-
-    setSavedConfigs(newSavedConfigs);
-    localStorage.setItem('birth_voices_saved_agents', JSON.stringify(newSavedConfigs));
-
-    setTimeout(() => {
-      setIsSaving(false);
-      alert('Agente salvo com sucesso!');
-    }, 800);
   };
 
   const loadAgent = (agent: AgentConfig) => {
@@ -216,22 +242,74 @@ export function AgentForm() {
   };
 
   const deleteAgent = (name: string) => {
-    if (confirm(`Tem certeza que deseja excluir o agente "${name}"?`)) {
-      const newSaved = savedConfigs.filter(c => c.name !== name);
-      setSavedConfigs(newSaved);
-      localStorage.setItem('birth_voices_saved_agents', JSON.stringify(newSaved));
-    }
+    setDialogConfirm({
+      title: 'Excluir Agente',
+      message: `Tem certeza que deseja excluir o agente "${name}" de forma permanente?`,
+      onConfirm: () => {
+        const newSaved = savedConfigs.filter(c => c.name !== name);
+        setSavedConfigs(newSaved);
+        localStorage.setItem('birth_voices_saved_agents', JSON.stringify(newSaved));
+        setDialogConfirm(null);
+        setDialogAlert('Agente excluído com sucesso!');
+      }
+    });
   };
 
   const clearAllAgents = () => {
-    if (confirm('Tem certeza que deseja apagar TODOS os agentes salvos? Esta ação não pode ser desfeita.')) {
-      setSavedConfigs([]);
-      localStorage.removeItem('birth_voices_saved_agents');
-    }
+    setDialogConfirm({
+      title: 'Limpar Todos os Agentes',
+      message: 'Tem certeza que deseja apagar TODOS os agentes salvos? Esta ação não pode ser desfeita.',
+      onConfirm: () => {
+        setSavedConfigs([]);
+        localStorage.removeItem('birth_voices_saved_agents');
+        setDialogConfirm(null);
+        setDialogAlert('Todos os agentes foram removidos.');
+      }
+    });
   };
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden relative">
+      {/* Alert Dialog Modal */}
+      {dialogAlert && (
+        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-sm w-full p-6 text-center animate-in fade-in zoom-in-95 duration-200 border border-slate-200">
+            <h3 className="font-bold text-slate-900 text-lg mb-2">Mensagem do Sistema</h3>
+            <p className="text-sm text-slate-600 mb-6">{dialogAlert}</p>
+            <button 
+              onClick={() => setDialogAlert(null)}
+              className="w-full py-2.5 bg-brand text-white font-bold rounded-lg hover:opacity-90 transition-opacity text-sm"
+            >
+              Entendido
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Confirm Dialog Modal */}
+      {dialogConfirm && (
+        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-sm w-full p-6 animate-in fade-in zoom-in-95 duration-200 border border-slate-200">
+            <h3 className="font-bold text-slate-900 text-lg mb-2">{dialogConfirm.title}</h3>
+            <p className="text-sm text-slate-600 mb-6">{dialogConfirm.message}</p>
+            <div className="flex gap-3">
+              <button 
+                onClick={() => setDialogConfirm(null)}
+                className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold rounded-lg text-sm transition-colors"
+              >
+                Cancelar
+              </button>
+              <button 
+                onClick={dialogConfirm.onConfirm}
+                className="flex-1 py-2.5 bg-brand text-white font-bold rounded-lg text-sm hover:opacity-90 transition-opacity"
+              >
+                Confirmar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showLoadModal && (
         <div className="absolute inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden animate-in fade-in zoom-in-95 duration-200">
