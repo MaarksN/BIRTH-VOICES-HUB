@@ -1,144 +1,20 @@
-# Birth Voices Hub
+<div align="center">
+<img width="1200" height="475" alt="GHBanner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
+</div>
 
-Plataforma local para criar agentes de voz estruturados, conduzir conversas no navegador, registrar transcrições, analisar resultados com Gemini e entregar sessões para CRM, ATS, n8n, Make ou outro backend via webhook.
+# Run and deploy your AI Studio app
 
-## O que está funcional
+This contains everything you need to run your app locally.
 
-- Autenticação local com senha hasheada.
-- Criação, edição, listagem e exclusão de agentes persistidos no backend.
-- Playground de voz com síntese em português, reconhecimento de fala quando o navegador permite e fallback por texto.
-- Roteiro estruturado: Catarina conduz pergunta por pergunta conforme o agente configurado.
-- Telefonia real via Twilio: chamada de saída, webhooks TwiML, coleta por fala e sessão automática ao final.
-- Análise e extração estruturada com Gemini quando `GEMINI_API_KEY` está configurada.
-- Registro determinístico sem LLM quando Gemini não estiver configurado.
-- Persistência real em `data/birth-voices.json`.
-- Entrega automática de sessões via webhook assinado com `X-Birth-Voices-Signature`.
-- Histórico de entregas webhook com auditoria e retentativa manual.
-- Dashboards sem dados fictícios: métricas aparecem somente a partir dos dados salvos.
+View your app in AI Studio: https://ai.studio/apps/d251a5e1-c4cd-4ae5-9366-d49f756fa894
 
-## Rodar localmente
+## Run Locally
 
-1. Instale dependências:
-
-```bash
-npm install
-```
-
-2. Crie `.env` a partir de `.env.example` e configure pelo menos:
-
-```bash
-GEMINI_API_KEY=...
-```
-
-3. Inicie:
-
-```bash
-npm run dev
-```
-
-4. Abra:
-
-```text
-http://localhost:3000
-```
-
-## Integrações
-
-Em `Developers`, configure uma URL de webhook do seu CRM/ATS/n8n/backend. Ao salvar uma sessão, o backend envia:
-
-- `event: session.completed`
-- transcrição completa
-- resumo
-- sentimento
-- nível de risco
-- score
-- tags
-- campos extraídos
-- próxima ação
-
-Se um segredo for configurado, o payload é assinado com HMAC SHA-256 no header `X-Birth-Voices-Signature`.
-
-Cada tentativa de entrega fica registrada em `Developers` com status, sessão, destino, resposta do endpoint e botão de retry para falhas. Isso permite corrigir o endpoint e reenviar a sessão original sem repetir a chamada.
-
-## Telefonia Twilio
-
-Para chamadas telefônicas reais, configure:
-
-```bash
-TWILIO_ACCOUNT_SID=...
-TWILIO_AUTH_TOKEN=...
-TWILIO_FROM_NUMBER=+5511999999999
-PUBLIC_BASE_URL=https://sua-url-publica.com
-```
-
-`PUBLIC_BASE_URL` precisa ser acessível pela Twilio, pois a chamada usa:
-
-- `POST /api/twilio/voice/:callId` para iniciar o roteiro por voz.
-- `POST /api/twilio/voice/:callId/answer` para capturar respostas faladas.
-- `POST /api/twilio/status/:callId` para atualizar status da chamada.
-
-Quando o roteiro termina ou uma palavra de risco interrompe a conversa, a plataforma salva a sessão e dispara o webhook configurado.
+**Prerequisites:**  Node.js
 
 
-## Segurança e QA técnico
-
-A API aplica um primeiro conjunto de proteções de produção: headers HTTP de segurança com CSP, `request_id`, logs JSON sanitizados, rate limit global para `/api/*`, rate limit mais restritivo para login/cadastro e webhooks, bloqueio de webhooks apontando para localhost/redes privadas/reservadas e validação de assinatura nos callbacks públicos da Twilio.
-
-Para ajustar timeout de entrega webhook, configure:
-
-```bash
-WEBHOOK_TIMEOUT_MS=10000
-```
-
-Antes de considerar uma alteração pronta, execute o mesmo conjunto de gates do CI:
-
-```bash
-npm ci
-npm run lint
-npm run test
-npm run test:integration
-npm run typecheck
-npm run build
-npm audit --audit-level=low
-npm run smoke
-npx playwright test
-```
-
-Ou, durante desenvolvimento local:
-
-```bash
-npm run qa
-```
-
-Esse ciclo executa lint, testes unitários, integração, typecheck, build de produção, smoke e Playwright.
-
-## Operação
-
-- Privacidade e LGPD: `docs/privacy.md`
-- Observabilidade, health, métricas e alertas: `docs/operations.md`
-- Persistência, backup/restore e migration futura: `docs/database.md`
-- Billing fora do escopo atual: `docs/billing.md`
-- Mapa de refatoração incremental: `docs/refactor-map.md`
-
-Scripts de persistência local:
-
-```bash
-npm run db:migrate
-npm run db:seed
-npm run db:backup
-npm run db:restore -- backups/arquivo.json
-```
-
-## Branch protection recomendada
-
-- Exigir o workflow `CI / Quality gates` em pull requests.
-- Bloquear merge com checks falhando.
-- Exigir branch atualizada com `main`.
-- Exigir revisão antes de merge.
-- Bloquear push direto em `main` após estabilizar o fluxo de PR.
-
-## Build
-
-```bash
-npm run build
-```
+1. Install dependencies:
+   `npm install`
+2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
+3. Run the app:
+   `npm run dev`

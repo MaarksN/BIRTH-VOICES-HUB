@@ -1,32 +1,28 @@
 import React, { useRef, useEffect } from 'react';
 import * as d3 from 'd3';
 
-type ChartPoint = {
-  date: Date;
-  value: number;
-};
-
-export default function LineChart({ data = [] }: { data?: ChartPoint[] }) {
+export default function LineChart() {
   const chartRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!chartRef.current) return;
     
+    // Clear previous before re-render
     d3.select(chartRef.current).selectAll('*').remove();
 
-    if (!data.length) {
-      d3.select(chartRef.current)
-        .append('div')
-        .attr('class', 'flex h-[200px] items-center justify-center text-sm text-slate-400')
-        .text('Sem dados reais para renderizar.');
-      return;
-    }
-
+    // Setup chart dimensions
     const width = chartRef.current.clientWidth;
     const height = 200;
     const margin = { top: 20, right: 20, bottom: 30, left: 40 };
     const innerWidth = width - margin.left - margin.right;
     const innerHeight = height - margin.top - margin.bottom;
+
+    // Generate 30 days of mock data
+    const data = Array.from({ length: 30 }, (_, i) => {
+      const date = new Date(2026, 4, 30 - 29 + i);
+      const calls = Math.floor(Math.random() * 50) + 20 + (i * 2); // subtle upward trend
+      return { date, value: calls };
+    });
 
     const svg = d3.select(chartRef.current)
       .append('svg')
@@ -42,13 +38,11 @@ export default function LineChart({ data = [] }: { data?: ChartPoint[] }) {
     const y = d3.scaleLinear()
       .domain([0, d3.max(data, d => d.value) as number + 20])
       .range([innerHeight, 0]);
-    const formatDateTick = (value: Date | d3.NumberValue) =>
-      d3.timeFormat('%d/%m')(value instanceof Date ? value : new Date(Number(value)));
 
     // X Axis
     svg.append('g')
       .attr('transform', `translate(0,${innerHeight})`)
-      .call(d3.axisBottom(x).ticks(5).tickFormat(formatDateTick))
+      .call(d3.axisBottom(x).ticks(5).tickFormat(d3.timeFormat('%d/%m') as any))
       .attr('color', '#94a3b8');
 
     // Y Axis
@@ -65,7 +59,7 @@ export default function LineChart({ data = [] }: { data?: ChartPoint[] }) {
     svg.selectAll('g.tick line').attr('stroke', '#f1f5f9');
 
     // Line Path generator
-    const line = d3.line<ChartPoint>()
+    const line = d3.line<{date: Date, value: number}>()
       .x(d => x(d.date))
       .y(d => y(d.value))
       .curve(d3.curveMonotoneX);
@@ -79,7 +73,7 @@ export default function LineChart({ data = [] }: { data?: ChartPoint[] }) {
       .attr('d', line);
 
     // Add Area under line
-    const area = d3.area<ChartPoint>()
+    const area = d3.area<{date: Date, value: number}>()
       .x(d => x(d.date))
       .y0(innerHeight)
       .y1(d => y(d.value))
@@ -122,7 +116,7 @@ export default function LineChart({ data = [] }: { data?: ChartPoint[] }) {
       .attr('stroke', '#2563eb')
       .attr('stroke-width', 2);
 
-  }, [data]);
+  }, []);
 
   return <div ref={chartRef} className="w-full h-[200px]" />;
 }

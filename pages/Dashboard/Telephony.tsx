@@ -1,269 +1,171 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, CheckCircle2, Loader2, Phone, PhoneCall, RefreshCw, Send, Shield, Settings } from 'lucide-react';
-import { api } from '../../lib/api';
-import { getErrorMessage } from '../../lib/errors';
-import { RuntimeStatus, StoredAgent, TelephonyCall, TelephonyCallStatus } from '../../types';
+import React, { useState } from 'react';
+import { Phone, Globe, Shield, Search, Music, Play, Loader2, Download } from 'lucide-react';
 
 export default function TelephonyPage() {
-  const [status, setStatus] = useState<RuntimeStatus | null>(null);
-  const [agents, setAgents] = useState<StoredAgent[]>([]);
-  const [calls, setCalls] = useState<TelephonyCall[]>([]);
-  const [selectedAgentId, setSelectedAgentId] = useState('');
-  const [to, setTo] = useState('');
-  const [caller, setCaller] = useState('');
-  const [loading, setLoading] = useState(true);
-  const [starting, setStarting] = useState(false);
-  const [message, setMessage] = useState('');
+  const [musicPrompt, setMusicPrompt] = useState('Uma música de elevador relaxante com toques de bossa nova, agradável e suave.');
+  const [isGeneratingMusic, setIsGeneratingMusic] = useState(false);
+  const [generatedMusicUrl, setGeneratedMusicUrl] = useState<string | null>(null);
+  const [musicError, setMusicError] = useState<string | null>(null);
 
-  const selectedAgent = useMemo(
-    () => agents.find((agent) => agent.id === selectedAgentId) || null,
-    [agents, selectedAgentId],
-  );
-
-  const load = async () => {
-    setMessage('');
+  const handleGenerateMusic = async () => {
+    setIsGeneratingMusic(true);
+    setMusicError(null);
+    setGeneratedMusicUrl(null);
+    
     try {
-      const [runtimeResponse, agentsResponse, callsResponse] = await Promise.all([
-        api.status(),
-        api.listAgents(),
-        api.listTelephonyCalls(),
-      ]);
-      setStatus(runtimeResponse);
-      setAgents(agentsResponse.agents);
-      setCalls(callsResponse.calls);
-      setSelectedAgentId((current) => current || agentsResponse.agents[0]?.id || '');
-    } catch (error) {
-      setMessage(getErrorMessage(error));
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    let cancelled = false;
-    const run = async () => {
-      if (!cancelled) await load();
-    };
-    run();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  const startCall = async () => {
-    if (!selectedAgentId) {
-      setMessage('Crie ou selecione um agente antes de iniciar uma chamada.');
-      return;
-    }
-
-    setStarting(true);
-    setMessage('');
-    try {
-      const response = await api.startTelephonyCall({
-        agentId: selectedAgentId,
-        to,
-        caller: caller.trim() || to,
+      const res = await fetch('/api/generate-music', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt: musicPrompt })
       });
-      setCalls((current) => [response.call, ...current.filter((call) => call.id !== response.call.id)]);
-      setMessage(`Chamada enviada para ${response.call.to}. A Catarina seguirá o roteiro "${response.call.agentName}" pelo telefone.`);
-      setTo('');
-      setCaller('');
-    } catch (error) {
-      setMessage(getErrorMessage(error));
+      
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Erro ao gerar música');
+      
+      const binary = atob(data.audioBase64);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) {
+        bytes[i] = binary.charCodeAt(i);
+      }
+      const blob = new Blob([bytes], { type: data.mimeType || 'audio/wav' });
+      setGeneratedMusicUrl(URL.createObjectURL(blob));
+    } catch (err: any) {
+      setMusicError(err.message);
     } finally {
-      setStarting(false);
+      setIsGeneratingMusic(false);
     }
   };
-
-  if (loading) {
-    return (
-      <div className="flex min-h-[420px] items-center justify-center text-slate-500">
-        <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-        Verificando telefonia...
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-8">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-        <div>
-          <p className="text-sm font-semibold text-brand">Telefonia</p>
-          <h1 className="mt-1 text-3xl font-bold text-slate-950">Chamadas reais</h1>
-          <p className="mt-2 max-w-2xl text-slate-600">
-            Dispare uma chamada via Twilio, deixe Catarina conduzir o roteiro por voz e salve a sessão automaticamente ao final.
-          </p>
+        <h1 className="text-2xl font-bold text-slate-900 mb-6">Telefonia & Números</h1>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+             <div className="col-span-2 bg-white rounded-xl border border-slate-200 p-6">
+                 <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2">
+                     <Phone className="h-4 w-4 text-blue-600" />
+                     Comprar Número (DID)
+                 </h3>
+                 <div className="flex gap-4">
+                     <select className="p-2 border border-slate-300 rounded-lg bg-white flex-1">
+                         <option>Brasil (+55)</option>
+                         <option>United States (+1)</option>
+                     </select>
+                     <input type="text" placeholder="DDD / Área (ex: 11)" className="p-2 border border-slate-300 rounded-lg w-32" />
+                     <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium flex items-center gap-2">
+                         <Search className="h-4 w-4" /> Buscar
+                     </button>
+                 </div>
+                 <div className="mt-6 space-y-2">
+                     <div className="p-3 border border-slate-200 rounded-lg flex justify-between items-center hover:border-blue-300 hover:bg-blue-50 cursor-pointer transition-colors">
+                         <div className="font-mono text-lg text-slate-700">+55 11 4004-9999</div>
+                         <div className="text-sm font-bold text-green-600">R$ 15,00/mês</div>
+                     </div>
+                 </div>
+             </div>
+
+             <div className="space-y-6">
+                 <div className="bg-white rounded-xl border border-slate-200 p-6">
+                     <h3 className="font-bold text-slate-800 mb-2 flex items-center gap-2">
+                         <Globe className="h-4 w-4 text-purple-600" />
+                         BYOC (Bring Your Own Carrier)
+                     </h3>
+                     <p className="text-xs text-slate-500 mb-4">Conecte seu próprio tronco SIP/Twilio.</p>
+                     <button className="w-full py-2 border border-slate-300 rounded-lg text-sm hover:bg-slate-50">Configurar Tronco</button>
+                 </div>
+
+                 <div className="bg-white rounded-xl border border-slate-200 p-6">
+                     <h3 className="font-bold text-slate-800 mb-2 flex items-center gap-2">
+                         <Shield className="h-4 w-4 text-green-600" />
+                         Compliance
+                     </h3>
+                     <div className="flex items-center justify-between py-2 border-b border-slate-100">
+                         <span className="text-sm text-slate-600">Mascaramento</span>
+                         <div className="w-8 h-4 bg-green-500 rounded-full relative"><div className="w-2 h-2 bg-white rounded-full absolute right-1 top-1"></div></div>
+                     </div>
+                     <div className="flex items-center justify-between py-2">
+                         <span className="text-sm text-slate-600">Gravação Auto</span>
+                         <div className="w-8 h-4 bg-slate-300 rounded-full relative"><div className="w-2 h-2 bg-white rounded-full absolute left-1 top-1"></div></div>
+                     </div>
+                 </div>
+             </div>
         </div>
-        <button
-          onClick={load}
-          className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-bold text-slate-700 transition hover:border-brand hover:text-brand"
-        >
-          <RefreshCw className="h-4 w-4" />
-          Atualizar
-        </button>
-      </div>
 
-      {message && (
-        <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm font-medium text-amber-900">
-          {message}
-        </div>
-      )}
-
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <StatusCard
-          icon={Phone}
-          title="Credenciais Twilio"
-          ok={Boolean(status?.telephonyConfigured)}
-          okText="Configuradas"
-          failText="Defina SID e token"
-          description="TWILIO_ACCOUNT_SID e TWILIO_AUTH_TOKEN autenticam as chamadas de saída."
-        />
-        <StatusCard
-          icon={Settings}
-          title="Número e URL pública"
-          ok={Boolean(status?.telephonyOutboundConfigured)}
-          okText="Pronto para ligar"
-          failText="Falta origem ou callback"
-          description="TWILIO_FROM_NUMBER e PUBLIC_BASE_URL permitem que a Twilio ligue e retorne para os webhooks de voz."
-        />
-        <StatusCard
-          icon={Shield}
-          title="Registro automático"
-          ok
-          okText="Ativo"
-          failText=""
-          description="Ao concluir ou detectar risco, a chamada vira sessão com transcrição, campos estruturados e webhook operacional."
-        />
-      </div>
-
-      <section className="rounded-lg border border-slate-200 bg-white shadow-sm">
-        <div className="border-b border-slate-100 p-5">
-          <h2 className="font-bold text-slate-950">Iniciar chamada</h2>
-          <p className="mt-1 text-sm text-slate-500">Use apenas números reais e autorizados para contato.</p>
-        </div>
-        <div className="grid gap-4 p-5 lg:grid-cols-[minmax(220px,1fr)_minmax(220px,1fr)_minmax(220px,1fr)_auto] lg:items-end">
-          <label className="block">
-            <span className="mb-1 block text-xs font-bold uppercase text-slate-500">Agente</span>
-            <select
-              value={selectedAgentId}
-              onChange={(event) => setSelectedAgentId(event.target.value)}
-              className="w-full rounded-lg border border-slate-300 bg-white p-2.5 text-sm font-medium outline-none focus:border-brand focus:ring-2 focus:ring-brand-100"
-            >
-              {agents.map((agent) => (
-                <option key={agent.id} value={agent.id}>{agent.name}</option>
-              ))}
-            </select>
-          </label>
-
-          <label className="block">
-            <span className="mb-1 block text-xs font-bold uppercase text-slate-500">Telefone destino</span>
-            <input
-              value={to}
-              onChange={(event) => setTo(event.target.value)}
-              placeholder="+5511999999999"
-              className="w-full rounded-lg border border-slate-300 p-2.5 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand-100"
-            />
-          </label>
-
-          <label className="block">
-            <span className="mb-1 block text-xs font-bold uppercase text-slate-500">Contato</span>
-            <input
-              value={caller}
-              onChange={(event) => setCaller(event.target.value)}
-              placeholder="Nome ou identificador"
-              className="w-full rounded-lg border border-slate-300 p-2.5 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand-100"
-            />
-          </label>
-
-          <button
-            onClick={startCall}
-            disabled={starting || !to.trim() || !selectedAgent || !status?.telephonyOutboundConfigured}
-            className="inline-flex items-center justify-center gap-2 rounded-lg bg-brand px-4 py-2.5 text-sm font-bold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {starting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-            Ligar
-          </button>
-        </div>
-      </section>
-
-      <section className="rounded-lg border border-slate-200 bg-white shadow-sm">
-        <div className="flex flex-col gap-3 border-b border-slate-100 p-5 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h2 className="font-bold text-slate-950">Histórico de chamadas</h2>
-            <p className="text-sm text-slate-500">Chamadas iniciadas por esta instalação e suas sessões geradas.</p>
-          </div>
-          <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600">{calls.length} chamadas</span>
-        </div>
-        {calls.length ? (
-          <div className="divide-y divide-slate-100">
-            {calls.map((call) => (
-              <div key={call.id} className="grid gap-4 p-5 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
-                <div className="flex items-start gap-4">
-                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-brand-50 text-brand">
-                    <PhoneCall className="h-5 w-5" />
-                  </div>
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${callStatusClass[call.status]}`}>
-                        {callStatusLabel[call.status]}
-                      </span>
-                      {call.sessionId && <span className="font-mono text-xs font-bold text-slate-500">{call.sessionId}</span>}
+        <h3 className="font-bold text-slate-800 mb-4 mt-8">Gerador de Música de Espera (URA)</h3>
+        <div className="bg-white rounded-xl border border-slate-200 p-6 mb-8 flex flex-col md:flex-row gap-6">
+            <div className="flex-1 space-y-4">
+                <p className="text-sm text-slate-600">
+                    Crie uma música de espera exclusiva para seus clientes usando Inteligência Artificial. Descreva o estilo, instrumentos e o clima desejado.
+                </p>
+                <textarea
+                    value={musicPrompt}
+                    onChange={(e) => setMusicPrompt(e.target.value)}
+                    className="w-full p-4 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-brand outline-none resize-none h-24"
+                    placeholder="Ex: Uma música calma de piano com violão, estilo corporativo acolhedor..."
+                />
+                {musicError && (
+                    <div className="p-3 bg-red-50 border border-red-200 text-red-600 text-sm rounded-lg">
+                        {musicError}
                     </div>
-                    <p className="mt-1 font-bold text-slate-950">{call.agentName}</p>
-                    <p className="mt-1 text-sm text-slate-500">{call.caller} · {call.to}</p>
-                    {call.error && <p className="mt-1 text-sm font-medium text-rose-700">{call.error}</p>}
-                  </div>
-                </div>
-                <div className="text-right text-xs text-slate-500">
-                  <p>{new Date(call.updatedAt).toLocaleString('pt-BR')}</p>
-                  {call.providerCallSid && <p className="mt-1 font-mono">{call.providerCallSid}</p>}
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="p-10 text-center text-sm text-slate-500">
-            Nenhuma chamada real iniciada ainda.
-          </div>
-        )}
-      </section>
+                )}
+                <button
+                    onClick={handleGenerateMusic}
+                    disabled={isGeneratingMusic || !musicPrompt.trim()}
+                    className="px-6 py-2 bg-brand text-white rounded-lg hover:opacity-90 font-medium flex items-center justify-center gap-2 disabled:opacity-50 w-full md:w-auto transition-opacity"
+                >
+                    {isGeneratingMusic ? (
+                        <><Loader2 className="h-4 w-4 animate-spin" /> Gerando música (pode levar 1-2 minutos)...</>
+                    ) : (
+                        <><Music className="h-4 w-4" /> Gerar Música (30s)</>
+                    )}
+                </button>
+            </div>
+            
+            <div className="w-full md:w-1/3 flex flex-col justify-center border-t md:border-t-0 md:border-l border-slate-100 pt-6 md:pt-0 md:pl-6">
+                {generatedMusicUrl ? (
+                    <div className="space-y-4">
+                        <h4 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+                            <Play className="h-4 w-4 text-green-600" /> Pré-visualização
+                        </h4>
+                        <audio src={generatedMusicUrl} controls className="w-full h-10" />
+                        <a 
+                            href={generatedMusicUrl} 
+                            download="musica_espera.wav"
+                            className="w-full py-2 border border-slate-300 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-50 flex items-center justify-center gap-2"
+                        >
+                            <Download className="h-4 w-4" /> Baixar Áudio (.wav)
+                        </a>
+                    </div>
+                ) : (
+                    <div className="flex flex-col items-center justify-center text-slate-400 h-full gap-3 opacity-60">
+                        <Music className="h-8 w-8" />
+                        <span className="text-sm text-center">A música gerada aparecerá aqui</span>
+                    </div>
+                )}
+            </div>
+        </div>
+
+        <h3 className="font-bold text-slate-800 mb-4">Meus Números</h3>
+        <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+            <table className="w-full text-sm text-left">
+                <thead className="bg-slate-50 text-slate-500 font-medium">
+                    <tr>
+                        <th className="p-3">Número</th>
+                        <th className="p-3">Provedor</th>
+                        <th className="p-3">Destino (Webhook)</th>
+                        <th className="p-3">Status</th>
+                    </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                    <tr>
+                        <td className="p-3 font-mono">+55 11 99999-0000</td>
+                        <td className="p-3"><span className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-bold">TWILIO</span></td>
+                        <td className="p-3 text-slate-500 truncate max-w-xs">https://api.birthhub.com/voice/incoming/...</td>
+                        <td className="p-3"><span className="w-2 h-2 bg-green-500 rounded-full inline-block mr-2"></span>Ativo</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
     </div>
   );
 }
-
-function StatusCard({ icon: Icon, title, ok, okText, failText, description }: {
-  icon: React.ElementType;
-  title: string;
-  ok: boolean;
-  okText: string;
-  failText: string;
-  description: string;
-}) {
-  return (
-    <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
-      <Icon className="h-6 w-6 text-brand" />
-      <h2 className="mt-4 font-bold text-slate-950">{title}</h2>
-      <p className={`mt-2 inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold ${ok ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>
-        {ok ? <CheckCircle2 className="h-3.5 w-3.5" /> : <AlertTriangle className="h-3.5 w-3.5" />}
-        {ok ? okText : failText}
-      </p>
-      <p className="mt-3 text-sm leading-6 text-slate-600">{description}</p>
-    </section>
-  );
-}
-
-const callStatusLabel: Record<TelephonyCallStatus, string> = {
-  queued: 'Na fila',
-  ringing: 'Chamando',
-  'in-progress': 'Em conversa',
-  completed: 'Concluída',
-  failed: 'Falhou',
-};
-
-const callStatusClass: Record<TelephonyCallStatus, string> = {
-  queued: 'bg-slate-100 text-slate-700',
-  ringing: 'bg-cyan-50 text-cyan-700',
-  'in-progress': 'bg-blue-50 text-blue-700',
-  completed: 'bg-emerald-50 text-emerald-700',
-  failed: 'bg-rose-50 text-rose-700',
-};

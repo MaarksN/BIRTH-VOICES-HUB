@@ -2,13 +2,11 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Mic, ArrowRight } from 'lucide-react';
 import { auth } from '../lib/auth';
-import { getErrorMessage } from '../lib/errors';
 
 export default function RegisterPage() {
   const [companyName, setCompanyName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [acceptedPrivacy, setAcceptedPrivacy] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const navigate = useNavigate();
@@ -19,10 +17,20 @@ export default function RegisterPage() {
     setError('');
 
     try {
-      await auth.register(companyName, email, password, 'register_form');
-      navigate('/dashboard');
-    } catch (error) {
-      setError(getErrorMessage(error));
+      // Mock Register
+      if (email && password && companyName) {
+          const user = {
+              name: email.split('@')[0],
+              company: companyName,
+              email: email
+          }
+          auth.setToken('mock-token-xyz', user);
+          setTimeout(() => navigate('/dashboard'), 1000);
+      } else {
+          throw new Error('Erro ao criar conta');
+      }
+    } catch (err: any) {
+      setError(err.message);
       setLoading(false);
     }
   };
@@ -53,7 +61,6 @@ export default function RegisterPage() {
                 type="text"
                 value={companyName}
                 onChange={e => setCompanyName(e.target.value)}
-                autoComplete="organization"
                 className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
                 required
               />
@@ -64,7 +71,6 @@ export default function RegisterPage() {
                 type="email"
                 value={email}
                 onChange={e => setEmail(e.target.value)}
-                autoComplete="email"
                 className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
                 required
               />
@@ -75,29 +81,17 @@ export default function RegisterPage() {
                 type="password"
                 value={password}
                 onChange={e => setPassword(e.target.value)}
-                autoComplete="new-password"
-                minLength={6}
                 className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
                 required
               />
             </div>
             <button
               type="submit"
-              disabled={loading || !acceptedPrivacy}
+              disabled={loading}
               className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg transition-all flex items-center justify-center gap-2 disabled:opacity-50"
             >
               {loading ? 'Criando...' : <>Começar Grátis <ArrowRight className="h-4 w-4" /></>}
             </button>
-            <label className="flex items-start gap-2 text-xs leading-5 text-slate-600">
-              <input
-                type="checkbox"
-                checked={acceptedPrivacy}
-                onChange={(event) => setAcceptedPrivacy(event.target.checked)}
-                className="mt-1"
-                required
-              />
-              Aceito o tratamento dos dados da organização para autenticação, transcrições, integrações e auditoria operacional.
-            </label>
           </form>
 
           <div className="mt-6 text-center text-sm text-slate-500">

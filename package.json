@@ -7,20 +7,7 @@
     "dev": "tsx server.ts",
     "build": "vite build && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs",
     "start": "node dist/server.cjs",
-    "start:e2e": "node scripts/e2e-server.mjs",
-    "preview": "vite preview",
-    "lint": "eslint .",
-    "test": "vitest run tests/unit",
-    "test:coverage": "vitest run tests/unit --coverage",
-    "test:integration": "vitest run tests/integration",
-    "test:e2e": "playwright test",
-    "typecheck": "tsc --noEmit",
-    "db:migrate": "node scripts/db-maintenance.mjs migrate",
-    "db:seed": "node scripts/db-maintenance.mjs seed",
-    "db:backup": "node scripts/db-maintenance.mjs backup",
-    "db:restore": "node scripts/db-maintenance.mjs restore",
-    "smoke": "node scripts/smoke-test.mjs",
-    "qa": "npm run lint && npm run test && npm run test:integration && npm run typecheck && npm run build && npm run smoke && npm run test:e2e"
+    "preview": "vite preview"
   },
   "dependencies": {
     "@google/genai": "^2.7.0",
@@ -33,22 +20,13 @@
     "zustand": "^5.0.11"
   },
   "devDependencies": {
-    "@eslint/js": "^10.0.1",
-    "@playwright/test": "^1.60.0",
     "@types/d3": "^7.4.3",
     "@types/express": "^5.0.6",
     "@types/node": "^22.14.0",
     "@vitejs/plugin-react": "^5.0.0",
-    "@vitest/coverage-v8": "^4.1.8",
     "esbuild": "^0.28.0",
-    "eslint": "^10.4.1",
-    "eslint-plugin-react-hooks": "^7.1.1",
-    "eslint-plugin-react-refresh": "^0.5.2",
-    "globals": "^17.6.0",
     "tsx": "^4.22.3",
     "typescript": "~5.8.2",
-    "typescript-eslint": "^8.60.1",
-    "vite": "^6.2.0",
-    "vitest": "^4.1.8"
+    "vite": "^6.2.0"
   }
 }

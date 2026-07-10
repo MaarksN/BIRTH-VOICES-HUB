@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Mic, ArrowRight } from 'lucide-react';
 import { auth } from '../lib/auth';
-import { getErrorMessage } from '../lib/errors';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -17,10 +16,20 @@ export default function LoginPage() {
     setError('');
 
     try {
-      await auth.login(email, password);
-      navigate('/dashboard');
-    } catch (error) {
-      setError(getErrorMessage(error));
+      // Mock Login
+      if (email && password) {
+          const user = {
+              name: email.split('@')[0],
+              company: 'My Company',
+              email: email
+          }
+          auth.setToken('mock-token-xyz', user);
+          setTimeout(() => navigate('/dashboard'), 1000);
+      } else {
+          throw new Error('Preencha os campos');
+      }
+    } catch (err: any) {
+      setError(err.message);
       setLoading(false);
     }
   };
@@ -51,7 +60,6 @@ export default function LoginPage() {
                 type="email"
                 value={email}
                 onChange={e => setEmail(e.target.value)}
-                autoComplete="email"
                 className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
                 required
               />
@@ -62,7 +70,6 @@ export default function LoginPage() {
                 type="password"
                 value={password}
                 onChange={e => setPassword(e.target.value)}
-                autoComplete="current-password"
                 className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
                 required
               />
