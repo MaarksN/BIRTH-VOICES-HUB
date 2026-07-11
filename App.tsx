@@ -14,6 +14,13 @@ import TelephonyPage from './pages/Dashboard/Telephony';
 import ResultsPage from './pages/Dashboard/Results';
 import DesignSystemDocs from './pages/Dashboard/Docs';
 import PreferencesPage from './pages/Dashboard/Preferences';
+import AgentRegistry from './pages/Dashboard/AgentRegistry';
+import AgentOS from './pages/Dashboard/AgentOS';
+import KnowledgeManager from './pages/Dashboard/KnowledgeManager';
+import ToolRegistry from './pages/Dashboard/ToolRegistry';
+import AgentMarketplace from './pages/Dashboard/AgentMarketplace';
+import ObservabilityPage from './pages/Dashboard/Observability';
+import GovernancePage from './pages/Dashboard/Governance';
 import { Sidebar } from './components/Sidebar';
 import { AgentForm } from './components/AgentForm';
 import { auth } from './lib/auth';
@@ -88,19 +95,27 @@ export default function App() {
             
             <Route path="/dashboard" element={<DashboardLayout />}>
               <Route index element={<Overview />} />
-              <Route path="admin" element={<AdminPage />} />
-              <Route path="analytics" element={<AnalyticsPage />} />
-              <Route path="billing" element={<BillingPage />} />
-              <Route path="developers" element={<DevelopersPage />} />
-              <Route path="organization" element={<OrganizationPage />} />
-              <Route path="playground" element={<PlaygroundPage />} />
-              <Route path="telephony" element={<TelephonyPage />} />
+              <Route path="agents" element={<AgentRegistry />} />
               <Route path="agents/new" element={
                 <div className="max-w-4xl mx-auto">
                   <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-50 mb-8 font-sans">Novo Agente</h1>
                   <AgentForm />
                 </div>
               } />
+              <Route path="agents/:id/*" element={<AgentOS />} />
+              <Route path="knowledge" element={<KnowledgeManager />} />
+              <Route path="tools" element={<ToolRegistry />} />
+              <Route path="marketplace" element={<AgentMarketplace />} />
+              <Route path="observability" element={<ObservabilityPage />} />
+              <Route path="governance" element={<GovernancePage />} />
+              <Route path="playground" element={<PlaygroundPage />} />
+              
+              <Route path="admin" element={<AdminPage />} />
+              <Route path="analytics" element={<AnalyticsPage />} />
+              <Route path="billing" element={<BillingPage />} />
+              <Route path="developers" element={<DevelopersPage />} />
+              <Route path="organization" element={<OrganizationPage />} />
+              <Route path="telephony" element={<TelephonyPage />} />
               <Route path="results" element={<ResultsPage />} />
               <Route path="docs" element={<DesignSystemDocs />} />
               <Route path="preferences" element={<PreferencesPage />} />

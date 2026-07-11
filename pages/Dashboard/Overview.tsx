@@ -5,12 +5,13 @@ import {
   Users, Phone, Clock, FileText, TrendingUp, Sparkles, CheckCircle2, 
   AlertTriangle, Play, HelpCircle, Code, ShieldCheck, Activity, 
   ArrowRight, Landmark, Calendar, RefreshCw, Star, StarOff, AlertCircle,
-  Eye, CornerDownRight, Volume2, ShieldAlert, HeartHandshake, MousePointerClick, Hourglass
+  Eye, CornerDownRight, Volume2, ShieldAlert, HeartHandshake, MousePointerClick, Hourglass, Settings
 } from 'lucide-react';
 import { 
   Card, Button, Badge, Progress, Spinner, 
   Table, TableHead, TableRow, TableCell, Alert, Tooltip, Modal, useToast, ToastContainer 
 } from '../../components/design-system';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, LineChart, Line } from 'recharts';
 
 export default function RebuiltExecutiveOverview() {
   const navigate = useNavigate();
@@ -120,6 +121,26 @@ export default function RebuiltExecutiveOverview() {
     }, 1500);
   };
 
+  const usageData = [
+    { name: '01 Jul', tokens: 4000, minutes: 24 },
+    { name: '05 Jul', tokens: 3000, minutes: 13 },
+    { name: '10 Jul', tokens: 2000, minutes: 98 },
+    { name: '15 Jul', tokens: 2780, minutes: 39 },
+    { name: '20 Jul', tokens: 1890, minutes: 48 },
+    { name: '25 Jul', tokens: 2390, minutes: 38 },
+    { name: '30 Jul', tokens: 3490, minutes: 43 },
+  ];
+
+  const latencyData = [
+    { time: '10:00', latency: 120 },
+    { time: '10:05', latency: 150 },
+    { time: '10:10', latency: 130 },
+    { time: '10:15', latency: 280 },
+    { time: '10:20', latency: 140 },
+    { time: '10:25', latency: 125 },
+    { time: '10:30', latency: 110 },
+  ];
+
   return (
     <div className="space-y-8 animate-slide-up text-left">
       
@@ -177,29 +198,36 @@ export default function RebuiltExecutiveOverview() {
         </div>
       </div>
 
-      {/* QUICK ACTIONS ROW */}
-      <div className="bg-white dark:bg-slate-800/60 p-4 rounded-xl border border-slate-200 dark:border-slate-750 flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-2">
-          <Activity className="h-4.5 w-4.5 text-brand" />
-          <span className="text-sm font-bold text-slate-800 dark:text-slate-200">Ações Rápidas:</span>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Button variant="outline" size="sm" onClick={() => { setActiveActionModal('agent'); }} leftIcon={<Users className="h-4 w-4" />}>
-            Novo Agente
-          </Button>
-          <Button variant="outline" size="sm" onClick={() => { setActiveActionModal('org'); }} leftIcon={<Landmark className="h-4 w-4" />}>
-            Nova Organização
-          </Button>
-          <Button variant="outline" size="sm" onClick={() => { setActiveActionModal('telephony'); }} leftIcon={<Phone className="h-4 w-4" />}>
-            Nova Conexão SIP
-          </Button>
-          <Button variant="outline" size="sm" onClick={() => { setActiveActionModal('knowledge'); }} leftIcon={<FileText className="h-4 w-4" />}>
-            Nova Base
-          </Button>
-          <Button variant="primary" size="sm" onClick={() => { setActiveActionModal('test'); }} leftIcon={<Play className="h-4 w-4" />}>
-            Testar Chamada
-          </Button>
-        </div>
+      {/* QUICK ACTIONS GRID */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <Card className="p-4 hover:border-brand cursor-pointer transition-colors flex items-center gap-3" onClick={() => setActiveActionModal('agent')}>
+          <div className="p-2 bg-brand/10 text-brand rounded-lg"><Users className="h-5 w-5" /></div>
+          <div className="text-left">
+            <h4 className="font-bold text-slate-900 dark:text-white text-sm">Criar Agente</h4>
+            <p className="text-xs text-slate-500">Configurar IA médica</p>
+          </div>
+        </Card>
+        <Card className="p-4 hover:border-brand cursor-pointer transition-colors flex items-center gap-3" onClick={() => navigate('/dashboard/analytics')}>
+          <div className="p-2 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-lg"><Activity className="h-5 w-5" /></div>
+          <div className="text-left">
+            <h4 className="font-bold text-slate-900 dark:text-white text-sm">Ver Análises</h4>
+            <p className="text-xs text-slate-500">Métricas recentes</p>
+          </div>
+        </Card>
+        <Card className="p-4 hover:border-brand cursor-pointer transition-colors flex items-center gap-3" onClick={() => navigate('/dashboard/playground')}>
+          <div className="p-2 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 rounded-lg"><Play className="h-5 w-5" /></div>
+          <div className="text-left">
+            <h4 className="font-bold text-slate-900 dark:text-white text-sm">Acessar Playground</h4>
+            <p className="text-xs text-slate-500">Testar chamadas</p>
+          </div>
+        </Card>
+        <Card className="p-4 hover:border-brand cursor-pointer transition-colors flex items-center gap-3" onClick={() => setActiveActionModal('knowledge')}>
+          <div className="p-2 bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 rounded-lg"><FileText className="h-5 w-5" /></div>
+          <div className="text-left">
+            <h4 className="font-bold text-slate-900 dark:text-white text-sm">Nova Base</h4>
+            <p className="text-xs text-slate-500">Importar conhecimento</p>
+          </div>
+        </Card>
       </div>
 
       {/* COMPACT ONBOARDING WIZARD & CHECKLIST */}
@@ -501,65 +529,170 @@ export default function RebuiltExecutiveOverview() {
           {/* LOWER WIDGETS GRID */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             
-            {/* Left Column: Recent Activity & Call logs */}
-            <div className="lg:col-span-2 bg-white dark:bg-slate-800 p-6 rounded-xl border border-slate-200 dark:border-slate-700 space-y-6">
-              <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-700/60 pb-3">
-                <div className="text-left">
-                  <h3 className="font-bold text-slate-900 dark:text-white text-base">Atividade de Voz em Tempo Real</h3>
-                  <p className="text-xs text-slate-500 dark:text-slate-450 mt-0.5">Chamadas que estão transitando pelo pipeline SIP agora.</p>
-                </div>
-                <Button size="sm" variant="outline" onClick={() => navigate('/dashboard/results')}>
-                  Ver Detalhado
-                </Button>
-              </div>
-
-              <div className="space-y-4">
-                {recentCalls.map((call) => (
-                  <div 
-                    key={call.id} 
-                    className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-slate-50 dark:bg-slate-900/30 hover:bg-slate-50/80 dark:hover:bg-slate-900/50 rounded-lg border border-slate-150 dark:border-slate-800 transition-all text-left"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className={`p-2 rounded-full ${call.status === 'Concluído' ? 'bg-green-50 text-green-600 dark:bg-green-950/40 dark:text-green-400' : 'bg-red-50 text-red-600 dark:bg-red-950/40 dark:text-red-400'} shrink-0`}>
-                        <Volume2 className="h-4.5 w-4.5" />
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <p className="font-bold text-sm text-slate-900 dark:text-slate-100">Chamada #{call.id}</p>
-                          <Badge variant={call.status === 'Concluído' ? 'success' : 'danger'}>{call.status}</Badge>
-                        </div>
-                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                          Paciente: <span className="font-semibold text-slate-700 dark:text-slate-300">{call.patient}</span> • {call.agent}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-4 mt-3 sm:mt-0 justify-between sm:justify-end border-t sm:border-t-0 border-slate-100 dark:border-slate-800 pt-2 sm:pt-0">
-                      <div className="text-left sm:text-right">
-                        <p className="text-xs font-bold text-slate-800 dark:text-slate-200">{call.duration}</p>
-                        <p className="text-[10px] text-slate-400">Duração</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">{call.time}</p>
-                        <button 
-                          onClick={() => {
-                            showToast(`Carregando transcrição e áudio da chamada #${call.id}...`, 'info');
-                            navigate('/dashboard/playground');
-                          }}
-                          className="text-[10px] font-bold text-brand hover:underline mt-0.5 block cursor-pointer"
-                        >
-                          Analisar Transcrição
-                        </button>
-                      </div>
-                    </div>
+            {/* Left Column: Recent Activity & Usage Summary */}
+            <div className="lg:col-span-2 space-y-6">
+              {/* RESUMO DE USO (Recharts) */}
+              <Card className="p-6 space-y-4">
+                <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-700/60 pb-3">
+                  <div className="text-left">
+                    <h3 className="font-bold text-slate-900 dark:text-white text-base">Resumo de Uso (Mês Atual)</h3>
+                    <p className="text-xs text-slate-500 dark:text-slate-450 mt-0.5">Consumo de tokens e minutos ativos.</p>
                   </div>
-                ))}
-              </div>
+                  <Button variant="outline" size="sm" onClick={() => showToast('Exportando dados para CSV...', 'info')}>
+                    Exportar CSV
+                  </Button>
+                </div>
+                <div className="h-64">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={usageData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                      <defs>
+                        <linearGradient id="colorTokens" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.8}/>
+                          <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#334155" opacity={0.2} />
+                      <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#64748b' }} />
+                      <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#64748b' }} />
+                      <RechartsTooltip 
+                        contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '8px', color: '#f8fafc', fontSize: '12px' }}
+                        itemStyle={{ color: '#e2e8f0' }}
+                      />
+                      <Area type="monotone" dataKey="tokens" stroke="#3b82f6" fillOpacity={1} fill="url(#colorTokens)" />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
+              </Card>
+
+              {/* LIMITES DE CONTA E ALERTAS */}
+              <Card className="p-6 space-y-4">
+                <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-700/60 pb-3">
+                  <div className="text-left">
+                    <h3 className="font-bold text-slate-900 dark:text-white text-base">Limites de Conta</h3>
+                    <p className="text-xs text-slate-500 dark:text-slate-450 mt-0.5">Configure alertas de e-mail ao atingir limites de consumo.</p>
+                  </div>
+                </div>
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="font-medium text-slate-700 dark:text-slate-300">Minutos Mensais (850 / 1000)</span>
+                      <span className="text-brand font-bold">85%</span>
+                    </div>
+                    <Progress value={85} />
+                  </div>
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="font-medium text-slate-700 dark:text-slate-300">Tokens LLM (14.2M / 20M)</span>
+                      <span className="text-emerald-500 font-bold">71%</span>
+                    </div>
+                    <Progress value={71} color="bg-emerald-500" />
+                  </div>
+                  
+                  <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex flex-col gap-3">
+                    <p className="text-sm font-semibold text-slate-900 dark:text-white">Alertas de Notificação</p>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input type="checkbox" className="rounded border-slate-300 text-brand focus:ring-brand accent-brand" defaultChecked />
+                      <span className="text-sm text-slate-600 dark:text-slate-400">Receber e-mail ao atingir <strong>80%</strong> de uso</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input type="checkbox" className="rounded border-slate-300 text-brand focus:ring-brand accent-brand" defaultChecked />
+                      <span className="text-sm text-slate-600 dark:text-slate-400">Receber e-mail ao atingir <strong>95%</strong> de uso</span>
+                    </label>
+                  </div>
+                </div>
+              </Card>
+
+              {/* ATIVIDADE RECENTE DO USUÁRIO */}
+              <Card className="p-6 space-y-4">
+                <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-700/60 pb-3">
+                  <div className="text-left">
+                    <h3 className="font-bold text-slate-900 dark:text-white text-base">Atividade Recente</h3>
+                    <p className="text-xs text-slate-500 dark:text-slate-450 mt-0.5">Últimas ações realizadas no sistema.</p>
+                  </div>
+                </div>
+                <div className="space-y-4">
+                  {[
+                    { action: 'Agente criado', entity: 'Catarina Triagem', time: 'Há 10 minutos', icon: <Users className="h-4 w-4" />, color: 'text-brand', bg: 'bg-brand/10' },
+                    { action: 'Arquivo de conhecimento carregado', entity: 'Protocolo_Emergencia.pdf', time: 'Há 2 horas', icon: <FileText className="h-4 w-4" />, color: 'text-amber-500', bg: 'bg-amber-500/10' },
+                    { action: 'Configuração atualizada', entity: 'Organização Birth Hub', time: 'Ontem', icon: <Settings className="h-4 w-4" />, color: 'text-slate-500', bg: 'bg-slate-500/10' },
+                    { action: 'Agente publicado', entity: 'SDR Qualificador B2B', time: 'Há 2 dias', icon: <Play className="h-4 w-4" />, color: 'text-emerald-500', bg: 'bg-emerald-500/10' },
+                    { action: 'Conexão SIP criada', entity: 'Twilio Trunk SP', time: 'Há 3 dias', icon: <Phone className="h-4 w-4" />, color: 'text-indigo-500', bg: 'bg-indigo-500/10' },
+                  ].map((activity, i) => (
+                    <div key={i} className="flex items-start gap-3">
+                      <div className={`p-2 rounded-full ${activity.bg} ${activity.color} shrink-0`}>
+                        {activity.icon}
+                      </div>
+                      <div className="text-left">
+                        <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{activity.action}</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">{activity.entity}</p>
+                        <p className="text-[10px] text-slate-400 mt-0.5">{activity.time}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </Card>
             </div>
 
-            {/* Right Column: Alerts, Pending Issues, System tasks */}
+            {/* Right Column: Health & System tasks */}
             <div className="space-y-6">
-              
+              {/* SAÚDE DO SISTEMA */}
+              <Card className="p-6 space-y-4">
+                <div className="flex items-center gap-2 text-slate-800 dark:text-slate-100">
+                  <Activity className="h-5 w-5 text-emerald-500" />
+                  <h4 className="font-bold text-sm uppercase tracking-wider">Saúde do Sistema</h4>
+                </div>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-900/40 rounded-lg border border-slate-100 dark:border-slate-800">
+                    <div className="flex items-center gap-3">
+                      <Phone className="h-4 w-4 text-slate-400" />
+                      <div className="text-left">
+                        <p className="text-xs font-bold text-slate-800 dark:text-slate-200">Serviços de Telefonia</p>
+                        <p className="text-[10px] text-slate-500">Twilio Trunk SP</p>
+                      </div>
+                    </div>
+                    <Badge variant="success" className="animate-pulse">Operacional</Badge>
+                  </div>
+                  <div className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-900/40 rounded-lg border border-slate-100 dark:border-slate-800">
+                    <div className="flex items-center gap-3">
+                      <Code className="h-4 w-4 text-slate-400" />
+                      <div className="text-left">
+                        <p className="text-xs font-bold text-slate-800 dark:text-slate-200">API Gateways</p>
+                        <p className="text-[10px] text-slate-500">Core Services</p>
+                      </div>
+                    </div>
+                    <Badge variant="success">Operacional</Badge>
+                  </div>
+                  <div className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-900/40 rounded-lg border border-slate-100 dark:border-slate-800">
+                    <div className="flex items-center gap-3">
+                      <Sparkles className="h-4 w-4 text-slate-400" />
+                      <div className="text-left">
+                        <p className="text-xs font-bold text-slate-800 dark:text-slate-200">Inference Engine</p>
+                        <p className="text-[10px] text-slate-500">Gemini 2.5 Pro</p>
+                      </div>
+                    </div>
+                    <Badge variant="success">Operacional</Badge>
+                  </div>
+                </div>
+
+                <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
+                  <p className="text-xs font-bold text-slate-800 dark:text-slate-200 mb-3">Latência de API (Tempo Real)</p>
+                  <div className="h-32">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={latencyData}>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#334155" opacity={0.2} />
+                        <XAxis dataKey="time" axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: '#64748b' }} />
+                        <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: '#64748b' }} width={30} />
+                        <RechartsTooltip 
+                          contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '8px', color: '#f8fafc', fontSize: '10px' }}
+                          itemStyle={{ color: '#10b981' }}
+                        />
+                        <Line type="monotone" dataKey="latency" stroke="#10b981" strokeWidth={2} dot={false} activeDot={{ r: 4 }} />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+              </Card>
+
               {/* ALERTA E PENDÊNCIAS */}
               <Card className="p-6 space-y-4">
                 <div className="flex items-center gap-2 text-red-600 dark:text-red-400">

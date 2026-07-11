@@ -100,18 +100,22 @@ export function Sidebar() {
 
   const allNavItems = [
     { path: '/dashboard', label: 'Visão Geral', icon: <Home className="h-4 w-4" />, section: 'workspace' },
-    { path: '/dashboard/agents/new', label: 'IA Agentes', icon: <Users className="h-4 w-4" />, section: 'workspace' },
-    { path: '/dashboard/telephony', label: 'Telefonia', icon: <Mic className="h-4 w-4" />, section: 'workspace' },
+    { path: '/dashboard/agents', label: 'Agent Registry', icon: <Users className="h-4 w-4" />, section: 'workspace' },
+    { path: '/dashboard/knowledge', label: 'Knowledge Base', icon: <BookMarked className="h-4 w-4" />, section: 'workspace' },
+    { path: '/dashboard/tools', label: 'Tool Registry', icon: <Code className="h-4 w-4" />, section: 'workspace' },
+    { path: '/dashboard/marketplace', label: 'Marketplace', icon: <Sparkles className="h-4 w-4" />, section: 'workspace' },
+    { path: '/dashboard/observability', label: 'Observability', icon: <Activity className="h-4 w-4" />, section: 'workspace' },
     { path: '/dashboard/playground', label: 'Playground', icon: <BookOpen className="h-4 w-4" />, section: 'workspace' },
+    { path: '/dashboard/telephony', label: 'Telefonia', icon: <Mic className="h-4 w-4" />, section: 'workspace' },
     { path: '/dashboard/results', label: 'Resultados', icon: <BarChart3 className="h-4 w-4" />, section: 'workspace' },
     { path: '/dashboard/analytics', label: 'Analytics', icon: <BarChart3 className="h-4 w-4" />, section: 'workspace' },
     
     { path: '/dashboard/organization', label: 'Organização', icon: <Building2 className="h-4 w-4" />, section: 'admin' },
     { path: '/dashboard/billing', label: 'Faturamento', icon: <CreditCard className="h-4 w-4" />, section: 'admin' },
+    { path: '/dashboard/governance', label: 'Governança (RBAC)', icon: <Shield className="h-4 w-4" />, section: 'admin' },
     { path: '/dashboard/developers', label: 'Developers', icon: <Code className="h-4 w-4" />, section: 'admin' },
     { path: '/dashboard/docs', label: 'Docs & Tokens', icon: <BookOpen className="h-4 w-4" />, section: 'admin' },
-    { path: '/dashboard/preferences', label: 'Preferências', icon: <Settings className="h-4 w-4" />, section: 'admin' },
-    { path: '/dashboard/admin', label: 'Admin Global', icon: <Settings className="h-4 w-4" />, section: 'admin' }
+    { path: '/dashboard/preferences', label: 'Preferências', icon: <Settings className="h-4 w-4" />, section: 'admin' }
   ];
 
   const filteredNotifications = notifications.filter(n => {

@@ -143,8 +143,8 @@ export default function PreferencesPage() {
                 <Switch 
                   checked={highContrast} 
                   onChange={setHighContrast} 
-                  label="Alto Contraste WCAG AAA"
-                  description="Aumenta o contraste dos textos e bordas de inputs"
+                  label="Modo de Alto Contraste"
+                  description="Aumenta o contraste dos textos e bordas de inputs (WCAG AAA)"
                 />
                 <Switch 
                   checked={reducedMotion} 
