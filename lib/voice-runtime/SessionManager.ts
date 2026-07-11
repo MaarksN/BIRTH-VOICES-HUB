@@ -7,6 +7,8 @@ import { audioPipeline } from './AudioPipeline';
 import { failoverEngine } from './FailoverEngine';
 import { providerManager } from './ProviderManager';
 import { toolEngine } from './ToolEngine';
+import { liveSupervisorEngine } from './intelligence/LiveSupervisorEngine';
+import { conversationOrchestrator } from './intelligence/ConversationOrchestrator';
 
 export class SessionManager {
   private sessions: Map<string, VoiceSession> = new Map();
@@ -80,7 +82,14 @@ export class SessionManager {
       timestamp: Date.now()
     };
     
+    conversationOrchestrator.processIncomingTurn(session, turn);
+    
     memoryPipeline.addTurn(sessionId, turn);
+    
+    // Live Supervisor Check (Real-time monitoring)
+    if (session.intelligence) {
+       liveSupervisorEngine.monitorSession(session, session.intelligence);
+    }
 
     // Context & RAG would happen here
     const context = memoryPipeline.getContext(sessionId);
@@ -106,12 +115,15 @@ export class SessionManager {
       if (response.text) {
         this.updateState(sessionId, 'Speaking');
         
-        const assistantTurn: ConversationTurn = {
+        let assistantTurn: ConversationTurn = {
           id: crypto.randomUUID(),
           role: 'assistant',
           content: response.text,
           timestamp: Date.now()
         };
+        
+        assistantTurn = conversationOrchestrator.processOutgoingTurn(session, assistantTurn);
+        
         memoryPipeline.addTurn(sessionId, assistantTurn);
 
         // TTS processing

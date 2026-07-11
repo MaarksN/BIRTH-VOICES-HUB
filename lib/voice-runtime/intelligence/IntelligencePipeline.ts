@@ -9,6 +9,12 @@ import { aiCoach } from './AICoach';
 import { voiceQA } from './VoiceQA';
 import { learningEngine } from './LearningEngine';
 import { conversationAnalytics } from './ConversationAnalytics';
+import { objectionEngine } from './ObjectionEngine';
+import { summaryEngine } from './SummaryEngine';
+import { actionExtractionEngine } from './ActionExtractionEngine';
+import { complianceEngine } from './ComplianceEngine';
+import { conversationScoreEngine } from './ConversationScoreEngine';
+import { continuousLearningEngine } from './ContinuousLearningEngine';
 import { observability } from '../Observability';
 
 export class IntelligencePipeline {
@@ -19,7 +25,10 @@ export class IntelligencePipeline {
       emotionTimeline: [],
       intentTimeline: [],
       contextSummary: '',
-      extractedEntities: []
+      extractedEntities: [],
+      objections: [],
+      actions: [],
+      complianceIssues: []
     });
   }
 
@@ -60,9 +69,35 @@ export class IntelligencePipeline {
         turn.entities = entities;
         sessionData.extractedEntities.push(...entities);
       }
+      
+      // 4. Compliance Engine
+      const complianceIssues = complianceEngine.detectComplianceIssues(sessionId, turn, entities);
+      if (complianceIssues.length > 0) {
+        turn.complianceIssues = complianceIssues;
+        sessionData.complianceIssues.push(...complianceIssues);
+      }
 
-      // 4. Conversation Context Engine
+      // 5. Objection Detection
+      const objection = objectionEngine.detectObjection(sessionId, turn, sessionData.contextSummary);
+      if (objection) {
+        if (!turn.objections) turn.objections = [];
+        turn.objections.push(objection);
+        sessionData.objections.push(objection);
+      }
+
+      // 6. Action Extraction
+      const actions = actionExtractionEngine.extractActions(sessionId, turn);
+      if (actions.length > 0) {
+        if (!turn.actions) turn.actions = [];
+        turn.actions.push(...actions);
+        sessionData.actions.push(...actions);
+      }
+
+      // 7. Conversation Context Engine
       sessionData.contextSummary = contextEngine.updateContextSummary(sessionId, sessionData.contextSummary, [turn]);
+      
+      // 8. Summary Engine (Continuous)
+      sessionData.summary = summaryEngine.updateSummaries(sessionId, sessionData.summary, [turn], sessionData);
       
       // Real-time AI Coach triggers
       aiCoach.suggestImprovements(sessionId, sessionData);
@@ -85,6 +120,10 @@ export class IntelligencePipeline {
     voiceQA.auditSession(sessionId, sessionData);
     learningEngine.extractLearnings(sessionId, sessionData);
     conversationAnalytics.aggregateMetrics(sessionId, sessionData);
+    
+    // New engines
+    sessionData.score = conversationScoreEngine.calculateScore(sessionId, sessionData);
+    sessionData.learningRecommendations = continuousLearningEngine.generateRecommendations(sessionId, sessionData);
 
     observability.endSpan(`session-end-eval-${sessionId}`, sessionId, 'SESSION_END_INTELLIGENCE_COMPLETED');
   }
