@@ -1,14 +1,20 @@
 import { IntentSnapshot } from '../types';
 import { observability } from '../Observability';
 
-export class IntentEngine {
-  public analyzeIntent(sessionId: string, text: string, currentContext: string): IntentSnapshot {
-    // Emulação da identificação de intenções.
-    // Em produção, usa o histórico e o contexto via LLM para extrair a intenção real (não apenas palavras chaves).
+export interface IntentTransitionEvent {
+  fromIntent: string;
+  toIntent: string;
+  confidence: number;
+  timestamp: number;
+}
 
+export class IntentEngine {
+  private lastIntents: Map<string, string> = new Map();
+
+  public analyzeIntent(sessionId: string, text: string, currentContext: string): IntentSnapshot {
     let primaryIntent = 'Fornecer informações';
     const textLower = text.toLowerCase();
-
+    
     if (textLower.includes('agendar') || textLower.includes('marcar')) {
       primaryIntent = 'Agendar consulta';
     } else if (textLower.includes('cancelar')) {
@@ -26,6 +32,19 @@ export class IntentEngine {
       context: currentContext || 'Sessão iniciada',
       timestamp: Date.now()
     };
+    
+    const previousIntent = this.lastIntents.get(sessionId);
+    if (previousIntent && previousIntent !== primaryIntent) {
+      const transition: IntentTransitionEvent = {
+        fromIntent: previousIntent,
+        toIntent: primaryIntent,
+        confidence: snapshot.confidence,
+        timestamp: snapshot.timestamp
+      };
+      observability.logEvent(sessionId, 'INTENT_TRANSITION', { transition });
+    }
+    
+    this.lastIntents.set(sessionId, primaryIntent);
 
     observability.logEvent(sessionId, 'INTENT_DETECTED', { intent: snapshot });
     

@@ -1,21 +1,33 @@
-import { RuntimeEvent } from '../types';
+import { RuntimeEvent, ConversationTurn, EmotionSnapshot } from '../types';
 import { observability } from '../Observability';
+import { sessionManager } from '../SessionManager';
+
+export interface ReplayData {
+  sessionId: string;
+  duration: number;
+  events: RuntimeEvent[];
+  transcript: ConversationTurn[];
+  emotionalTimeline: EmotionSnapshot[];
+}
 
 export class ConversationReplayEngine {
-  public generateReplayData(sessionId: string): { events: RuntimeEvent[], duration: number } {
-    // Collects all logged events and audio chunks timestamps to allow a frontend player to "replay" the exact session
-    
+  public generateReplayData(sessionId: string): ReplayData {
     const allEvents = observability.getEvents(sessionId);
-    if (allEvents.length === 0) {
-        return { events: [], duration: 0 };
+    const session = sessionManager.getSession(sessionId);
+    
+    if (allEvents.length === 0 || !session) {
+        return { sessionId, duration: 0, events: [], transcript: [], emotionalTimeline: [] };
     }
 
     const firstEvent = allEvents[0].timestamp;
     const lastEvent = allEvents[allEvents.length - 1].timestamp;
 
     return {
+      sessionId,
+      duration: lastEvent - firstEvent,
       events: allEvents,
-      duration: lastEvent - firstEvent
+      transcript: session.history || [],
+      emotionalTimeline: session.intelligence?.emotionTimeline || []
     };
   }
 }

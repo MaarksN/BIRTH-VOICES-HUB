@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { HashRouter as Router, Routes, Route, Outlet, Navigate } from 'react-router-dom';
+import { HashRouter as Router, Routes, Route, Outlet, Navigate, useLocation } from 'react-router-dom';
 import LandingPage from './pages/Landing';
 import LoginPage from './pages/Login';
 import RegisterPage from './pages/Register';
@@ -21,6 +21,8 @@ import ToolRegistry from './pages/Dashboard/ToolRegistry';
 import AgentMarketplace from './pages/Dashboard/AgentMarketplace';
 import ObservabilityPage from './pages/Dashboard/Observability';
 import GovernancePage from './pages/Dashboard/Governance';
+import VoiceStudioPage from './pages/Dashboard/VoiceStudio';
+import SupervisionPage from './pages/Dashboard/Supervision';
 import { Sidebar } from './components/Sidebar';
 import { AgentForm } from './components/AgentForm';
 import { auth } from './lib/auth';
@@ -61,11 +63,14 @@ const DashboardLayout = () => {
     };
   }, []);
 
+  const location = useLocation();
+  const isFullWidth = location.pathname.includes('/studio') || location.pathname.includes('/playground') || location.pathname.includes('/supervision');
+
   return (
     <div className="flex h-screen bg-slate-50 dark:bg-slate-900 overflow-hidden transition-colors duration-200">
       <Sidebar />
-      <main className="flex-1 overflow-auto">
-        <div className="max-w-7xl mx-auto p-8">
+      <main className="flex-1 overflow-auto flex flex-col">
+        <div className={`${isFullWidth ? 'flex-1 flex flex-col' : 'max-w-7xl mx-auto p-8 w-full'}`}>
           <ErrorBoundary>
             <Outlet />
           </ErrorBoundary>
@@ -107,6 +112,8 @@ export default function App() {
               <Route path="tools" element={<ToolRegistry />} />
               <Route path="marketplace" element={<AgentMarketplace />} />
               <Route path="observability" element={<ObservabilityPage />} />
+              <Route path="supervision" element={<SupervisionPage />} />
+              <Route path="studio" element={<VoiceStudioPage />} />
               <Route path="governance" element={<GovernancePage />} />
               <Route path="playground" element={<PlaygroundPage />} />
               
