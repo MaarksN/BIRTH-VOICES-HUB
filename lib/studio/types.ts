@@ -20,6 +20,7 @@ export interface StudioNodeData {
   icon?: string;
   color?: string;
   config?: any;
+  lifecycleState?: string;
   validation?: {
     isValid: boolean;
     errors: string[];

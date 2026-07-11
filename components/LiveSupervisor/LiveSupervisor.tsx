@@ -20,34 +20,52 @@ export function LiveSupervisor({ sessionId = "demo-session-123" }: LiveSuperviso
   const [objections, setObjections] = useState<string[]>([]);
   const [callDuration, setCallDuration] = useState<number>(0);
 
-  // Simulated live data feed
+  // Scenario-based deterministic progression
   useEffect(() => {
     const timer = setInterval(() => {
-      setCallDuration(prev => prev + 1);
-      
-      // Randomly update emotions
-      if (Math.random() > 0.7) {
-        setEmotions(prev => ({
-          empathy: Math.min(100, Math.max(0, prev.empathy + (Math.random() * 10 - 5))),
-          confidence: Math.min(100, Math.max(0, prev.confidence + (Math.random() * 10 - 5))),
-          frustration: Math.min(100, Math.max(0, prev.frustration + (Math.random() * 10 - 5)))
-        }));
-      }
-
-      // Randomly add alerts or objections
-      if (Math.random() > 0.95) {
-        const newAlert: Alert = {
-          id: crypto.randomUUID(),
-          level: Math.random() > 0.7 ? 'critical' : 'warning',
-          message: Math.random() > 0.5 ? 'Cliente irritado. Tom elevado detectado.' : 'Latência alta na resposta do LLM (> 1.5s).',
-          timestamp: Date.now()
-        };
-        setAlerts(prev => [newAlert, ...prev].slice(0, 5));
-      }
-
-      if (Math.random() > 0.97) {
-        setObjections(prev => [Math.random() > 0.5 ? 'Preço muito alto' : 'Concorrente oferece mais barato', ...prev].slice(0, 3));
-      }
+      setCallDuration(prev => {
+        const nextSec = prev + 1;
+        
+        // Compute metrics based on time-based clinical scenario stages
+        if (nextSec < 12) {
+          // Stage 1: Greeting
+          setEmotions({ empathy: 82, confidence: 88, frustration: 8 });
+          setIntent({ primary: 'Identificação & Saudação', confidence: 95 });
+        } else if (nextSec < 30) {
+          // Stage 2: Collecting CPF
+          setEmotions({ empathy: 85, confidence: 92, frustration: 12 });
+          setIntent({ primary: 'Coleta de CPF do Paciente', confidence: 98 });
+          if (nextSec === 15) {
+            setAlerts(prevAlerts => [
+              { id: 'a-1', level: 'info', message: 'CPF recebido e validado com sucesso no CRM.', timestamp: Date.now() },
+              ...prevAlerts
+            ]);
+          }
+        } else if (nextSec < 55) {
+          // Stage 3: Medical triaging
+          setEmotions({ empathy: 88, confidence: 94, frustration: 20 });
+          setIntent({ primary: 'Triagem de Sintomas / Urgência', confidence: 90 });
+          if (nextSec === 35) {
+            setAlerts(prevAlerts => [
+              { id: 'a-2', level: 'warning', message: 'Paciente relata dor de dente aguda e persistente.', timestamp: Date.now() },
+              ...prevAlerts
+            ]);
+            setObjections(['Solicitou encaixe de urgência no mesmo dia']);
+          }
+        } else {
+          // Stage 4: Scheduling & Completion
+          setEmotions({ empathy: 95, confidence: 97, frustration: 5 });
+          setIntent({ primary: 'Agendamento e Finalização', confidence: 97 });
+          if (nextSec === 60) {
+            setAlerts(prevAlerts => [
+              { id: 'a-3', level: 'critical', message: 'Agendamento de urgência confirmado para amanhã às 14:00.', timestamp: Date.now() },
+              ...prevAlerts
+            ]);
+          }
+        }
+        
+        return nextSec;
+      });
     }, 1000);
 
     return () => clearInterval(timer);

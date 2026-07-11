@@ -21,8 +21,7 @@ export class OpenAIRealtimeProvider extends BaseProvider {
   }
 
   public async checkHealth(): Promise<boolean> {
-    // Random health for failover demonstration
-    return Math.random() > 0.1;
+    return true;
   }
 
   public async destroy(): Promise<void> {

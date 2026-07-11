@@ -17,10 +17,12 @@ export default function LineChart() {
     const innerWidth = width - margin.left - margin.right;
     const innerHeight = height - margin.top - margin.bottom;
 
-    // Generate 30 days of mock data
+    // Generate 30 days of deterministic, trend-based data with weekly periodicity
     const data = Array.from({ length: 30 }, (_, i) => {
       const date = new Date(2026, 4, 30 - 29 + i);
-      const calls = Math.floor(Math.random() * 50) + 20 + (i * 2); // subtle upward trend
+      const dayOfWeek = date.getDay();
+      const weeklyFactor = dayOfWeek === 0 || dayOfWeek === 6 ? 12 : 38; // lower on weekends
+      const calls = 15 + i + weeklyFactor + Math.round(Math.sin(i * 0.9) * 6);
       return { date, value: calls };
     });
 

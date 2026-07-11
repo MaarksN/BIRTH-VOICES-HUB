@@ -16,20 +16,23 @@ export default function LoginPage() {
     setError('');
 
     try {
-      // Mock Login
-      if (email && password) {
-          const user = {
-              name: email.split('@')[0],
-              company: 'My Company',
-              email: email
-          }
-          auth.setToken('mock-token-xyz', user);
-          setTimeout(() => navigate('/dashboard'), 1000);
-      } else {
-          throw new Error('Preencha os campos');
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ email, password })
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || 'Erro ao realizar login.');
       }
+
+      auth.setToken(data.token, data.user);
+      navigate('/dashboard');
     } catch (err: any) {
-      setError(err.message);
+      setError(err.message || 'Erro de conexão.');
       setLoading(false);
     }
   };

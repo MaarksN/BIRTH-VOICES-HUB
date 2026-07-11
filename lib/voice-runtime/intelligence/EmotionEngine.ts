@@ -11,28 +11,38 @@ export class EmotionEngine {
   private sessionStates: Map<string, EmotionalState> = new Map();
 
   public analyzeTurn(sessionId: string, text: string, audioData?: ArrayBuffer | Uint8Array): EmotionSnapshot[] {
-    const randomIntensity = Math.floor(Math.random() * 40) + 60; // 60-100%
-    const randomConfidence = Math.floor(Math.random() * 30) + 70; // 70-100%
-    
-    let detectedEmotions: EmotionSnapshot[] = [];
     const textLower = text.toLowerCase();
     
+    // Deterministic Intensity score based on punctuation and word count
+    let baseIntensity = 65;
+    if (text.includes('!')) baseIntensity += 15;
+    if (text.toUpperCase() === text && text.length > 5) baseIntensity += 15;
+    if (textLower.includes('urgente') || textLower.includes('rápido') || textLower.includes('socorro')) baseIntensity += 10;
+    const calculatedIntensity = Math.min(100, Math.max(30, baseIntensity));
+
+    // Deterministic Confidence score based on hesitate words
+    let baseConfidence = 85;
+    if (textLower.includes('talvez') || textLower.includes('não sei') || textLower.includes('acho')) baseConfidence -= 25;
+    if (textLower.includes('hã') || textLower.includes('err') || textLower.includes('hum')) baseConfidence -= 15;
+    const calculatedConfidence = Math.min(100, Math.max(30, baseConfidence));
+    
+    let detectedEmotions: EmotionSnapshot[] = [];
     let state = this.sessionStates.get(sessionId) || { empathyScore: 50, confidenceScore: 50, frustrationScore: 0 };
 
-    if (textLower.includes('obrigado') || textLower.includes('bom')) {
+    if (textLower.includes('obrigado') || textLower.includes('bom') || textLower.includes('ajudou') || textLower.includes('perfeito')) {
       detectedEmotions.push({
         name: 'Satisfação',
-        intensity: randomIntensity,
-        confidence: randomConfidence,
+        intensity: calculatedIntensity,
+        confidence: calculatedConfidence,
         timestamp: Date.now()
       });
       state.confidenceScore = Math.min(100, state.confidenceScore + 10);
       state.frustrationScore = Math.max(0, state.frustrationScore - 20);
-    } else if (textLower.includes('problema') || textLower.includes('erro') || textLower.includes('não funciona')) {
+    } else if (textLower.includes('problema') || textLower.includes('erro') || textLower.includes('não funciona') || textLower.includes('ruim') || textLower.includes('demora')) {
       detectedEmotions.push({
         name: 'Frustração',
-        intensity: randomIntensity + 10 > 100 ? 100 : randomIntensity + 10,
-        confidence: randomConfidence,
+        intensity: Math.min(100, calculatedIntensity + 10),
+        confidence: calculatedConfidence,
         timestamp: Date.now()
       });
       state.frustrationScore = Math.min(100, state.frustrationScore + 30);
@@ -40,14 +50,22 @@ export class EmotionEngine {
     } else {
       detectedEmotions.push({
         name: 'Neutro',
-        intensity: randomIntensity - 20,
-        confidence: randomConfidence,
+        intensity: Math.max(20, calculatedIntensity - 15),
+        confidence: calculatedConfidence,
         timestamp: Date.now()
       });
     }
     
-    // Simulate Empathy from agent side or client side
-    state.empathyScore = Math.min(100, Math.max(0, state.empathyScore + (Math.random() * 10 - 5)));
+    // Calculate Empathy based on polite words
+    let empathyDelta = 0;
+    if (textLower.includes('por favor') || textLower.includes('gentileza') || textLower.includes('obrigado')) {
+      empathyDelta = 8;
+    } else if (textLower.includes('rápido') || textLower.includes('logo')) {
+      empathyDelta = -4;
+    } else {
+      empathyDelta = 2; // steady slow positive progress
+    }
+    state.empathyScore = Math.min(100, Math.max(0, state.empathyScore + empathyDelta));
     
     this.sessionStates.set(sessionId, state);
 

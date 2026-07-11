@@ -19,6 +19,7 @@ import '@xyflow/react/dist/style.css';
 
 import { StudioNode, StudioEdge } from '../../lib/studio/types';
 import { validationEngine } from '../../lib/studio/ValidationEngine';
+import { useStudioStore } from '../../store/useStudioStore';
 import { 
   StartNode, EndNode, PromptNode, ConditionNode, ToolNode, LlmNode, VoiceNode, 
   QuestionNode, SwitchNode, MemoryNode, KnowledgeNode, HumanHandoffNode 
@@ -27,6 +28,7 @@ import { StudioEdge as CustomStudioEdge } from './edges/StudioEdge';
 import { TopBar } from './panels/TopBar';
 import { LayersPanel } from './panels/LayersPanel';
 import { InspectorPanel } from './panels/InspectorPanel';
+import { BottomDrawer } from './panels/BottomDrawer';
 
 const nodeTypes = {
   start: StartNode,
@@ -110,17 +112,41 @@ const initialEdges: StudioEdge[] = [
 ];
 
 function CanvasInner() {
-  const [nodes, setNodes] = useState<StudioNode[]>(initialNodes);
-  const [edges, setEdges] = useState<StudioEdge[]>(initialEdges);
-  const [selectedNode, setSelectedNode] = useState<StudioNode | null>(null);
+  const {
+    nodes,
+    edges,
+    selectedNodeId,
+    setSelectedNodeId,
+    setNodes,
+    setEdges,
+    connectNodes,
+    nodeLifecycles,
+    loadWorkflowFromServer,
+    saveWorkflowToServer
+  } = useStudioStore();
+
+  useEffect(() => {
+    loadWorkflowFromServer();
+  }, [loadWorkflowFromServer]);
+
+  useEffect(() => {
+    if (nodes.length > 0) {
+      const timer = setTimeout(() => {
+        saveWorkflowToServer();
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [nodes, edges, saveWorkflowToServer]);
   
   const { zoomIn, zoomOut, fitView } = useReactFlow();
 
   useOnSelectionChange({
-    onChange: ({ nodes }) => {
-      setSelectedNode(nodes.length > 0 ? (nodes[0] as StudioNode) : null);
+    onChange: ({ nodes: selectedNodes }) => {
+      setSelectedNodeId(selectedNodes.length > 0 ? selectedNodes[0].id : null);
     },
   });
+
+  const selectedNode = nodes.find(n => n.id === selectedNodeId) || null;
 
   const result = validationEngine.validate(nodes, edges);
   const health = result.healthScore;
@@ -128,10 +154,12 @@ function CanvasInner() {
 
   const renderedNodes = nodes.map(n => {
     const nodeIssues = issues.filter(i => i.nodeId === n.id);
+    const lifecycle = nodeLifecycles[n.id] || 'Ready';
     return {
       ...n,
       data: {
         ...n.data,
+        lifecycleState: lifecycle,
         validation: {
           isValid: nodeIssues.filter(i => i.type === 'error').length === 0,
           errors: nodeIssues.filter(i => i.type === 'error').map(i => i.message),
@@ -143,17 +171,17 @@ function CanvasInner() {
 
   const onNodesChange = useCallback(
     (changes: NodeChange[]) => setNodes((nds) => applyNodeChanges(changes, nds) as StudioNode[]),
-    [],
+    [setNodes],
   );
 
   const onEdgesChange = useCallback(
     (changes: EdgeChange[]) => setEdges((eds) => applyEdgeChanges(changes, eds) as StudioEdge[]),
-    [],
+    [setEdges],
   );
 
   const onConnect = useCallback(
-    (params: Connection) => setEdges((eds) => addEdge({ ...params, type: 'studioEdge' }, eds) as StudioEdge[]),
-    [],
+    (params: Connection) => connectNodes(params),
+    [connectNodes],
   );
 
   return (
@@ -166,7 +194,7 @@ function CanvasInner() {
         onFitView={() => fitView({ duration: 500, padding: 0.2 })}
       />
       
-      <div className="flex flex-1 min-h-0">
+      <div className="flex-1 flex min-h-0">
         <LayersPanel nodes={nodes} />
         
         <div className="flex-1 relative bg-[#FAFAFA]">
@@ -202,6 +230,8 @@ function CanvasInner() {
 
         <InspectorPanel selectedNode={selectedNode} />
       </div>
+
+      <BottomDrawer />
     </div>
   );
 }

@@ -17,20 +17,23 @@ export default function RegisterPage() {
     setError('');
 
     try {
-      // Mock Register
-      if (email && password && companyName) {
-          const user = {
-              name: email.split('@')[0],
-              company: companyName,
-              email: email
-          }
-          auth.setToken('mock-token-xyz', user);
-          setTimeout(() => navigate('/dashboard'), 1000);
-      } else {
-          throw new Error('Erro ao criar conta');
+      const response = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ email, password, companyName })
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || 'Erro ao criar conta.');
       }
+
+      auth.setToken(data.token, data.user);
+      navigate('/dashboard');
     } catch (err: any) {
-      setError(err.message);
+      setError(err.message || 'Erro de conexão.');
       setLoading(false);
     }
   };

@@ -24,7 +24,7 @@ export default function RebuiltExecutiveOverview() {
     return () => clearInterval(timer);
   }, []);
 
-  // Onboarding Checklist States (Saves to LocalStorage for true persistence)
+  // Onboarding Checklist States (Saves to server-side database with localStorage fallback)
   const [checklist, setChecklist] = useState({
     orgCreated: true,
     agentCreated: false,
@@ -36,7 +36,28 @@ export default function RebuiltExecutiveOverview() {
     firstCallCompleted: false
   });
 
+  const [recentCalls, setRecentCalls] = useState<any[]>([]);
+
+  const fetchCalls = async () => {
+    try {
+      const token = localStorage.getItem('access_token');
+      const headers: Record<string, string> = {};
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      const res = await fetch('/api/call-logs', { headers });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.callLogs) {
+          setRecentCalls(data.callLogs);
+        }
+      }
+    } catch (err) {
+      console.error("Error loading call logs:", err);
+    }
+  };
+
   useEffect(() => {
+    // 1. First load from local storage fallback
     const saved = localStorage.getItem('birth_voices_onboarding_checklist');
     if (saved) {
       try {
@@ -45,13 +66,53 @@ export default function RebuiltExecutiveOverview() {
         console.error(e);
       }
     }
+
+    // 2. Load from server database (if logged in)
+    const fetchServerData = async () => {
+      try {
+        const token = localStorage.getItem('access_token');
+        if (!token) return;
+
+        const res = await fetch('/api/onboarding', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.checklist) {
+            setChecklist(data.checklist);
+            localStorage.setItem('birth_voices_onboarding_checklist', JSON.stringify(data.checklist));
+          }
+        }
+      } catch (err) {
+        console.error("Error loading onboarding checklist from database:", err);
+      }
+    };
+
+    fetchServerData();
+    fetchCalls();
   }, []);
 
-  const updateChecklist = (key: keyof typeof checklist, value: boolean) => {
+  const updateChecklist = async (key: keyof typeof checklist, value: boolean) => {
     const updated = { ...checklist, [key]: value };
     setChecklist(updated);
     localStorage.setItem('birth_voices_onboarding_checklist', JSON.stringify(updated));
     showToast(`Checklist atualizado! Progresso atualizado para ${Math.round(calculateOnboardingProgress(updated))}%`, 'info');
+
+    try {
+      const token = localStorage.getItem('access_token');
+      if (token) {
+        await fetch('/api/onboarding', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ checklist: updated })
+        });
+      }
+    } catch (err) {
+      console.error("Error saving onboarding checklist to database:", err);
+    }
   };
 
   const calculateOnboardingProgress = (currentList = checklist) => {
@@ -69,14 +130,6 @@ export default function RebuiltExecutiveOverview() {
   const [actionLoading, setActionLoading] = useState(false);
   const [actionInput, setActionInput] = useState('');
   
-  // Custom states for demo purposes
-  const [recentCalls, setRecentCalls] = useState([
-    { id: 1024, patient: 'Isabela Santos', duration: '03:42', status: 'Concluído', time: 'Há 5 min', agent: 'Catarina Triagem' },
-    { id: 1023, patient: 'Mariana Lima', duration: '05:15', status: 'Concluído', time: 'Há 18 min', agent: 'Catarina Pré-Natal' },
-    { id: 1022, patient: 'Gabriela Costa', duration: '01:10', status: 'Falhou', time: 'Há 45 min', agent: 'Catarina Emergência' },
-    { id: 1021, patient: 'Juliana Rocha', duration: '04:56', status: 'Concluído', time: 'Há 1 hora', agent: 'Catarina Triagem' }
-  ]);
-
   const [activeTab, setActiveTab] = useState<'kpis' | 'audit' | 'analytics'>('kpis');
 
   // Sparklines SVG coordinates for high-end Stripe looks
@@ -94,7 +147,7 @@ export default function RebuiltExecutiveOverview() {
   // Quick action executor
   const handleExecuteQuickAction = (type: string) => {
     setActionLoading(true);
-    setTimeout(() => {
+    setTimeout(async () => {
       setActionLoading(false);
       setActiveActionModal(null);
       
@@ -112,6 +165,27 @@ export default function RebuiltExecutiveOverview() {
       } else if (type === 'test') {
         updateChecklist('firstTest', true);
         showToast(`Simulando chamada de voz de teste... Alerta enviado ao webhook!`, 'info');
+        
+        try {
+          const token = localStorage.getItem('access_token');
+          await fetch('/api/call-logs', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+            },
+            body: JSON.stringify({
+              patientName: 'Fernanda Lima (Simulado)',
+              duration: '02:45',
+              status: 'Concluído',
+              agent: 'Catarina Triagem'
+            })
+          });
+          fetchCalls();
+        } catch (err) {
+          console.error("Error generating call log:", err);
+        }
+
         navigate('/dashboard/playground');
       } else if (type === 'knowledge') {
         updateChecklist('knowledgeAdded', true);
@@ -600,6 +674,53 @@ export default function RebuiltExecutiveOverview() {
                     </label>
                   </div>
                 </div>
+              </Card>
+
+              {/* CHAMADAS RECENTES (BANCO DE DADOS) */}
+              <Card className="p-6 space-y-4">
+                <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-700/60 pb-3">
+                  <div className="text-left">
+                    <h3 className="font-bold text-slate-900 dark:text-white text-base">Registro de Chamadas (Tempo Real)</h3>
+                    <p className="text-xs text-slate-500 dark:text-slate-450 mt-0.5">Últimas interações de voz registradas no banco de dados.</p>
+                  </div>
+                  <button onClick={fetchCalls} className="p-1 px-2.5 border rounded-lg text-xs font-semibold hover:bg-slate-50 flex items-center gap-1.5 dark:hover:bg-slate-800 dark:border-slate-700">
+                    <RefreshCw className="h-3 w-3" /> Atualizar
+                  </button>
+                </div>
+                {recentCalls.length === 0 ? (
+                  <p className="text-xs text-slate-400 py-4 text-center">Nenhuma chamada recente registrada.</p>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs text-slate-650 dark:text-slate-450">
+                      <thead>
+                        <tr className="border-b border-slate-100 dark:border-slate-800 font-bold text-slate-400 uppercase tracking-wider text-[10px]">
+                          <th className="py-2">ID</th>
+                          <th className="py-2">Paciente</th>
+                          <th className="py-2">Duração</th>
+                          <th className="py-2">Agente</th>
+                          <th className="py-2">Status</th>
+                          <th className="py-2 text-right">Quando</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-semibold">
+                        {recentCalls.slice(0, 5).map((call) => (
+                          <tr key={call.id} className="hover:bg-slate-50 dark:hover:bg-slate-900/50">
+                            <td className="py-2.5 font-mono text-[10px] text-slate-400">#{call.id}</td>
+                            <td className="py-2.5 font-bold text-slate-800 dark:text-slate-200">{call.patientName || call.patient}</td>
+                            <td className="py-2.5 font-mono">{call.duration}</td>
+                            <td className="py-2.5">{call.agent}</td>
+                            <td className="py-2.5">
+                              <Badge variant={call.status === 'Concluído' ? 'success' : 'danger'}>
+                                {call.status}
+                              </Badge>
+                            </td>
+                            <td className="py-2.5 text-right text-slate-400 text-[10px]">{call.time}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </Card>
 
               {/* ATIVIDADE RECENTE DO USUÁRIO */}

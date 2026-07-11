@@ -3,7 +3,8 @@ import { Link, useLocation } from 'react-router-dom';
 import { 
   Home, Users, BarChart3, Mic, Settings, BookOpen, CreditCard, Code, 
   Building2, Search, Sun, Moon, Laptop, Bell, Star, Clock, HelpCircle, 
-  ChevronRight, BadgeInfo, Eye, Trash2, CheckSquare, Sparkles, BookMarked
+  ChevronRight, BadgeInfo, Eye, Trash2, CheckSquare, Sparkles, BookMarked,
+  Activity, Shield, StarOff
 } from 'lucide-react';
 import { auth } from '../lib/auth';
 import { useTheme } from './design-system/ThemeContext';

@@ -21,12 +21,18 @@ export class ObjectionEngine {
     }
 
     if (category) {
+      let baseIntensity = 75;
+      if (content.includes('!') || content.includes('nunca') || content.includes('jamais') || content.includes('não')) baseIntensity += 15;
+      if (content.length < 20) baseIntensity -= 10;
+      const intensity = Math.min(100, Math.max(40, baseIntensity));
+      const probability = Math.min(100, Math.max(50, intensity + 5));
+
       const objection: DetectedObjection = {
         id: crypto.randomUUID(),
         category,
-        probability: Math.floor(Math.random() * 20) + 80, // 80-100%
+        probability,
         moment: context.substring(0, 50),
-        intensity: Math.floor(Math.random() * 40) + 60, // 60-100%
+        intensity,
         timestamp: Date.now()
       };
 

@@ -15,20 +15,35 @@ export class IntentEngine {
     let primaryIntent = 'Fornecer informações';
     const textLower = text.toLowerCase();
     
+    let score = 85;
+    let confidence = 90;
+    
     if (textLower.includes('agendar') || textLower.includes('marcar')) {
       primaryIntent = 'Agendar consulta';
+      score = 98;
+      confidence = 96;
     } else if (textLower.includes('cancelar')) {
       primaryIntent = 'Cancelar';
+      score = 95;
+      confidence = 92;
     } else if (textLower.includes('comprar') || textLower.includes('preço')) {
       primaryIntent = 'Comprar';
+      score = 92;
+      confidence = 89;
     } else if (textLower.includes('ajuda') || textLower.includes('suporte')) {
       primaryIntent = 'Solicitar suporte';
+      score = 96;
+      confidence = 94;
+    } else if (textLower.length > 5) {
+      // standard generic statement match strength
+      score = Math.min(95, 75 + Math.min(20, textLower.length));
+      confidence = Math.min(95, 80 + Math.min(15, textLower.length));
     }
 
     const snapshot: IntentSnapshot = {
       primaryIntent,
-      score: Math.floor(Math.random() * 20) + 80, // 80-100%
-      confidence: Math.floor(Math.random() * 15) + 85, // 85-100%
+      score,
+      confidence,
       context: currentContext || 'Sessão iniciada',
       timestamp: Date.now()
     };

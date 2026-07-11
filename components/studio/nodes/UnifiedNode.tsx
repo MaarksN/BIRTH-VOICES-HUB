@@ -14,12 +14,40 @@ interface UnifiedNodeProps extends NodeProps<StudioNodeData> {
 export function UnifiedNode({ data, iconName, colorClass, headerTitle, inputs = 1, outputs = 1, selected }: UnifiedNodeProps) {
   const Icon = Icons[iconName] as LucideIcon;
   const isInvalid = data.validation?.isValid === false;
+  const lifecycle = data.lifecycleState || 'Ready';
+
+  // Determine active visual glow or status borders based on lifecycle
+  let lifecycleBorderGlow = 'border-gray-200 hover:border-gray-300';
+  if (selected) {
+    lifecycleBorderGlow = 'ring-2 ring-indigo-500 border-indigo-500 shadow-md';
+  } else if (isInvalid) {
+    lifecycleBorderGlow = 'border-red-500 ring-1 ring-red-500';
+  } else if (lifecycle === 'Executing') {
+    lifecycleBorderGlow = 'ring-2 ring-purple-600 border-purple-600 shadow-lg animate-pulse';
+  } else if (lifecycle === 'Completed') {
+    lifecycleBorderGlow = 'border-green-500 ring-1 ring-green-100 shadow-sm';
+  } else if (lifecycle === 'Failed') {
+    lifecycleBorderGlow = 'border-red-500 ring-2 ring-red-100';
+  }
+
+  // Lifecycle badges colors
+  const badgeStyles: Record<string, string> = {
+    Created: 'bg-gray-100 text-gray-700',
+    Initialized: 'bg-blue-100 text-blue-700',
+    Configured: 'bg-teal-100 text-teal-700',
+    Validated: 'bg-emerald-100 text-emerald-700',
+    Ready: 'bg-gray-100 text-gray-500 border-gray-200',
+    Executing: 'bg-purple-100 text-purple-700 animate-bounce',
+    Completed: 'bg-green-100 text-green-700',
+    Failed: 'bg-red-100 text-red-700',
+    Retry: 'bg-amber-100 text-amber-700 animate-pulse',
+    Archived: 'bg-slate-100 text-slate-500'
+  };
 
   return (
     <div className={`
       relative min-w-[280px] bg-white rounded-xl border shadow-sm transition-all duration-200
-      ${selected ? 'ring-2 ring-indigo-500 border-indigo-500 shadow-md' : 'border-gray-200 hover:border-gray-300'}
-      ${isInvalid ? 'border-red-500 ring-1 ring-red-500' : ''}
+      ${lifecycleBorderGlow}
     `}>
       {/* Handles - Inputs */}
       {Array.from({ length: inputs }).map((_, i) => (
@@ -39,11 +67,17 @@ export function UnifiedNode({ data, iconName, colorClass, headerTitle, inputs = 
           <Icon className="w-4 h-4" />
         </div>
         <div className="flex-1">
-          <h3 className="text-xs font-semibold tracking-wider text-gray-500 uppercase">{headerTitle}</h3>
+          <div className="flex items-center justify-between">
+            <h3 className="text-xs font-semibold tracking-wider text-gray-500 uppercase">{headerTitle}</h3>
+            {/* Real-time Lifecycle State Tag */}
+            <span className={`text-[9px] font-mono font-bold px-1.5 py-0.5 rounded border ${badgeStyles[lifecycle] || 'bg-gray-100 text-gray-600'}`}>
+              {lifecycle}
+            </span>
+          </div>
           <p className="text-sm font-medium text-gray-900">{data.label}</p>
         </div>
         {data.validation?.errors && data.validation.errors.length > 0 && (
-          <div className="w-2 h-2 rounded-full bg-red-500" title={data.validation.errors[0]} />
+          <div className="w-2 h-2 rounded-full bg-red-500 shrink-0" title={data.validation.errors[0]} />
         )}
       </div>
 
