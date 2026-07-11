@@ -145,11 +145,23 @@ export class SessionManager {
   public endSession(sessionId: string) {
     this.updateState(sessionId, 'Finished');
     streamingEngine.cleanup(sessionId);
+    
+    // Trigger end of session conversational intelligence
+    const { intelligencePipeline } = require('./intelligence/IntelligencePipeline');
+    intelligencePipeline.evaluateSessionEnd(sessionId);
+
     observability.logEvent(sessionId, 'SESSION_ENDED');
   }
 
   public getSession(sessionId: string) {
-    return this.sessions.get(sessionId);
+    const session = this.sessions.get(sessionId);
+    if (!session) return undefined;
+    
+    // Attach intelligence snapshot for monitoring/debugging
+    const { intelligencePipeline } = require('./intelligence/IntelligencePipeline');
+    session.intelligence = intelligencePipeline.getIntelligence(sessionId);
+    
+    return session;
   }
 }
 
