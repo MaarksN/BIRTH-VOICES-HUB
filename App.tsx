@@ -13,6 +13,7 @@ import PlaygroundPage from './pages/Dashboard/Playground';
 import TelephonyPage from './pages/Dashboard/Telephony';
 import ResultsPage from './pages/Dashboard/Results';
 import DesignSystemDocs from './pages/Dashboard/Docs';
+import PreferencesPage from './pages/Dashboard/Preferences';
 import { Sidebar } from './components/Sidebar';
 import { AgentForm } from './components/AgentForm';
 import { auth } from './lib/auth';
@@ -20,6 +21,7 @@ import { useSessionStore, applyBrandColorToDom } from './store/useSessionStore';
 import { ThemeProvider } from './components/design-system/ThemeContext';
 import { ErrorBoundary } from './components/design-system/ErrorBoundary';
 import { CommandPalette } from './components/design-system/CommandPalette';
+import { GlobalHelpCenter } from './components/GlobalHelpCenter';
 
 const DashboardLayout = () => {
   // Simple auth check
@@ -63,6 +65,7 @@ const DashboardLayout = () => {
         </div>
       </main>
       <CommandPalette isOpen={isPaletteOpen} onClose={() => setIsPaletteOpen(false)} />
+      <GlobalHelpCenter />
     </div>
   );
 };
@@ -100,6 +103,7 @@ export default function App() {
               } />
               <Route path="results" element={<ResultsPage />} />
               <Route path="docs" element={<DesignSystemDocs />} />
+              <Route path="preferences" element={<PreferencesPage />} />
             </Route>
           </Routes>
         </Router>

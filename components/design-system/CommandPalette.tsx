@@ -75,13 +75,21 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
     { id: 'nav-billing', title: 'Faturamento', subtitle: 'Plano de créditos e faturas', icon: <CreditCard className="h-4 w-4" />, category: 'Navegação', action: () => { navigate('/dashboard/billing'); onClose(); } },
     { id: 'nav-developers', title: 'Developers & Webhooks', subtitle: 'Chaves de API e logs de entrega', icon: <Code className="h-4 w-4" />, category: 'Navegação', action: () => { navigate('/dashboard/developers'); onClose(); } },
     { id: 'nav-organization', title: 'Organização', subtitle: 'Branding, logo, cores e membros', icon: <Building2 className="h-4 w-4" />, category: 'Navegação', action: () => { navigate('/dashboard/organization'); onClose(); } },
+    { id: 'nav-preferences', title: 'Preferências do Sistema', subtitle: 'Idiomas, fuso horário e notificações', icon: <Settings className="h-4 w-4" />, category: 'Navegação', action: () => { navigate('/dashboard/preferences'); onClose(); } },
+    { id: 'nav-docs', title: 'Documentação do Design System', subtitle: 'Design tokens e componentes UI', icon: <BookOpen className="h-4 w-4" />, category: 'Navegação', action: () => { navigate('/dashboard/docs'); onClose(); } },
     { id: 'nav-admin', title: 'Configurações Globais (Admin)', subtitle: 'Definições do sistema corporativo', icon: <Settings className="h-4 w-4" />, category: 'Navegação', action: () => { navigate('/dashboard/admin'); onClose(); } },
     
     // Quick Actions
     { id: 'action-new-agent', title: 'Novo Agente de Voz', subtitle: 'Abrir criador direto', icon: <Users className="h-4 w-4" />, category: 'Ações rápidas', action: () => { navigate('/dashboard/agents/new'); onClose(); } },
     { id: 'action-test-webhook', title: 'Testar Webhook', subtitle: 'Simular envio de evento de voz', icon: <Code className="h-4 w-4" />, category: 'Ações rápidas', action: () => { navigate('/dashboard/developers'); onClose(); } },
+    { id: 'action-reset-onboarding', title: 'Limpar Cache de Onboarding', subtitle: 'Resetar progresso do checklist para testar', icon: <Settings className="h-4 w-4" />, category: 'Ações rápidas', action: () => { localStorage.removeItem('birth_voices_onboarding_checklist'); window.location.reload(); onClose(); } },
+    { id: 'action-simulate-error', title: 'Simular Erro de Servidor API', subtitle: 'Dispara um alerta de falha de conexão simulada', icon: <Settings className="h-4 w-4" />, category: 'Ações rápidas', action: () => { alert('Erro 500: Conexão interrompida com o gateway SIP Twilio. Tentando reconectar...'); onClose(); } },
     
     // Themes
+    { id: 'theme-brand-blue', title: 'Cor da Marca: Azul Royal', subtitle: 'Definir cor principal para #2563eb', icon: <Settings className="h-4 w-4" />, category: 'Temas', action: () => { useSessionStore.getState().setBrandColor('#2563eb'); onClose(); } },
+    { id: 'theme-brand-purple', title: 'Cor da Marca: Roxo Imperial', subtitle: 'Definir cor principal para #7c3aed', icon: <Settings className="h-4 w-4" />, category: 'Temas', action: () => { useSessionStore.getState().setBrandColor('#7c3aed'); onClose(); } },
+    { id: 'theme-brand-emerald', title: 'Cor da Marca: Verde Esmeralda', subtitle: 'Definir cor principal para #059669', icon: <Settings className="h-4 w-4" />, category: 'Temas', action: () => { useSessionStore.getState().setBrandColor('#059669'); onClose(); } },
+    { id: 'theme-brand-rose', title: 'Cor da Marca: Rosa Coral', subtitle: 'Definir cor principal para #f43f5e', icon: <Settings className="h-4 w-4" />, category: 'Temas', action: () => { useSessionStore.getState().setBrandColor('#f43f5e'); onClose(); } },
     { id: 'theme-light', title: 'Tema Claro', subtitle: 'Alterar interface para visual claro', icon: <Sun className="h-4 w-4" />, category: 'Temas', action: () => { setTheme('light'); onClose(); } },
     { id: 'theme-dark', title: 'Tema Escuro', subtitle: 'Alterar interface para visual escuro', icon: <Moon className="h-4 w-4" />, category: 'Temas', action: () => { setTheme('dark'); onClose(); } },
     { id: 'theme-system', title: 'Tema do Sistema', subtitle: 'Sincronizar com as configurações do seu SO', icon: <Laptop className="h-4 w-4" />, category: 'Temas', action: () => { setTheme('system'); onClose(); } },
