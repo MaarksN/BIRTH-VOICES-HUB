@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { AlertCircle, ShieldAlert, HeartPulse, Activity, Zap, Shield, Phone, Clock } from 'lucide-react';
+import { AlertCircle, ShieldAlert, HeartPulse, Activity, Zap, Shield, Phone, Clock, Wifi, WifiOff } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { io, Socket } from 'socket.io-client';
 
 interface Alert {
   id: string;
@@ -16,60 +17,54 @@ interface LiveSupervisorProps {
 export function LiveSupervisor({ sessionId = "demo-session-123" }: LiveSupervisorProps) {
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [emotions, setEmotions] = useState<{ empathy: number, confidence: number, frustration: number }>({ empathy: 85, confidence: 90, frustration: 10 });
-  const [intent, setIntent] = useState<{ primary: string, confidence: number }>({ primary: 'Agendar consulta', confidence: 92 });
+  const [intent, setIntent] = useState<{ primary: string, confidence: number }>({ primary: 'Iniciando Transmissão...', confidence: 0 });
   const [objections, setObjections] = useState<string[]>([]);
   const [callDuration, setCallDuration] = useState<number>(0);
+  const [isConnected, setIsConnected] = useState<boolean>(false);
+  const [socketInstance, setSocketInstance] = useState<any>(null);
+  const [intervened, setIntervened] = useState<boolean>(false);
 
-  // Scenario-based deterministic progression
+  // Scenario-based WebSocket connection
   useEffect(() => {
-    const timer = setInterval(() => {
-      setCallDuration(prev => {
-        const nextSec = prev + 1;
-        
-        // Compute metrics based on time-based clinical scenario stages
-        if (nextSec < 12) {
-          // Stage 1: Greeting
-          setEmotions({ empathy: 82, confidence: 88, frustration: 8 });
-          setIntent({ primary: 'Identificação & Saudação', confidence: 95 });
-        } else if (nextSec < 30) {
-          // Stage 2: Collecting CPF
-          setEmotions({ empathy: 85, confidence: 92, frustration: 12 });
-          setIntent({ primary: 'Coleta de CPF do Paciente', confidence: 98 });
-          if (nextSec === 15) {
-            setAlerts(prevAlerts => [
-              { id: 'a-1', level: 'info', message: 'CPF recebido e validado com sucesso no CRM.', timestamp: Date.now() },
-              ...prevAlerts
-            ]);
-          }
-        } else if (nextSec < 55) {
-          // Stage 3: Medical triaging
-          setEmotions({ empathy: 88, confidence: 94, frustration: 20 });
-          setIntent({ primary: 'Triagem de Sintomas / Urgência', confidence: 90 });
-          if (nextSec === 35) {
-            setAlerts(prevAlerts => [
-              { id: 'a-2', level: 'warning', message: 'Paciente relata dor de dente aguda e persistente.', timestamp: Date.now() },
-              ...prevAlerts
-            ]);
-            setObjections(['Solicitou encaixe de urgência no mesmo dia']);
-          }
-        } else {
-          // Stage 4: Scheduling & Completion
-          setEmotions({ empathy: 95, confidence: 97, frustration: 5 });
-          setIntent({ primary: 'Agendamento e Finalização', confidence: 97 });
-          if (nextSec === 60) {
-            setAlerts(prevAlerts => [
-              { id: 'a-3', level: 'critical', message: 'Agendamento de urgência confirmado para amanhã às 14:00.', timestamp: Date.now() },
-              ...prevAlerts
-            ]);
-          }
-        }
-        
-        return nextSec;
-      });
-    }, 1000);
+    // Connect to same host
+    const socket = io(window.location.origin, {
+      transports: ['websocket', 'polling']
+    });
 
-    return () => clearInterval(timer);
+    setSocketInstance(socket);
+
+    socket.on('connect', () => {
+      setIsConnected(true);
+      console.log('LiveSupervisor connected via Socket.io');
+    });
+
+    socket.on('telemetry_stream', (data) => {
+      setCallDuration(data.callDuration);
+      setEmotions(data.emotions);
+      setIntent(data.intent);
+      setObjections(data.objections);
+      setAlerts(data.alerts || []);
+    });
+
+    socket.on('intervention_triggered', () => {
+      setIntervened(true);
+    });
+
+    socket.on('disconnect', () => {
+      setIsConnected(false);
+    });
+
+    return () => {
+      socket.disconnect();
+    };
   }, []);
+
+  const handleIntervene = () => {
+    if (socketInstance) {
+      socketInstance.emit('intervene_call', { sessionId });
+      setIntervened(true);
+    }
+  };
 
   const formatTime = (seconds: number) => {
     const m = Math.floor(seconds / 60).toString().padStart(2, '0');
@@ -90,6 +85,17 @@ export function LiveSupervisor({ sessionId = "demo-session-123" }: LiveSuperviso
           </div>
         </div>
         <div className="flex items-center gap-4">
+          <div className="flex items-center gap-1.5 px-2 py-1 bg-slate-800 rounded-md text-[10px] font-mono font-bold">
+            {isConnected ? (
+              <span className="text-emerald-400 flex items-center gap-1">
+                <Wifi className="w-3 h-3" /> WS CONECTADO
+              </span>
+            ) : (
+              <span className="text-red-400 flex items-center gap-1">
+                <WifiOff className="w-3 h-3" /> WS OFFLINE
+              </span>
+            )}
+          </div>
           <div className="flex items-center gap-2">
             <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
             <span className="text-xs font-mono font-medium text-slate-300">LIVE</span>
@@ -195,13 +201,19 @@ export function LiveSupervisor({ sessionId = "demo-session-123" }: LiveSuperviso
                 )}
               </AnimatePresence>
             </div>
-            {alerts.some(a => a.level === 'critical') && (
-              <div className="p-4 bg-slate-900 border-t border-slate-700">
-                 <button className="w-full py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-bold rounded-lg shadow-lg shadow-red-900/50 transition-colors">
-                   INTERVIR NA CHAMADA
-                 </button>
-              </div>
-            )}
+            <div className="p-4 bg-slate-900 border-t border-slate-700">
+               <button 
+                 onClick={handleIntervene}
+                 disabled={intervened}
+                 className={`w-full py-2 text-white text-sm font-bold rounded-lg shadow-lg transition-colors ${
+                   intervened 
+                     ? 'bg-emerald-600 shadow-emerald-900/50' 
+                     : 'bg-red-600 hover:bg-red-700 shadow-red-900/50'
+                 }`}
+               >
+                 {intervened ? 'INTERVENÇÃO ENVIADA VIA WEBSOCKET' : 'INTERVIR NA CHAMADA'}
+               </button>
+            </div>
           </div>
         </div>
       </div>

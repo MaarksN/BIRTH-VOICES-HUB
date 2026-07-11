@@ -1,5 +1,6 @@
 import { EmotionSnapshot } from '../types';
 import { observability } from '../Observability';
+import { otelCollector } from '../otel';
 
 export interface EmotionalState {
   empathyScore: number;
@@ -11,6 +12,7 @@ export class EmotionEngine {
   private sessionStates: Map<string, EmotionalState> = new Map();
 
   public analyzeTurn(sessionId: string, text: string, audioData?: ArrayBuffer | Uint8Array): EmotionSnapshot[] {
+    const spanId = otelCollector.startLocalSpan('EmotionEngine.analyzeTurn', sessionId, { textLength: text.length });
     const textLower = text.toLowerCase();
     
     // Deterministic Intensity score based on punctuation and word count
@@ -72,6 +74,16 @@ export class EmotionEngine {
     if (detectedEmotions.length > 0) {
        observability.logEvent(sessionId, 'EMOTION_DETECTED', { emotions: detectedEmotions, state });
     }
+    
+    otelCollector.endLocalSpan(spanId, {
+      detectedEmotions: detectedEmotions.map(e => e.name),
+      frustrationScore: state.frustrationScore,
+      empathyScore: state.empathyScore
+    });
+
+    detectedEmotions.forEach(e => {
+      otelCollector.recordLocalMetric('emotion_intensity', e.intensity, { emotion: e.name, sessionId });
+    });
     
     return detectedEmotions;
   }

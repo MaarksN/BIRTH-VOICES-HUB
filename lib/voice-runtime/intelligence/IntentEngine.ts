@@ -1,5 +1,6 @@
 import { IntentSnapshot } from '../types';
 import { observability } from '../Observability';
+import { otelCollector } from '../otel';
 
 export interface IntentTransitionEvent {
   fromIntent: string;
@@ -12,6 +13,7 @@ export class IntentEngine {
   private lastIntents: Map<string, string> = new Map();
 
   public analyzeIntent(sessionId: string, text: string, currentContext: string): IntentSnapshot {
+    const spanId = otelCollector.startLocalSpan('IntentEngine.analyzeIntent', sessionId, { currentContext });
     let primaryIntent = 'Fornecer informações';
     const textLower = text.toLowerCase();
     
@@ -62,6 +64,14 @@ export class IntentEngine {
     this.lastIntents.set(sessionId, primaryIntent);
 
     observability.logEvent(sessionId, 'INTENT_DETECTED', { intent: snapshot });
+    
+    otelCollector.endLocalSpan(spanId, {
+      primaryIntent,
+      confidence,
+      score
+    });
+
+    otelCollector.recordLocalMetric('intent_confidence', confidence, { primaryIntent, sessionId });
     
     return snapshot;
   }
