@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Mic, ArrowRight } from 'lucide-react';
 import { auth } from '../lib/auth';
-import { getErrorMessage } from '../lib/errors';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -17,10 +16,23 @@ export default function LoginPage() {
     setError('');
 
     try {
-      await auth.login(email, password);
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ email, password })
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || 'Erro ao realizar login.');
+      }
+
+      auth.setToken(data.token, data.user);
       navigate('/dashboard');
-    } catch (error) {
-      setError(getErrorMessage(error));
+    } catch (err: any) {
+      setError(err.message || 'Erro de conexão.');
       setLoading(false);
     }
   };
@@ -51,7 +63,6 @@ export default function LoginPage() {
                 type="email"
                 value={email}
                 onChange={e => setEmail(e.target.value)}
-                autoComplete="email"
                 className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
                 required
               />
@@ -62,7 +73,6 @@ export default function LoginPage() {
                 type="password"
                 value={password}
                 onChange={e => setPassword(e.target.value)}
-                autoComplete="current-password"
                 className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
                 required
               />

@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Question } from '../types';
-import { BrowserSpeechRecognition, getSpeechRecognitionConstructor, SpeechRecognitionErrorEventLike, SpeechRecognitionEventLike } from '../lib/speechRecognition';
 
 const POSITIVE_WORDS = ['sim', 'claro', 'ótimo', 'bom', 'gostei', 'certeza', 'ok', 'beleza', 'excelente', 'rápido'];
 const NEGATIVE_WORDS = ['não', 'ruim', 'péssimo', 'errado', 'difícil', 'problema', 'demora', 'caro', 'infelizmente'];
@@ -21,7 +20,7 @@ export function useVoiceConversation(questions: Question[], speed: number = 1.1)
   const [transcript, setTranscript] = useState<{role: 'agent'|'user', text: string}[]>([]);
   const [sentiment, setSentiment] = useState<'positive' | 'neutral' | 'negative'>('neutral');
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-  const recognitionRef = useRef<BrowserSpeechRecognition | null>(null);
+  const recognitionRef = useRef<any>(null);
   const [isSupported, setIsSupported] = useState(false);
 
   // Keep track of latest state for callbacks
@@ -82,7 +81,7 @@ export function useVoiceConversation(questions: Question[], speed: number = 1.1)
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      const SpeechRecognition = getSpeechRecognitionConstructor();
+      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
       if (SpeechRecognition) {
         setIsSupported(true);
         const recognition = new SpeechRecognition();
@@ -90,7 +89,7 @@ export function useVoiceConversation(questions: Question[], speed: number = 1.1)
         recognition.lang = 'pt-BR';
         recognition.interimResults = true;
 
-        recognition.onresult = (event: SpeechRecognitionEventLike) => {
+        recognition.onresult = (event: any) => {
           let finalTranscript = '';
           let interimTranscript = '';
 
@@ -111,7 +110,7 @@ export function useVoiceConversation(questions: Question[], speed: number = 1.1)
           }
         };
 
-        recognition.onerror = (event: SpeechRecognitionErrorEventLike) => {
+        recognition.onerror = (event: any) => {
           console.error('Speech recognition error', event.error);
           if (event.error === 'no-speech') {
               // Maybe restart listening?

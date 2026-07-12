@@ -1,163 +1,102 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { Activity, BarChart3, Clock, Loader2, PieChart } from 'lucide-react';
-import { api } from '../../lib/api';
-import { getErrorMessage } from '../../lib/errors';
-import { formatDuration, parseDurationToSeconds } from '../../lib/format';
-import { SessionRecord, StoredAgent } from '../../types';
+import React from 'react';
+import { BarChart3, PieChart, Activity, Users } from 'lucide-react';
+import LineChart from '../../components/D3Chart';
 
 export default function AnalyticsPage() {
-  const [sessions, setSessions] = useState<SessionRecord[]>([]);
-  const [agents, setAgents] = useState<StoredAgent[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-
-  useEffect(() => {
-    let cancelled = false;
-
-    const load = async () => {
-      try {
-        const [sessionsResponse, agentsResponse] = await Promise.all([
-          api.listSessions(),
-          api.listAgents(),
-        ]);
-
-        if (!cancelled) {
-          setSessions(sessionsResponse.sessions);
-          setAgents(agentsResponse.agents);
-        }
-      } catch (error) {
-        if (!cancelled) setError(getErrorMessage(error));
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    };
-
-    load();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  const stats = useMemo(() => {
-    const totalSeconds = sessions.reduce((sum, session) => sum + parseDurationToSeconds(session.duration), 0);
-    const delivered = sessions.filter((session) => session.integrationDelivery?.status === 'delivered').length;
-    const highRisk = sessions.filter((session) => session.riskLevel === 'Alto').length;
-    const averageScore = sessions.length
-      ? Math.round(sessions.reduce((sum, session) => sum + session.score, 0) / sessions.length)
-      : 0;
-
-    return {
-      total: sessions.length,
-      averageDuration: sessions.length ? formatDuration(totalSeconds / sessions.length) : '00:00',
-      deliveredRate: sessions.length ? Math.round((delivered / sessions.length) * 100) : 0,
-      highRisk,
-      averageScore,
-    };
-  }, [sessions]);
-
-  const byAgent = agents.map((agent) => {
-    const agentSessions = sessions.filter((session) => session.agentName === agent.name);
-    const averageScore = agentSessions.length
-      ? Math.round(agentSessions.reduce((sum, session) => sum + session.score, 0) / agentSessions.length)
-      : 0;
-    return {
-      agent,
-      total: agentSessions.length,
-      averageScore,
-      delivered: agentSessions.filter((session) => session.integrationDelivery?.status === 'delivered').length,
-    };
-  });
-
-  if (loading) {
-    return (
-      <div className="flex min-h-[420px] items-center justify-center text-slate-500">
-        <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-        Calculando analytics reais...
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-8">
-      <div>
-        <p className="text-sm font-semibold text-brand">Analytics</p>
-        <h1 className="mt-1 text-3xl font-bold text-slate-950">Performance real</h1>
-        <p className="mt-2 max-w-2xl text-slate-600">Indicadores calculados a partir das sessões salvas. Sem amostras artificiais.</p>
-      </div>
+        <h1 className="text-2xl font-bold text-slate-900 mb-6">Analytics & Performance</h1>
 
-      {error && <div className="rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">{error}</div>}
-
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <StatCard icon={BarChart3} label="Sessões" value={stats.total.toString()} />
-        <StatCard icon={Clock} label="Duração média" value={stats.averageDuration} />
-        <StatCard icon={PieChart} label="Entrega CRM/ATS" value={`${stats.deliveredRate}%`} />
-        <StatCard icon={Activity} label="Risco alto" value={stats.highRisk.toString()} />
-      </div>
-
-      {!sessions.length ? (
-        <div className="rounded-lg border border-dashed border-slate-300 bg-white p-10 text-center text-slate-500">
-          Salve sessões no playground para liberar gráficos e ranking por agente.
+        <div className="grid grid-cols-4 gap-4 mb-8">
+            <StatCard icon={BarChart3} label="Total de Chamadas" value="1,240" color="blue" />
+            <StatCard icon={PieChart} label="Taxa de Conversão" value="18.5%" color="green" />
+            <StatCard icon={Activity} label="Custo Médio / Lead" value="R$ 4,20" color="orange" />
+            <StatCard icon={Users} label="Satisfação (CSAT)" value="4.8/5" color="purple" />
         </div>
-      ) : (
-        <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(340px,0.7fr)]">
-          <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
-            <h2 className="font-bold text-slate-950">Distribuição por agente</h2>
-            <div className="mt-5 space-y-4">
-              {byAgent.map(({ agent, total, averageScore }) => {
-                const width = stats.total ? Math.max(4, Math.round((total / stats.total) * 100)) : 0;
-                return (
-                  <div key={agent.id}>
-                    <div className="mb-1 flex items-center justify-between text-sm">
-                      <span className="font-bold text-slate-700">{agent.name}</span>
-                      <span className="text-slate-500">{total} sessões · score {averageScore}</span>
-                    </div>
-                    <div className="h-3 rounded-full bg-slate-100">
-                      <div className="h-3 rounded-full bg-brand" style={{ width: `${width}%` }} />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </section>
 
-          <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
-            <h2 className="font-bold text-slate-950">Qualidade geral</h2>
-            <div className="mt-5 space-y-4">
-              <Quality label="Score médio" value={stats.averageScore} />
-              <Quality label="Entrega CRM/ATS" value={stats.deliveredRate} />
-              <Quality label="Sem risco alto" value={stats.total ? Math.round(((stats.total - stats.highRisk) / stats.total) * 100) : 0} />
+        <div className="grid grid-cols-2 gap-6 mb-8">
+            <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm min-h-[300px]">
+                <h3 className="font-bold text-slate-800 mb-4">Volume de Chamadas (Últimos 30 dias)</h3>
+                <div className="flex flex-col flex-1 h-full max-h-48">
+                    <LineChart />
+                </div>
             </div>
-          </section>
+
+            <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm min-h-[300px]">
+                <h3 className="font-bold text-slate-800 mb-4">Funil de Conversão</h3>
+                <div className="space-y-4">
+                    <FunnelBar label="Tentativas" value="100%" color="bg-slate-200" />
+                    <FunnelBar label="Atendidas" value="65%" color="bg-blue-200" />
+                    <FunnelBar label="Conversa Útil (>30s)" value="42%" color="bg-blue-400" />
+                    <FunnelBar label="Conversão / Objetivo" value="18%" color="bg-green-500" />
+                </div>
+            </div>
         </div>
-      )}
+
+        <h3 className="font-bold text-slate-800 mb-4">Performance por Agente</h3>
+        <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+            <table className="w-full text-sm text-left">
+                <thead className="bg-slate-50 text-slate-500 font-medium">
+                    <tr>
+                        <th className="p-3">Agente</th>
+                        <th className="p-3">Chamadas</th>
+                        <th className="p-3">Minutos</th>
+                        <th className="p-3">Custo</th>
+                        <th className="p-3">Score (IA)</th>
+                    </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                    <tr>
+                        <td className="p-3 font-medium">Catarina (Vendas)</td>
+                        <td className="p-3">842</td>
+                        <td className="p-3">1,240 min</td>
+                        <td className="p-3 text-slate-500">R$ 320,00</td>
+                        <td className="p-3"><span className="text-green-600 font-bold">9.2</span></td>
+                    </tr>
+                    <tr>
+                        <td className="p-3 font-medium">Suporte N1</td>
+                        <td className="p-3">398</td>
+                        <td className="p-3">890 min</td>
+                        <td className="p-3 text-slate-500">R$ 180,00</td>
+                        <td className="p-3"><span className="text-yellow-600 font-bold">8.5</span></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
     </div>
   );
 }
 
-function StatCard({ icon: Icon, label, value }: { icon: React.ElementType; label: string; value: string }) {
-  return (
-    <div className="flex items-center gap-4 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-      <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-brand-50 text-brand">
-        <Icon className="h-6 w-6" />
-      </div>
-      <div>
-        <div className="text-xs font-bold uppercase tracking-wide text-slate-500">{label}</div>
-        <div className="text-2xl font-black text-slate-950">{value}</div>
-      </div>
-    </div>
-  );
+function StatCard({ icon: Icon, label, value, color }: any) {
+    const colors: any = {
+        blue: 'bg-blue-50 text-blue-600',
+        green: 'bg-green-50 text-green-600',
+        orange: 'bg-orange-50 text-orange-600',
+        purple: 'bg-purple-50 text-purple-600',
+    };
+    return (
+        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4">
+            <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${colors[color]}`}>
+                <Icon className="h-6 w-6" />
+            </div>
+            <div>
+                <div className="text-xs text-slate-500 font-medium uppercase tracking-wide">{label}</div>
+                <div className="text-xl font-bold text-slate-900">{value}</div>
+            </div>
+        </div>
+    )
 }
 
-function Quality({ label, value }: { label: string; value: number }) {
-  return (
-    <div>
-      <div className="mb-1 flex justify-between text-sm">
-        <span className="font-bold text-slate-700">{label}</span>
-        <span className="font-black text-slate-950">{value}%</span>
-      </div>
-      <div className="h-2 rounded-full bg-slate-100">
-        <div className="h-2 rounded-full bg-emerald-500" style={{ width: `${value}%` }} />
-      </div>
-    </div>
-  );
+function FunnelBar({ label, value, color }: any) {
+    return (
+        <div>
+            <div className="flex justify-between text-xs text-slate-600 mb-1">
+                <span>{label}</span>
+                <span className="font-bold">{value}</span>
+            </div>
+            <div className="w-full bg-slate-50 rounded-full h-3">
+                <div className={`h-3 rounded-full ${color}`} style={{ width: value }}></div>
+            </div>
+        </div>
+    )
 }

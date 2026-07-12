@@ -1,6 +1,6 @@
 {
   "name": "BIRTH VOICES HUB",
-  "description": "A SaaS platform for intelligent Voice Agents featuring conversation design, analytics, and integrations.",
+  "description": "Plataforma Enterprise de Agentes de IA para criar, orquestrar e monitorar agentes autônomos de voz e texto de alto volume.",
   "requestFramePermissions": [
     "microphone"
   ],

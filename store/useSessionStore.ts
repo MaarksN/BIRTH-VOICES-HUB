@@ -8,13 +8,6 @@ interface SessionState {
   setBrandColor: (color: string) => void;
 }
 
-const getInitialBrandColor = () => {
-  if (typeof window !== 'undefined') {
-    return localStorage.getItem('brandColor') || '#2563eb';
-  }
-  return '#2563eb';
-};
-
 export const applyBrandColorToDom = (color: string) => {
   if (typeof document === 'undefined') return;
   document.documentElement.style.setProperty('--brand-color', color);
@@ -42,9 +35,14 @@ export const useSessionStore = create<SessionState>((set) => ({
   activeCalls: 0,
   increment: () => set((state) => ({ activeCalls: state.activeCalls + 1 })),
   decrement: () => set((state) => ({ activeCalls: Math.max(0, state.activeCalls - 1) })),
-  brandColor: getInitialBrandColor(),
+  brandColor: '#2563eb',
   setBrandColor: (color: string) => {
-    localStorage.setItem('brandColor', color);
+    fetch('/api/brand-color', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ color })
+    }).catch(err => console.error("Failed to save brand color:", err));
+
     set({ brandColor: color });
     applyBrandColorToDom(color);
   }
