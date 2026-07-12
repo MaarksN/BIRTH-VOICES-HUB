@@ -44,14 +44,10 @@ export default function DevelopersPage() {
 
   const handleTestWebhook = (e: React.FormEvent) => {
     e.preventDefault();
-    // Simulate webhook request
-    setWebhookLog(null);
-    setTimeout(() => {
-        setWebhookLog({
-            status: 200,
-            body: JSON.stringify({ success: true, message: "Evento recebido com sucesso" }, null, 2)
-        });
-    }, 800);
+    setWebhookLog({
+        status: 200,
+        body: JSON.stringify({ success: true, message: "Evento recebido com sucesso" }, null, 2)
+    });
   };
 
   const handleCreateKey = (e: React.FormEvent) => {
@@ -59,9 +55,13 @@ export default function DevelopersPage() {
     if (!newKeyName.trim()) return;
     
     const characters = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    const array = new Uint32Array(24);
+    if (typeof window !== 'undefined' && window.crypto) {
+      window.crypto.getRandomValues(array);
+    }
     let randomString = '';
     for (let i = 0; i < 24; i++) {
-       randomString += characters.charAt(Math.floor(Math.random() * characters.length));
+       randomString += characters.charAt(array[i] % characters.length);
     }
     const isLive = newKeyName.toLowerCase().includes('live') || newKeyName.toLowerCase().includes('produção') || newKeyName.toLowerCase().includes('prod');
     const token = `pk_${isLive ? 'live' : 'test'}_${randomString}xyz`;

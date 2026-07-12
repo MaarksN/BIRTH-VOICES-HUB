@@ -29,14 +29,14 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
   // Load saved agents for quick navigation
   useEffect(() => {
     if (isOpen) {
-      const saved = localStorage.getItem('birth_voices_saved_agents');
-      if (saved) {
-        try {
-          setSavedAgents(JSON.parse(saved));
-        } catch (e) {
-          console.error(e);
-        }
-      }
+      fetch('/api/settings')
+        .then(res => res.ok ? res.json() : null)
+        .then(data => {
+          if (data && data.settings && data.settings.savedAgents) {
+            setSavedAgents(data.settings.savedAgents);
+          }
+        })
+        .catch(() => {});
     }
   }, [isOpen]);
 
@@ -82,7 +82,7 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
     // Quick Actions
     { id: 'action-new-agent', title: 'Novo Agente de Voz', subtitle: 'Abrir criador direto', icon: <Users className="h-4 w-4" />, category: 'Ações rápidas', action: () => { navigate('/dashboard/agents/new'); onClose(); } },
     { id: 'action-test-webhook', title: 'Testar Webhook', subtitle: 'Simular envio de evento de voz', icon: <Code className="h-4 w-4" />, category: 'Ações rápidas', action: () => { navigate('/dashboard/developers'); onClose(); } },
-    { id: 'action-reset-onboarding', title: 'Limpar Cache de Onboarding', subtitle: 'Resetar progresso do checklist para testar', icon: <Settings className="h-4 w-4" />, category: 'Ações rápidas', action: () => { localStorage.removeItem('birth_voices_onboarding_checklist'); window.location.reload(); onClose(); } },
+    { id: 'action-reset-onboarding', title: 'Limpar Cache de Onboarding', subtitle: 'Resetar progresso do checklist para testar', icon: <Settings className="h-4 w-4" />, category: 'Ações rápidas', action: () => { fetch('/api/onboarding', { method: 'DELETE' }).finally(() => { window.location.reload(); onClose(); }); } },
     { id: 'action-simulate-error', title: 'Simular Erro de Servidor API', subtitle: 'Dispara um alerta de falha de conexão simulada', icon: <Settings className="h-4 w-4" />, category: 'Ações rápidas', action: () => { alert('Erro 500: Conexão interrompida com o gateway SIP Twilio. Tentando reconectar...'); onClose(); } },
     
     // Themes

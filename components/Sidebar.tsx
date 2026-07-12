@@ -33,14 +33,19 @@ export function Sidebar() {
 
   // Load favorites & recents on mount
   useEffect(() => {
-    const favs = localStorage.getItem('birth_voices_fav_routes');
-    if (favs) {
-      try { setFavorites(JSON.parse(favs)); } catch (e) { console.error(e); }
-    }
-    const rcts = localStorage.getItem('birth_voices_recent_routes');
-    if (rcts) {
-      try { setRecents(JSON.parse(rcts)); } catch (e) { console.error(e); }
-    }
+    fetch('/api/settings')
+      .then(res => res.ok ? res.json() : null)
+      .then(data => {
+        if (data && data.settings) {
+          if (data.settings.favorites) {
+            setFavorites(data.settings.favorites);
+          }
+          if (data.settings.recentRoutes) {
+            setRecents(data.settings.recentRoutes);
+          }
+        }
+      })
+      .catch(() => {});
   }, []);
 
   // Track recent pages when location changes
@@ -50,7 +55,13 @@ export function Sidebar() {
       setRecents(prev => {
         const filtered = prev.filter(p => p !== currentPath);
         const updated = [currentPath, ...filtered].slice(0, 4);
-        localStorage.setItem('birth_voices_recent_routes', JSON.stringify(updated));
+        
+        fetch('/api/settings', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ settings: { recentRoutes: updated } })
+        }).catch(() => {});
+
         return updated;
       });
     }
@@ -68,7 +79,12 @@ export function Sidebar() {
       showToast('Item adicionado aos favoritos!', 'success');
     }
     setFavorites(updated);
-    localStorage.setItem('birth_voices_fav_routes', JSON.stringify(updated));
+    
+    fetch('/api/settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ settings: { favorites: updated } })
+    }).catch(() => {});
   };
 
   const markAllRead = () => {

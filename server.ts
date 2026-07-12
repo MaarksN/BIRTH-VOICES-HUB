@@ -1,16 +1,22 @@
+import "./lib/otelInitializer.js";
 import express from "express";
 import path from "path";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI } from "@google/genai";
 import http from "http";
 import { Server as SocketIOServer } from "socket.io";
+import cookieParser from "cookie-parser";
+import helmet from "helmet";
+import { z } from "zod";
 import { 
   readDb, 
   writeDb, 
   hashPassword, 
   verifyPassword, 
   generateToken, 
-  verifyToken 
+  verifyToken,
+  generateRefreshToken,
+  verifyRefreshToken
 } from "./lib/db.js";
 import { otelCollector } from "./lib/voice-runtime/otel.js";
 import { llmProviderGateway } from "./lib/voice-runtime/providers/LLMGateway.js";
@@ -50,14 +56,112 @@ async function startServer() {
     otelCollector.recordLocalMetric('emotion_intensity', 90, { emotion: 'Satisfação', sessionId: ses2 });
   }
 
+  app.use(helmet({ contentSecurityPolicy: false }));
+  app.use(cookieParser());
   app.use(express.json());
 
-  // Helper for authorization check
-  const getAuthUser = (req: express.Request) => {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) return null;
-    const token = authHeader.substring(7);
-    return verifyToken(token);
+  // Pure Code Sliding-Window IP Rate Limiter
+  const rateLimits: Record<string, { count: number; resetTime: number }> = {};
+  const rateLimitMiddleware = (req: express.Request, res: express.Response, next: express.NextFunction) => {
+    const ip = req.ip || (req.headers['x-forwarded-for'] as string) || 'unknown';
+    const now = Date.now();
+    const windowMs = 60 * 1000;
+    const limit = 200; // generous but protective
+
+    if (!rateLimits[ip] || now > rateLimits[ip].resetTime) {
+      rateLimits[ip] = { count: 1, resetTime: now + windowMs };
+    } else {
+      rateLimits[ip].count++;
+    }
+
+    if (rateLimits[ip].count > limit) {
+      return res.status(429).json({ error: "Limite de requisições excedido. Tente novamente em um minuto." });
+    }
+    next();
+  };
+  app.use(rateLimitMiddleware);
+
+  // Custom CSRF validation check for state-changing requests
+  const csrfProtection = (req: express.Request, res: express.Response, next: express.NextFunction) => {
+    if (['POST', 'PUT', 'DELETE'].includes(req.method)) {
+      const origin = req.headers.origin;
+      const host = req.headers.host;
+      if (origin && host) {
+        try {
+          const parsedOrigin = new URL(origin).host;
+          if (parsedOrigin !== host && !host.includes('localhost') && !host.includes('127.0.0.1')) {
+            return res.status(403).json({ error: "Validação de origem de segurança (CSRF) falhou." });
+          }
+        } catch {
+          // ignore parsing error but block if suspicious
+        }
+      }
+    }
+    next();
+  };
+  app.use(csrfProtection);
+
+  // Helper for secure authorization check & token rotation
+  const getAuthUser = (req: express.Request, res?: express.Response) => {
+    let token = req.cookies?.access_token;
+    if (!token && req.headers.authorization?.startsWith('Bearer ')) {
+      token = req.headers.authorization.substring(7);
+    }
+    
+    if (token) {
+      const decoded = verifyToken(token);
+      if (decoded) return decoded;
+    }
+    
+    // Automatic transparent token rotation via HTTP-Only Refresh Token cookie
+    const refreshToken = req.cookies?.refresh_token;
+    if (refreshToken) {
+      const decodedRefresh = verifyRefreshToken(refreshToken);
+      if (decodedRefresh) {
+        const db = readDb();
+        const user = db.users.find(u => u.id === decodedRefresh.id);
+        if (user) {
+          const newAccessToken = generateToken({ id: user.id, email: user.email, role: user.role || 'user' });
+          if (res) {
+            res.cookie('access_token', newAccessToken, {
+              httpOnly: true,
+              secure: process.env.NODE_ENV === 'production',
+              sameSite: 'lax',
+              maxAge: 900000 // 15 mins
+            });
+            res.cookie('logged_in', 'true', {
+              secure: process.env.NODE_ENV === 'production',
+              sameSite: 'lax',
+              maxAge: 86400 * 30 * 1000
+            });
+          }
+          return { id: user.id, email: user.email, role: user.role || 'user' };
+        }
+      }
+    }
+    
+    return null;
+  };
+
+  // Audit Logging engine
+  const writeAuditLog = (userId: string, action: string, details: any) => {
+    try {
+      const db = readDb();
+      const logEntry = {
+        id: crypto.randomUUID ? crypto.randomUUID() : crypto.randomBytes(16).toString("hex"),
+        userId,
+        action,
+        details,
+        timestamp: new Date().toISOString()
+      };
+      db.auditLogs.unshift(logEntry);
+      if (db.auditLogs.length > 500) {
+        db.auditLogs = db.auditLogs.slice(0, 500);
+      }
+      writeDb(db);
+    } catch (err) {
+      console.error("Audit log persistence failure:", err);
+    }
   };
 
   // --- PERSISTENT DATABASE API ENDPOINTS ---
@@ -65,10 +169,19 @@ async function startServer() {
   // Auth: Register
   app.post("/api/auth/register", (req, res) => {
     try {
-      const { email, password, companyName } = req.body;
-      if (!email || !password || !companyName) {
-        return res.status(400).json({ error: "Preencha todos os campos obrigatórios." });
+      // Zod strict register body validation
+      const registerSchema = z.object({
+        email: z.string().email("Formato de email inválido"),
+        password: z.string().min(6, "A senha precisa de no mínimo 6 caracteres"),
+        companyName: z.string().min(2, "Nome de empresa inválido")
+      });
+
+      const parsed = registerSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: parsed.error.issues[0].message });
       }
+
+      const { email, password, companyName } = parsed.data;
 
       const db = readDb();
       const existing = db.users.find(u => u.email.toLowerCase() === email.toLowerCase());
@@ -76,25 +189,66 @@ async function startServer() {
         return res.status(400).json({ error: "Este email já está cadastrado." });
       }
 
-      const newUser = {
-        id: crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2) + Date.now().toString(36),
+      const userId = crypto.randomUUID ? crypto.randomUUID() : crypto.randomBytes(16).toString("hex");
+      const isFirstUser = db.users.length === 0;
+      const newUser: User = {
+        id: userId,
         email: email.toLowerCase(),
         passwordHash: hashPassword(password),
         companyName,
+        role: isFirstUser ? 'admin' : 'user', // first user is admin
         createdAt: new Date().toISOString()
       };
 
       db.users.push(newUser);
       writeDb(db);
 
-      const token = generateToken({ id: newUser.id, email: newUser.email });
+      const token = generateToken({ id: newUser.id, email: newUser.email, role: newUser.role });
+      const refreshToken = generateRefreshToken({ id: newUser.id });
+
+      // Set httpOnly and secure session cookies
+      res.cookie('access_token', token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 900000 // 15 mins
+      });
+
+      res.cookie('refresh_token', refreshToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 86400 * 30 * 1000 // 30 days
+      });
+
+      res.cookie('logged_in', 'true', {
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 86400 * 30 * 1000
+      });
+
+      res.cookie('user_info', JSON.stringify({
+        id: newUser.id,
+        name: newUser.email.split('@')[0],
+        company: newUser.companyName,
+        email: newUser.email,
+        role: newUser.role
+      }), {
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 86400 * 30 * 1000
+      });
+
+      writeAuditLog(newUser.id, "USER_REGISTER", { email: newUser.email, companyName });
+
       res.json({
         token,
         user: {
           id: newUser.id,
           name: newUser.email.split('@')[0],
           company: newUser.companyName,
-          email: newUser.email
+          email: newUser.email,
+          role: newUser.role
         }
       });
     } catch (err: any) {
@@ -106,10 +260,18 @@ async function startServer() {
   // Auth: Login
   app.post("/api/auth/login", (req, res) => {
     try {
-      const { email, password } = req.body;
-      if (!email || !password) {
-        return res.status(400).json({ error: "Email e senha são obrigatórios." });
+      // Zod login body validation
+      const loginSchema = z.object({
+        email: z.string().email("Formato de email inválido"),
+        password: z.string().min(1, "Senha é obrigatória")
+      });
+
+      const parsed = loginSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: parsed.error.issues[0].message });
       }
+
+      const { email, password } = parsed.data;
 
       const db = readDb();
       const user = db.users.find(u => u.email.toLowerCase() === email.toLowerCase());
@@ -117,14 +279,52 @@ async function startServer() {
         return res.status(401).json({ error: "Credenciais inválidas." });
       }
 
-      const token = generateToken({ id: user.id, email: user.email });
+      const token = generateToken({ id: user.id, email: user.email, role: user.role || 'user' });
+      const refreshToken = generateRefreshToken({ id: user.id });
+
+      // Set httpOnly and secure session cookies
+      res.cookie('access_token', token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 900000 // 15 mins
+      });
+
+      res.cookie('refresh_token', refreshToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 86400 * 30 * 1000 // 30 days
+      });
+
+      res.cookie('logged_in', 'true', {
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 86400 * 30 * 1000
+      });
+
+      res.cookie('user_info', JSON.stringify({
+        id: user.id,
+        name: user.email.split('@')[0],
+        company: user.companyName,
+        email: user.email,
+        role: user.role || 'user'
+      }), {
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 86400 * 30 * 1000
+      });
+
+      writeAuditLog(user.id, "USER_LOGIN", { email: user.email });
+
       res.json({
         token,
         user: {
           id: user.id,
           name: user.email.split('@')[0],
           company: user.companyName,
-          email: user.email
+          email: user.email,
+          role: user.role || 'user'
         }
       });
     } catch (err: any) {
@@ -135,7 +335,7 @@ async function startServer() {
 
   // Auth: Me
   app.get("/api/auth/me", (req, res) => {
-    const session = getAuthUser(req);
+    const session = getAuthUser(req, res);
     if (!session) {
       return res.status(401).json({ error: "Não autorizado." });
     }
@@ -151,14 +351,28 @@ async function startServer() {
         id: user.id,
         name: user.email.split('@')[0],
         company: user.companyName,
-        email: user.email
+        email: user.email,
+        role: user.role || 'user'
       }
     });
   });
 
-  // Workflow Persistence
+  // Auth: Logout
+  app.post("/api/auth/logout", (req, res) => {
+    const session = getAuthUser(req, res);
+    if (session) {
+      writeAuditLog(session.id, "USER_LOGOUT", { email: session.email });
+    }
+    res.clearCookie('access_token');
+    res.clearCookie('refresh_token');
+    res.clearCookie('logged_in');
+    res.clearCookie('user_info');
+    res.json({ success: true, message: "Desconectado com sucesso." });
+  });
+
+  // Workflow Persistence Endpoints
   app.get("/api/workflow", (req, res) => {
-    const session = getAuthUser(req);
+    const session = getAuthUser(req, res);
     if (!session) return res.status(401).json({ error: "Não autorizado." });
 
     const db = readDb();
@@ -167,7 +381,7 @@ async function startServer() {
   });
 
   app.post("/api/workflow", (req, res) => {
-    const session = getAuthUser(req);
+    const session = getAuthUser(req, res);
     if (!session) return res.status(401).json({ error: "Não autorizado." });
 
     const { nodes, edges, name } = req.body;
@@ -181,7 +395,7 @@ async function startServer() {
       workflow.updatedAt = new Date().toISOString();
     } else {
       workflow = {
-        id: crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2) + Date.now().toString(36),
+        id: crypto.randomUUID ? crypto.randomUUID() : crypto.randomBytes(16).toString("hex"),
         userId: session.id,
         name: name || "Default Workflow",
         nodes: nodes || [],
@@ -192,12 +406,51 @@ async function startServer() {
     }
 
     writeDb(db);
+    writeAuditLog(session.id, "WORKFLOW_SAVE", { workflowId: workflow.id, name: workflow.name });
     res.json({ success: true, workflow });
   });
 
-  // Onboarding Checklist
+  app.put("/api/workflow", (req, res) => {
+    const session = getAuthUser(req, res);
+    if (!session) return res.status(401).json({ error: "Não autorizado." });
+
+    const { nodes, edges, name } = req.body;
+    const db = readDb();
+    let workflow = db.workflows.find(w => w.userId === session.id);
+
+    if (!workflow) {
+      return res.status(404).json({ error: "Workflow não encontrado para atualização." });
+    }
+
+    workflow.nodes = nodes || workflow.nodes;
+    workflow.edges = edges || workflow.edges;
+    workflow.name = name || workflow.name;
+    workflow.updatedAt = new Date().toISOString();
+
+    writeDb(db);
+    writeAuditLog(session.id, "WORKFLOW_UPDATE", { workflowId: workflow.id, name: workflow.name });
+    res.json({ success: true, workflow });
+  });
+
+  app.delete("/api/workflow", (req, res) => {
+    const session = getAuthUser(req, res);
+    if (!session) return res.status(401).json({ error: "Não autorizado." });
+
+    const db = readDb();
+    const index = db.workflows.findIndex(w => w.userId === session.id);
+    if (index === -1) {
+      return res.status(404).json({ error: "Nenhum fluxo encontrado para exclusão." });
+    }
+
+    const deleted = db.workflows.splice(index, 1)[0];
+    writeDb(db);
+    writeAuditLog(session.id, "WORKFLOW_DELETE", { workflowId: deleted.id });
+    res.json({ success: true, message: "Fluxo removido com sucesso." });
+  });
+
+  // Onboarding Checklist Endpoints
   app.get("/api/onboarding", (req, res) => {
-    const session = getAuthUser(req);
+    const session = getAuthUser(req, res);
     if (!session) return res.status(401).json({ error: "Não autorizado." });
 
     const db = readDb();
@@ -215,7 +468,7 @@ async function startServer() {
   });
 
   app.post("/api/onboarding", (req, res) => {
-    const session = getAuthUser(req);
+    const session = getAuthUser(req, res);
     if (!session) return res.status(401).json({ error: "Não autorizado." });
 
     const { checklist } = req.body;
@@ -225,16 +478,37 @@ async function startServer() {
     res.json({ success: true, checklist });
   });
 
-  // Brand Color
+  app.put("/api/onboarding", (req, res) => {
+    const session = getAuthUser(req, res);
+    if (!session) return res.status(401).json({ error: "Não autorizado." });
+
+    const { checklist } = req.body;
+    const db = readDb();
+    db.checklist[session.id] = checklist;
+    writeDb(db);
+    res.json({ success: true, checklist });
+  });
+
+  app.delete("/api/onboarding", (req, res) => {
+    const session = getAuthUser(req, res);
+    if (!session) return res.status(401).json({ error: "Não autorizado." });
+
+    const db = readDb();
+    delete db.checklist[session.id];
+    writeDb(db);
+    res.json({ success: true, message: "Progresso resetado." });
+  });
+
+  // Brand Color Endpoints
   app.get("/api/brand-color", (req, res) => {
-    const session = getAuthUser(req);
+    const session = getAuthUser(req, res);
     const userId = session ? session.id : 'anonymous';
     const db = readDb();
     res.json({ brandColor: db.brandColors[userId] || "#2563eb" });
   });
 
   app.post("/api/brand-color", (req, res) => {
-    const session = getAuthUser(req);
+    const session = getAuthUser(req, res);
     const userId = session ? session.id : 'anonymous';
     const { color } = req.body;
     const db = readDb();
@@ -243,25 +517,42 @@ async function startServer() {
     res.json({ success: true, brandColor: color });
   });
 
-  // Call Logs & Telemetry Database
+  app.put("/api/brand-color", (req, res) => {
+    const session = getAuthUser(req, res);
+    const userId = session ? session.id : 'anonymous';
+    const { color } = req.body;
+    const db = readDb();
+    db.brandColors[userId] = color;
+    writeDb(db);
+    res.json({ success: true, brandColor: color });
+  });
+
+  app.delete("/api/brand-color", (req, res) => {
+    const session = getAuthUser(req, res);
+    const userId = session ? session.id : 'anonymous';
+    const db = readDb();
+    delete db.brandColors[userId];
+    writeDb(db);
+    res.json({ success: true, brandColor: "#2563eb" });
+  });
+
+  // Call Logs & Telemetry Endpoints
   app.get("/api/call-logs", (req, res) => {
-    const session = getAuthUser(req);
+    const session = getAuthUser(req, res);
     const userId = session ? session.id : 'system';
     const db = readDb();
-    
-    // Return logs belonging to user, or system default logs
     const logs = db.callLogs.filter(l => l.userId === userId || l.userId === 'system');
     res.json({ callLogs: logs });
   });
 
   app.post("/api/call-logs", (req, res) => {
-    const session = getAuthUser(req);
+    const session = getAuthUser(req, res);
     const userId = session ? session.id : 'anonymous';
     const { patientName, duration, status, agent } = req.body;
 
     const db = readDb();
     const newLog = {
-      id: crypto.randomUUID().slice(0, 8),
+      id: crypto.randomUUID ? crypto.randomUUID().slice(0, 8) : crypto.randomBytes(4).toString("hex"),
       userId,
       patientName: patientName || "Paciente Anônimo",
       duration: duration || "02:15",
@@ -272,13 +563,371 @@ async function startServer() {
     };
 
     db.callLogs.unshift(newLog);
-    // limit database size slightly
     if (db.callLogs.length > 100) {
       db.callLogs = db.callLogs.slice(0, 100);
     }
     writeDb(db);
 
+    if (session) {
+      writeAuditLog(session.id, "CALL_LOG_CREATE", { logId: newLog.id });
+    }
+
     res.json({ success: true, log: newLog });
+  });
+
+  app.put("/api/call-logs/:id", (req, res) => {
+    const session = getAuthUser(req, res);
+    if (!session) return res.status(401).json({ error: "Não autorizado." });
+
+    const { id } = req.params;
+    const { patientName, status, duration } = req.body;
+    const db = readDb();
+    const log = db.callLogs.find(l => l.id === id && (l.userId === session.id || l.userId === 'system'));
+
+    if (!log) {
+      return res.status(404).json({ error: "Log de chamada não encontrado." });
+    }
+
+    if (patientName) log.patientName = patientName;
+    if (status) log.status = status;
+    if (duration) log.duration = duration;
+
+    writeDb(db);
+    res.json({ success: true, log });
+  });
+
+  app.delete("/api/call-logs/:id", (req, res) => {
+    const session = getAuthUser(req, res);
+    if (!session) return res.status(401).json({ error: "Não autorizado." });
+
+    const { id } = req.params;
+    const db = readDb();
+    const index = db.callLogs.findIndex(l => l.id === id && (l.userId === session.id || l.userId === 'system'));
+
+    if (index === -1) {
+      return res.status(404).json({ error: "Log não encontrado para exclusão." });
+    }
+
+    db.callLogs.splice(index, 1);
+    writeDb(db);
+    res.json({ success: true, message: "Log excluído com sucesso." });
+  });
+
+  // Voice Runtime Config Endpoints
+  app.get("/api/voice-runtime", (req, res) => {
+    const session = getAuthUser(req, res);
+    if (!session) return res.status(401).json({ error: "Não autorizado." });
+
+    const db = readDb();
+    const config = db.settings[`runtime_${session.id}`] || {
+      voiceId: "eleven_rachel",
+      language: "pt-BR",
+      speed: 1.0,
+      stability: 0.75,
+      clarity: 0.85
+    };
+    res.json({ config });
+  });
+
+  app.post("/api/voice-runtime", (req, res) => {
+    const session = getAuthUser(req, res);
+    if (!session) return res.status(401).json({ error: "Não autorizado." });
+
+    const { config } = req.body;
+    const db = readDb();
+    db.settings[`runtime_${session.id}`] = config;
+    writeDb(db);
+    res.json({ success: true, config });
+  });
+
+  app.put("/api/voice-runtime", (req, res) => {
+    const session = getAuthUser(req, res);
+    if (!session) return res.status(401).json({ error: "Não autorizado." });
+
+    const { config } = req.body;
+    const db = readDb();
+    db.settings[`runtime_${session.id}`] = {
+      ...(db.settings[`runtime_${session.id}`] || {}),
+      ...config
+    };
+    writeDb(db);
+    res.json({ success: true, config: db.settings[`runtime_${session.id}`] });
+  });
+
+  app.delete("/api/voice-runtime", (req, res) => {
+    const session = getAuthUser(req, res);
+    if (!session) return res.status(401).json({ error: "Não autorizado." });
+
+    const db = readDb();
+    delete db.settings[`runtime_${session.id}`];
+    writeDb(db);
+    res.json({ success: true, message: "Configurações de voz restauradas ao padrão." });
+  });
+
+  // Telemetry Metrics Endpoints
+  app.get("/api/metrics", (req, res) => {
+    const session = getAuthUser(req, res);
+    if (!session) return res.status(401).json({ error: "Não autorizado." });
+
+    const db = readDb();
+    const userMetrics = db.metrics.filter(m => m.userId === session.id);
+    res.json({ metrics: userMetrics });
+  });
+
+  app.post("/api/metrics", (req, res) => {
+    const session = getAuthUser(req, res);
+    if (!session) return res.status(401).json({ error: "Não autorizado." });
+
+    const { name, value, tags } = req.body;
+    const db = readDb();
+    const newMetric = {
+      id: crypto.randomUUID ? crypto.randomUUID() : crypto.randomBytes(16).toString("hex"),
+      userId: session.id,
+      name,
+      value,
+      tags: tags || {},
+      timestamp: new Date().toISOString()
+    };
+    db.metrics.push(newMetric);
+    if (db.metrics.length > 1000) {
+      db.metrics = db.metrics.slice(-1000);
+    }
+    writeDb(db);
+    res.json({ success: true, metric: newMetric });
+  });
+
+  app.put("/api/metrics", (req, res) => {
+    res.status(501).json({ error: "Métricas consolidadas não podem ser editadas diretamente." });
+  });
+
+  app.delete("/api/metrics", (req, res) => {
+    const session = getAuthUser(req, res);
+    if (!session) return res.status(401).json({ error: "Não autorizado." });
+
+    const db = readDb();
+    db.metrics = db.metrics.filter(m => m.userId !== session.id);
+    writeDb(db);
+    res.json({ success: true, message: "Métricas limpas para esta organização." });
+  });
+
+  // Session Manager Endpoints
+  app.get("/api/sessions", (req, res) => {
+    const session = getAuthUser(req, res);
+    if (!session) return res.status(401).json({ error: "Não autorizado." });
+
+    const db = readDb();
+    const userSessions = db.sessions.filter(s => s.userId === session.id);
+    res.json({ sessions: userSessions });
+  });
+
+  app.post("/api/sessions", (req, res) => {
+    const session = getAuthUser(req, res);
+    if (!session) return res.status(401).json({ error: "Não autorizado." });
+
+    const { agentId, channel, metadata } = req.body;
+    const db = readDb();
+    const newSession = {
+      id: crypto.randomUUID ? crypto.randomUUID() : crypto.randomBytes(16).toString("hex"),
+      userId: session.id,
+      agentId: agentId || "default_catarina",
+      channel: channel || "WebChat",
+      status: "active",
+      metadata: metadata || {},
+      createdAt: new Date().toISOString()
+    };
+    db.sessions.push(newSession);
+    writeDb(db);
+    res.json({ success: true, session: newSession });
+  });
+
+  app.put("/api/sessions/:id", (req, res) => {
+    const session = getAuthUser(req, res);
+    if (!session) return res.status(401).json({ error: "Não autorizado." });
+
+    const { id } = req.params;
+    const { status, metadata } = req.body;
+    const db = readDb();
+    const activeSession = db.sessions.find(s => s.id === id && s.userId === session.id);
+
+    if (!activeSession) {
+      return res.status(404).json({ error: "Sessão não encontrada." });
+    }
+
+    if (status) activeSession.status = status;
+    if (metadata) activeSession.metadata = { ...activeSession.metadata, ...metadata };
+
+    writeDb(db);
+    res.json({ success: true, session: activeSession });
+  });
+
+  app.delete("/api/sessions/:id", (req, res) => {
+    const session = getAuthUser(req, res);
+    if (!session) return res.status(401).json({ error: "Não autorizado." });
+
+    const { id } = req.params;
+    const db = readDb();
+    const index = db.sessions.findIndex(s => s.id === id && s.userId === session.id);
+
+    if (index === -1) {
+      return res.status(404).json({ error: "Sessão não encontrada para finalização." });
+    }
+
+    db.sessions.splice(index, 1);
+    writeDb(db);
+    res.json({ success: true, message: "Sessão encerrada e removida com sucesso." });
+  });
+
+  // Users Directory Endpoints (RBAC protected)
+  app.get("/api/users", (req, res) => {
+    const session = getAuthUser(req, res);
+    if (!session) return res.status(401).json({ error: "Não autorizado." });
+    if (session.role !== 'admin') {
+      return res.status(403).json({ error: "Acesso proibido. Requer nível Administrador." });
+    }
+
+    const db = readDb();
+    const safeUsers = db.users.map(u => ({
+      id: u.id,
+      email: u.email,
+      companyName: u.companyName,
+      role: u.role || 'user',
+      createdAt: u.createdAt
+    }));
+    res.json({ users: safeUsers });
+  });
+
+  app.post("/api/users", (req, res) => {
+    const session = getAuthUser(req, res);
+    if (!session) return res.status(401).json({ error: "Não autorizado." });
+    if (session.role !== 'admin') {
+      return res.status(403).json({ error: "Acesso proibido. Requer nível Administrador." });
+    }
+
+    const { email, password, companyName, role } = req.body;
+    if (!email || !password) {
+      return res.status(400).json({ error: "Email e senha obrigatórios." });
+    }
+
+    const db = readDb();
+    const existing = db.users.find(u => u.email.toLowerCase() === email.toLowerCase());
+    if (existing) {
+      return res.status(400).json({ error: "Este email já está cadastrado." });
+    }
+
+    const newUser: User = {
+      id: crypto.randomUUID ? crypto.randomUUID() : crypto.randomBytes(16).toString("hex"),
+      email: email.toLowerCase(),
+      passwordHash: hashPassword(password),
+      companyName: companyName || "Organização Associada",
+      role: role === 'admin' ? 'admin' : 'user',
+      createdAt: new Date().toISOString()
+    };
+
+    db.users.push(newUser);
+    writeDb(db);
+    writeAuditLog(session.id, "USER_CREATE_BY_ADMIN", { targetUserId: newUser.id, email: newUser.email });
+
+    res.json({ success: true, user: { id: newUser.id, email: newUser.email, role: newUser.role } });
+  });
+
+  app.put("/api/users/:id", (req, res) => {
+    const session = getAuthUser(req, res);
+    if (!session) return res.status(401).json({ error: "Não autorizado." });
+
+    const { id } = req.params;
+    const { companyName, role, password } = req.body;
+
+    if (session.role !== 'admin' && session.id !== id) {
+      return res.status(403).json({ error: "Você não tem permissão para alterar este perfil." });
+    }
+
+    const db = readDb();
+    const userToEdit = db.users.find(u => u.id === id);
+    if (!userToEdit) {
+      return res.status(404).json({ error: "Usuário não encontrado." });
+    }
+
+    if (companyName) userToEdit.companyName = companyName;
+    if (role && session.role === 'admin') userToEdit.role = role;
+    if (password) userToEdit.passwordHash = hashPassword(password);
+
+    writeDb(db);
+    writeAuditLog(session.id, "USER_UPDATE", { targetUserId: id });
+    res.json({ success: true, message: "Perfil atualizado com sucesso." });
+  });
+
+  app.delete("/api/users/:id", (req, res) => {
+    const session = getAuthUser(req, res);
+    if (!session) return res.status(401).json({ error: "Não autorizado." });
+    if (session.role !== 'admin') {
+      return res.status(403).json({ error: "Requer privilégios administrativos." });
+    }
+
+    const { id } = req.params;
+    if (session.id === id) {
+      return res.status(400).json({ error: "Você não pode excluir o seu próprio usuário admin." });
+    }
+
+    const db = readDb();
+    const index = db.users.findIndex(u => u.id === id);
+    if (index === -1) {
+      return res.status(404).json({ error: "Usuário não encontrado." });
+    }
+
+    db.users.splice(index, 1);
+    writeDb(db);
+    writeAuditLog(session.id, "USER_DELETE", { targetUserId: id });
+    res.json({ success: true, message: "Usuário excluído com sucesso." });
+  });
+
+  // Settings Configuration Endpoints
+  app.get("/api/settings", (req, res) => {
+    const session = getAuthUser(req, res);
+    if (!session) return res.status(401).json({ error: "Não autorizado." });
+
+    const db = readDb();
+    const userSettings = db.settings[session.id] || {
+      theme: "light",
+      notificationsEnabled: true,
+      mfaEnabled: false,
+      recordingEnabled: true
+    };
+    res.json({ settings: userSettings });
+  });
+
+  app.post("/api/settings", (req, res) => {
+    const session = getAuthUser(req, res);
+    if (!session) return res.status(401).json({ error: "Não autorizado." });
+
+    const { settings } = req.body;
+    const db = readDb();
+    db.settings[session.id] = settings;
+    writeDb(db);
+    res.json({ success: true, settings });
+  });
+
+  app.put("/api/settings", (req, res) => {
+    const session = getAuthUser(req, res);
+    if (!session) return res.status(401).json({ error: "Não autorizado." });
+
+    const { settings } = req.body;
+    const db = readDb();
+    db.settings[session.id] = {
+      ...(db.settings[session.id] || {}),
+      ...settings
+    };
+    writeDb(db);
+    res.json({ success: true, settings: db.settings[session.id] });
+  });
+
+  app.delete("/api/settings", (req, res) => {
+    const session = getAuthUser(req, res);
+    if (!session) return res.status(401).json({ error: "Não autorizado." });
+
+    const db = readDb();
+    delete db.settings[session.id];
+    writeDb(db);
+    res.json({ success: true, message: "Configurações resetadas." });
   });
 
   // API Routes

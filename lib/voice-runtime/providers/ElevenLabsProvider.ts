@@ -10,18 +10,14 @@ export class ElevenLabsProvider extends BaseProvider {
   }
 
   public async process(input: string): Promise<ProviderResponse> {
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        resolve({
-          audio: {
-            data: new Uint8Array(1024), // Mock audio data
-            timestamp: Date.now(),
-            isSpeech: true
-          },
-          latencyMs: 120
-        });
-      }, 120);
-    });
+    return {
+      audio: {
+        data: new Uint8Array(1024), // Mock audio data
+        timestamp: Date.now(),
+        isSpeech: true
+      },
+      latencyMs: 120
+    };
   }
 
   public async checkHealth(): Promise<boolean> {

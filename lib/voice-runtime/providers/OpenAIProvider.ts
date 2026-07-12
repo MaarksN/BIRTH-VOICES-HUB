@@ -10,14 +10,10 @@ export class OpenAIRealtimeProvider extends BaseProvider {
   }
 
   public async process(input: any, context?: any): Promise<ProviderResponse> {
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        resolve({
-          text: 'Por favor, aguarde enquanto verifico seus dados.',
-          latencyMs: 400
-        });
-      }, 400);
-    });
+    return {
+      text: 'Por favor, aguarde enquanto verifico seus dados.',
+      latencyMs: 400
+    };
   }
 
   public async checkHealth(): Promise<boolean> {

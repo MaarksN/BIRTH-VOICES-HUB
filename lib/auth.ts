@@ -1,31 +1,47 @@
+const getCookie = (name: string) => {
+  if (typeof document === 'undefined') return null;
+  const value = `; ${document.cookie}`;
+  const parts = value.split(`; ${name}=`);
+  if (parts.length === 2) {
+    const rawValue = parts.pop()?.split(';').shift();
+    if (rawValue) {
+      try {
+        return decodeURIComponent(rawValue);
+      } catch {
+        return rawValue;
+      }
+    }
+  }
+  return null;
+};
+
 export const auth = {
   getToken: () => {
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem('access_token');
-    }
-    return null;
+    return getCookie('logged_in');
   },
 
   setToken: (token: string, user: any) => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('access_token', token);
-      localStorage.setItem('user_info', JSON.stringify(user));
-    }
+    // Deprecated for client-side write, cookies are set and managed by server httpOnly and secure flows.
   },
 
   logout: () => {
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('access_token');
-      localStorage.removeItem('user_info');
-      window.location.href = '/#/login';
-    }
+    fetch('/api/auth/logout', { method: 'POST' })
+      .finally(() => {
+        if (typeof window !== 'undefined') {
+          window.location.href = '/#/login';
+        }
+      });
   },
 
   getUser: () => {
-      if (typeof window !== 'undefined') {
-          const u = localStorage.getItem('user_info');
-          return u ? JSON.parse(u) : null;
+    const userStr = getCookie('user_info');
+    if (userStr) {
+      try {
+        return JSON.parse(userStr);
+      } catch {
+        return null;
       }
-      return null;
+    }
+    return null;
   }
 };

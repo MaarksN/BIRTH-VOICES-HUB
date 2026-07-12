@@ -481,7 +481,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
     const newNode: StudioNode = {
       id: newId,
       type: type as any,
-      position: position || { x: 400 + Math.random() * 100, y: 300 + Math.random() * 100 },
+      position: position || { x: 400 + (get().nodes.length * 25) % 200, y: 300 + (get().nodes.length * 25) % 200 },
       data: {
         label: `${regItem.label} ${get().nodes.filter(n => n.type === type).length + 1}`,
         category: regItem.category,
@@ -496,19 +496,8 @@ export const useStudioStore = create<StudioState>((set, get) => ({
     
     set((state) => ({
       nodes: [...state.nodes, newNode],
-      nodeLifecycles: { ...state.nodeLifecycles, [newId]: 'Created' }
+      nodeLifecycles: { ...state.nodeLifecycles, [newId]: 'Ready' }
     }));
-    
-    // Auto transition to Initialized, then Configured, then Ready
-    setTimeout(() => {
-      get().setNodeLifecycle(newId, 'Initialized');
-      setTimeout(() => {
-        get().setNodeLifecycle(newId, 'Configured');
-        setTimeout(() => {
-          get().setNodeLifecycle(newId, 'Ready');
-        }, 500);
-      }, 500);
-    }, 500);
   },
   
   deleteNode: (id) => {
@@ -780,15 +769,13 @@ export const useStudioStore = create<StudioState>((set, get) => ({
               type: 'warn',
               message: `Transferindo chamada telefônica para o departamento "${nextNode.data.config?.department}"`
             });
-            setTimeout(() => {
-              get().addSimulationLog({
-                nodeId: nextNodeId,
-                nodeLabel: nextNode.data.label,
-                type: 'success',
-                message: `Canal telefônico roteado para suporte ao vivo.`
-              });
-              get().stopSimulation();
-            }, 800);
+            get().addSimulationLog({
+              nodeId: nextNodeId,
+              nodeLabel: nextNode.data.label,
+              type: 'success',
+              message: `Canal telefônico roteado para suporte ao vivo.`
+            });
+            get().stopSimulation();
           } else if (nextNode.type === 'knowledge') {
             get().addSimulationLog({
               nodeId: nextNodeId,
@@ -796,14 +783,12 @@ export const useStudioStore = create<StudioState>((set, get) => ({
               type: 'info',
               message: `Executing vector search RAG query against database "${nextNode.data.config?.database || 'Notion FAQs'}"`
             });
-            setTimeout(() => {
-              get().addSimulationLog({
-                nodeId: nextNodeId,
-                nodeLabel: nextNode.data.label,
-                type: 'success',
-                message: `Knowledge source search complete. Returned 3 chunks. Match score: 0.91`
-              });
-            }, 400);
+            get().addSimulationLog({
+              nodeId: nextNodeId,
+              nodeLabel: nextNode.data.label,
+              type: 'success',
+              message: `Knowledge source search complete. Returned 3 chunks. Match score: 0.91`
+            });
           } else if (nextNode.type === 'end') {
             get().addSimulationLog({
               nodeId: nextNodeId,
@@ -1186,13 +1171,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
   },
   loadWorkflowFromServer: async () => {
     try {
-      const token = localStorage.getItem('access_token');
-      if (!token) return;
-      const res = await fetch('/api/workflow', {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
+      const res = await fetch('/api/workflow');
       if (res.ok) {
         const data = await res.json();
         if (data.workflow) {
@@ -1217,14 +1196,11 @@ export const useStudioStore = create<StudioState>((set, get) => ({
   },
   saveWorkflowToServer: async () => {
     try {
-      const token = localStorage.getItem('access_token');
-      if (!token) return;
       const { nodes, edges } = get();
       await fetch('/api/workflow', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({ nodes, edges, name: "Voice Agent Flow" })
       });

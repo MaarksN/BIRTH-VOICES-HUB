@@ -14,8 +14,24 @@ export default function AdminPage() {
   const [error, setError] = useState(false);
 
   useEffect(() => {
-    // Mock backend check failure to simulate "offline" or just load mock data
-    setTimeout(() => {
+    fetch('/api/call-logs')
+      .then(res => {
+        if (res.ok) return res.json();
+        throw new Error('Failed to fetch');
+      })
+      .then(data => {
+        const logs = Array.isArray(data) ? data : [];
+        const mapped: Session[] = logs.map((log: any, i: number) => ({
+          id: log.id || `sess_${100 + i}`,
+          summary: `Chamada realizada com paciente ${log.patientName || 'Não identificado'}. Duração: ${log.duration || '00:00'}.`,
+          agent: log.agent || 'Catarina Triagem',
+          status: log.status === 'Concluído' ? 'completed' : 'qualified'
+        }));
+        setSessions(mapped);
+        setError(false);
+        setLoading(false);
+      })
+      .catch(() => {
         setError(true);
         setSessions([
             { id: 'sess_001', summary: 'Candidato aprovado na triagem inicial. Boa comunicação.', agent: 'Catarina (RH)', status: 'completed' },
@@ -23,7 +39,7 @@ export default function AdminPage() {
             { id: 'sess_003', summary: 'Lead qualificado. Orçamento confirmado para Q3.', agent: 'Catarina (Vendas)', status: 'qualified' },
         ]);
         setLoading(false);
-    }, 1000);
+      });
   }, []);
 
   return (

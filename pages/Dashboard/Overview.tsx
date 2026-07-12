@@ -40,11 +40,7 @@ export default function RebuiltExecutiveOverview() {
 
   const fetchCalls = async () => {
     try {
-      const token = localStorage.getItem('access_token');
-      const headers: Record<string, string> = {};
-      if (token) headers['Authorization'] = `Bearer ${token}`;
-
-      const res = await fetch('/api/call-logs', { headers });
+      const res = await fetch('/api/call-logs');
       if (res.ok) {
         const data = await res.json();
         if (data.callLogs) {
@@ -57,30 +53,13 @@ export default function RebuiltExecutiveOverview() {
   };
 
   useEffect(() => {
-    // 1. First load from local storage fallback
-    const saved = localStorage.getItem('birth_voices_onboarding_checklist');
-    if (saved) {
-      try {
-        setChecklist(JSON.parse(saved));
-      } catch (e) {
-        console.error(e);
-      }
-    }
-
-    // 2. Load from server database (if logged in)
     const fetchServerData = async () => {
       try {
-        const token = localStorage.getItem('access_token');
-        if (!token) return;
-
-        const res = await fetch('/api/onboarding', {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
+        const res = await fetch('/api/onboarding');
         if (res.ok) {
           const data = await res.json();
           if (data.checklist) {
             setChecklist(data.checklist);
-            localStorage.setItem('birth_voices_onboarding_checklist', JSON.stringify(data.checklist));
           }
         }
       } catch (err) {
@@ -95,21 +74,16 @@ export default function RebuiltExecutiveOverview() {
   const updateChecklist = async (key: keyof typeof checklist, value: boolean) => {
     const updated = { ...checklist, [key]: value };
     setChecklist(updated);
-    localStorage.setItem('birth_voices_onboarding_checklist', JSON.stringify(updated));
     showToast(`Checklist atualizado! Progresso atualizado para ${Math.round(calculateOnboardingProgress(updated))}%`, 'info');
 
     try {
-      const token = localStorage.getItem('access_token');
-      if (token) {
-        await fetch('/api/onboarding', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify({ checklist: updated })
-        });
-      }
+      await fetch('/api/onboarding', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ checklist: updated })
+      });
     } catch (err) {
       console.error("Error saving onboarding checklist to database:", err);
     }
@@ -145,54 +119,50 @@ export default function RebuiltExecutiveOverview() {
   };
 
   // Quick action executor
-  const handleExecuteQuickAction = (type: string) => {
+  const handleExecuteQuickAction = async (type: string) => {
     setActionLoading(true);
-    setTimeout(async () => {
-      setActionLoading(false);
-      setActiveActionModal(null);
+    setActionLoading(false);
+    setActiveActionModal(null);
+    
+    if (type === 'agent') {
+      updateChecklist('agentCreated', true);
+      showToast(`Agente "${actionInput || 'Catarina Assistente'}" criado com sucesso!`, 'success');
+      navigate('/dashboard/agents/new');
+    } else if (type === 'org') {
+      updateChecklist('orgCreated', true);
+      showToast(`Organização "${actionInput || 'Birth Clinica Premium'}" configurada!`, 'success');
+    } else if (type === 'telephony') {
+      updateChecklist('telephonyConnected', true);
+      showToast(`Número de telefone conectado ao Twilio Trunk!`, 'success');
+      navigate('/dashboard/telephony');
+    } else if (type === 'test') {
+      updateChecklist('firstTest', true);
+      showToast(`Simulando chamada de voz de teste... Alerta enviado ao webhook!`, 'info');
       
-      if (type === 'agent') {
-        updateChecklist('agentCreated', true);
-        showToast(`Agente "${actionInput || 'Catarina Assistente'}" criado com sucesso!`, 'success');
-        navigate('/dashboard/agents/new');
-      } else if (type === 'org') {
-        updateChecklist('orgCreated', true);
-        showToast(`Organização "${actionInput || 'Birth Clinica Premium'}" configurada!`, 'success');
-      } else if (type === 'telephony') {
-        updateChecklist('telephonyConnected', true);
-        showToast(`Número de telefone conectado ao Twilio Trunk!`, 'success');
-        navigate('/dashboard/telephony');
-      } else if (type === 'test') {
-        updateChecklist('firstTest', true);
-        showToast(`Simulando chamada de voz de teste... Alerta enviado ao webhook!`, 'info');
-        
-        try {
-          const token = localStorage.getItem('access_token');
-          await fetch('/api/call-logs', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-            },
-            body: JSON.stringify({
-              patientName: 'Fernanda Lima (Simulado)',
-              duration: '02:45',
-              status: 'Concluído',
-              agent: 'Catarina Triagem'
-            })
-          });
-          fetchCalls();
-        } catch (err) {
-          console.error("Error generating call log:", err);
-        }
-
-        navigate('/dashboard/playground');
-      } else if (type === 'knowledge') {
-        updateChecklist('knowledgeAdded', true);
-        showToast(`Base de conhecimento importada com sucesso!`, 'success');
+      try {
+        await fetch('/api/call-logs', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            patientName: 'Fernanda Lima (Simulado)',
+            duration: '02:45',
+            status: 'Concluído',
+            agent: 'Catarina Triagem'
+          })
+        });
+        fetchCalls();
+      } catch (err) {
+        console.error("Error generating call log:", err);
       }
-      setActionInput('');
-    }, 1500);
+
+      navigate('/dashboard/playground');
+    } else if (type === 'knowledge') {
+      updateChecklist('knowledgeAdded', true);
+      showToast(`Base de conhecimento importada com sucesso!`, 'success');
+    }
+    setActionInput('');
   };
 
   const usageData = [

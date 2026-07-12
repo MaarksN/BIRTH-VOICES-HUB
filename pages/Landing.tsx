@@ -46,7 +46,7 @@ export default function LandingPage() {
   // Handle active agents incremental animation
   useEffect(() => {
     const interval = setInterval(() => {
-      setActiveAgentsCount(prev => prev + Math.floor(Math.random() * 3) + 1);
+      setActiveAgentsCount(prev => prev + ((Date.now() % 3) + 1));
     }, 4000);
     return () => clearInterval(interval);
   }, []);
@@ -56,7 +56,10 @@ export default function LandingPage() {
     let timer: NodeJS.Timeout;
     if (waveformActive) {
       timer = setInterval(() => {
-        setVoiceVolume(prev => prev.map(() => Math.floor(Math.random() * 85) + 15));
+        setVoiceVolume(prev => prev.map((_, i) => {
+          const val = Math.floor(Math.abs(Math.sin(Date.now() / 200 + i)) * 85) + 15;
+          return val;
+        }));
       }, 120);
     }
     return () => clearInterval(timer);

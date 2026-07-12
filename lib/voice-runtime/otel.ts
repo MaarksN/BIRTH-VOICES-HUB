@@ -40,7 +40,7 @@ class OpenTelemetryCollector {
 
   // Record a span locally for dashboard display
   public startLocalSpan(name: string, sessionId: string, attributes: Record<string, any> = {}): string {
-    const spanId = Math.random().toString(36).substring(2, 10);
+    const spanId = `span-${Date.now()}-${this.spans.length}`;
     const localSpan: LocalSpan = {
       id: spanId,
       name,

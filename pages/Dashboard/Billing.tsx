@@ -2,29 +2,27 @@ import React, { useState, useEffect } from 'react';
 import { CreditCard, Zap, History, Plus } from 'lucide-react';
 
 export default function BillingPage() {
-  const [balance, setBalance] = useState('0.00');
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-      // Mock fetch
-      setTimeout(() => {
-          setBalance('100.00');
-          setLoading(false);
-      }, 500);
-  }, []);
+  const [balance, setBalance] = useState('100.00');
+  const [loading, setLoading] = useState(false);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   const handleTopUp = async () => {
       setLoading(true);
-      setTimeout(() => {
-          setBalance((Number(balance) + 50).toFixed(2));
-          setLoading(false);
-          alert('Recarga de R$ 50,00 realizada com sucesso!');
-      }, 800);
+      setBalance((Number(balance) + 50).toFixed(2));
+      setLoading(false);
+      setSuccessMessage('Recarga de R$ 50,00 realizada com sucesso!');
   };
 
   return (
     <div className="space-y-8">
         <h1 className="text-2xl font-bold text-slate-900 mb-6">Faturamento & Planos</h1>
+
+        {successMessage && (
+            <div className="p-4 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-lg text-sm font-medium flex justify-between items-center">
+                <span>{successMessage}</span>
+                <button onClick={() => setSuccessMessage(null)} className="text-emerald-500 hover:text-emerald-700 font-bold">&times;</button>
+            </div>
+        )}
 
         <div className="grid grid-cols-3 gap-6 mb-8">
              <div className="bg-gradient-to-br from-blue-600 to-blue-800 rounded-xl p-6 text-white shadow-lg relative overflow-hidden">

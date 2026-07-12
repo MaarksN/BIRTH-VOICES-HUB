@@ -1,0 +1,52 @@
+{
+  "entities": {
+    "Agent": {
+      "title": "Agent",
+      "description": "An AI voice agent configuration",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "config": { "type": "object" },
+        "userId": { "type": "string" }
+      },
+      "required": ["id", "name", "userId"]
+    },
+    "Workflow": {
+      "title": "Workflow",
+      "description": "A conversational workflow",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "nodes": { "type": "array" },
+        "userId": { "type": "string" }
+      },
+      "required": ["id", "userId"]
+    },
+    "Session": {
+      "title": "Session",
+      "description": "A user session",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "startTime": { "type": "string" }
+      },
+      "required": ["id", "userId"]
+    }
+  },
+  "firestore": {
+    "/agents/{agentId}": {
+      "schema": "Agent",
+      "description": "User agents"
+    },
+    "/workflows/{workflowId}": {
+      "schema": "Workflow",
+      "description": "User workflows"
+    },
+    "/sessions/{sessionId}": {
+      "schema": "Session",
+      "description": "User sessions"
+    }
+  }
+}

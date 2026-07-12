@@ -139,21 +139,27 @@ export function AgentForm() {
   } | null>(null);
 
   useEffect(() => {
-    const saved = localStorage.getItem('birth_voices_saved_agents');
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) {
-          setSavedConfigs(parsed);
+    fetch('/api/settings')
+      .then(res => res.ok ? res.json() : null)
+      .then(data => {
+        if (data && data.settings) {
+          if (Array.isArray(data.settings.savedAgents)) {
+            setSavedConfigs(data.settings.savedAgents);
+          }
+          if (data.settings.currentConfig) {
+            setConfig(data.settings.currentConfig);
+          }
         }
-      } catch (e) {
-        console.error('Failed to parse saved agents', e);
-      }
-    }
+      })
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
-    localStorage.setItem('birth_voices_current_config', JSON.stringify(config));
+    fetch('/api/settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ settings: { currentConfig: config } })
+    }).catch(() => {});
   }, [config]);
 
   const updateConfig = (field: keyof AgentConfig, value: any) => {
@@ -206,12 +212,20 @@ export function AgentForm() {
         updatedConfigs.push(config);
       }
       setSavedConfigs(updatedConfigs);
-      localStorage.setItem('birth_voices_saved_agents', JSON.stringify(updatedConfigs));
-
-      setTimeout(() => {
+      
+      fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ settings: { savedAgents: updatedConfigs } })
+      })
+      .then(() => {
         setIsSaving(false);
         setDialogAlert('Configurações do agente salvas com sucesso!');
-      }, 800);
+      })
+      .catch(() => {
+        setIsSaving(false);
+        setDialogAlert('Erro ao salvar as configurações.');
+      });
     };
 
     if (existingIndex >= 0) {
@@ -227,12 +241,20 @@ export function AgentForm() {
     } else {
       newSavedConfigs.push(config);
       setSavedConfigs(newSavedConfigs);
-      localStorage.setItem('birth_voices_saved_agents', JSON.stringify(newSavedConfigs));
-
-      setTimeout(() => {
+      
+      fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ settings: { savedAgents: newSavedConfigs } })
+      })
+      .then(() => {
         setIsSaving(false);
         setDialogAlert('Novo agente criado com sucesso!');
-      }, 800);
+      })
+      .catch(() => {
+        setIsSaving(false);
+        setDialogAlert('Erro ao criar agente.');
+      });
     }
   };
 
@@ -248,9 +270,16 @@ export function AgentForm() {
       onConfirm: () => {
         const newSaved = savedConfigs.filter(c => c.name !== name);
         setSavedConfigs(newSaved);
-        localStorage.setItem('birth_voices_saved_agents', JSON.stringify(newSaved));
-        setDialogConfirm(null);
-        setDialogAlert('Agente excluído com sucesso!');
+        
+        fetch('/api/settings', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ settings: { savedAgents: newSaved } })
+        })
+        .then(() => {
+          setDialogConfirm(null);
+          setDialogAlert('Agente excluído com sucesso!');
+        });
       }
     });
   };
@@ -261,9 +290,16 @@ export function AgentForm() {
       message: 'Tem certeza que deseja apagar TODOS os agentes salvos? Esta ação não pode ser desfeita.',
       onConfirm: () => {
         setSavedConfigs([]);
-        localStorage.removeItem('birth_voices_saved_agents');
-        setDialogConfirm(null);
-        setDialogAlert('Todos os agentes foram removidos.');
+        
+        fetch('/api/settings', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ settings: { savedAgents: [] } })
+        })
+        .then(() => {
+          setDialogConfirm(null);
+          setDialogAlert('Todos os agentes foram removidos.');
+        });
       }
     });
   };

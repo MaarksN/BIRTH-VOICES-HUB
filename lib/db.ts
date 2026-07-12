@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
+import bcrypt from 'bcryptjs';
 
 const DB_DIR = path.join(process.cwd(), 'data');
 const DB_FILE = path.join(DB_DIR, 'database.json');
@@ -11,6 +12,7 @@ export interface User {
   companyName: string;
   email: string;
   passwordHash: string;
+  role: 'admin' | 'user';
   createdAt: string;
 }
 
@@ -40,6 +42,10 @@ export interface DatabaseSchema {
   callLogs: CallLog[];
   brandColors: Record<string, string>; // userId -> color
   checklist: Record<string, Record<string, boolean>>; // userId -> checklist state
+  auditLogs: any[];
+  settings: Record<string, any>;
+  metrics: any[];
+  sessions: any[];
 }
 
 const DEFAULT_SCHEMA: DatabaseSchema = {
@@ -52,7 +58,11 @@ const DEFAULT_SCHEMA: DatabaseSchema = {
     { id: '1021', userId: 'system', patientName: 'Juliana Rocha', duration: '04:56', status: 'Concluído', time: 'Há 1 hora', agent: 'Catarina Triagem', timestamp: new Date().toISOString() }
   ],
   brandColors: {},
-  checklist: {}
+  checklist: {},
+  auditLogs: [],
+  settings: {},
+  metrics: [],
+  sessions: []
 };
 
 // Ensure database file exists with correct folder hierarchy
@@ -91,30 +101,45 @@ export function writeDb(data: DatabaseSchema): void {
   }
 }
 
-// Secure PBKDF2 Password Hashing
+// Secure Bcrypt Password Hashing
 export function hashPassword(password: string): string {
-  const salt = crypto.randomBytes(16).toString('hex');
-  const hash = crypto.pbkdf2Sync(password, salt, 1000, 64, 'sha512').toString('hex');
-  return `${salt}:${hash}`;
+  const salt = bcrypt.genSaltSync(12);
+  return bcrypt.hashSync(password, salt);
 }
 
 export function verifyPassword(password: string, stored: string): boolean {
-  if (!stored || !stored.includes(':')) return false;
-  const [salt, hash] = stored.split(':');
-  const checkHash = crypto.pbkdf2Sync(password, salt, 1000, 64, 'sha512').toString('hex');
-  return hash === checkHash;
+  if (!stored) return false;
+  // Fallback to PBKDF2 if old style password
+  if (stored.includes(':')) {
+    const [salt, hash] = stored.split(':');
+    const checkHash = crypto.pbkdf2Sync(password, salt, 1000, 64, 'sha512').toString('hex');
+    return hash === checkHash;
+  }
+  try {
+    return bcrypt.compareSync(password, stored);
+  } catch {
+    return false;
+  }
 }
 
 // Generate secure cryptographic session tokens
-export function generateToken(payload: { id: string; email: string }): string {
+export function generateToken(payload: { id: string; email: string; role: 'admin' | 'user' }): string {
   const secret = process.env.GEMINI_API_KEY || 'birth-voices-hub-default-secret-key-1337';
   const header = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url');
-  const body = Buffer.from(JSON.stringify({ ...payload, exp: Math.floor(Date.now() / 1000) + 86400 * 7 })).toString('base64url');
+  const body = Buffer.from(JSON.stringify({ ...payload, exp: Math.floor(Date.now() / 1000) + 900 })).toString('base64url'); // 15 mins expiry for access token
   const signature = crypto.createHmac('sha256', secret).update(`${header}.${body}`).digest('base64url');
   return `${header}.${body}.${signature}`;
 }
 
-export function verifyToken(token: string): { id: string; email: string } | null {
+export function generateRefreshToken(payload: { id: string }): string {
+  const secret = (process.env.GEMINI_API_KEY || 'birth-voices-hub-default-secret-key-1337') + '_refresh';
+  const header = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url');
+  const body = Buffer.from(JSON.stringify({ ...payload, exp: Math.floor(Date.now() / 1000) + 86400 * 30 })).toString('base64url'); // 30 days expiry
+  const signature = crypto.createHmac('sha256', secret).update(`${header}.${body}`).digest('base64url');
+  return `${header}.${body}.${signature}`;
+}
+
+export function verifyToken(token: string): { id: string; email: string; role: 'admin' | 'user' } | null {
   if (!token) return null;
   const secret = process.env.GEMINI_API_KEY || 'birth-voices-hub-default-secret-key-1337';
   const parts = token.split('.');
@@ -129,7 +154,28 @@ export function verifyToken(token: string): { id: string; email: string } | null
     if (payload.exp && Date.now() / 1000 > payload.exp) {
       return null; // Token expired
     }
-    return { id: payload.id, email: payload.email };
+    return { id: payload.id, email: payload.email, role: payload.role || 'user' };
+  } catch {
+    return null;
+  }
+}
+
+export function verifyRefreshToken(token: string): { id: string } | null {
+  if (!token) return null;
+  const secret = (process.env.GEMINI_API_KEY || 'birth-voices-hub-default-secret-key-1337') + '_refresh';
+  const parts = token.split('.');
+  if (parts.length !== 3) return null;
+  
+  const [header, body, signature] = parts;
+  const expectedSignature = crypto.createHmac('sha256', secret).update(`${header}.${body}`).digest('base64url');
+  if (signature !== expectedSignature) return null;
+
+  try {
+    const payload = JSON.parse(Buffer.from(body, 'base64url').toString('utf-8'));
+    if (payload.exp && Date.now() / 1000 > payload.exp) {
+      return null; // Expired
+    }
+    return { id: payload.id };
   } catch {
     return null;
   }
