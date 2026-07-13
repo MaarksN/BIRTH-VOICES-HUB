@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+
+import React, { useState, useEffect } from 'react';
 import { Download, FileText, Calendar, Clock, Smile, MessageSquare, Search, ChevronRight, Music } from 'lucide-react';
 
 interface SessionRecord {
@@ -14,54 +15,31 @@ interface SessionRecord {
 }
 
 export default function ResultsPage() {
-  const [sessions] = useState<SessionRecord[]>([
-    {
-      id: "SES-2026-001",
-      agentName: "Maria - Suporte Consultas",
-      caller: "(11) 98765-4321",
-      dateTime: "2026-05-30 14:15",
-      duration: "03:45",
-      sentiment: "Positivo",
-      summary: "Paciente ligou para confirmar o horário do pré-natal. Foi agendado com sucesso para sexta às 10:00h.",
-      transcript: "Agente: Olá, com quem falo?\nUsuário: Oi, aqui é a Juliana. Quero confirmar minha consulta de pré-natal.\nAgente: Certo Juliana, localizei seu cadastro. Sua consulta está agendada para sexta, dia 5 de Junho, às 10:00 da manhã. Está confirmado?\nUsuário: Perfeito, muito obrigada! Até lá.\nAgente: Por nada Juliana, tenha um ótimo dia.",
-      audioUrl: "mock-audio-recording-url.wav"
-    },
-    {
-      id: "SES-2026-002",
-      agentName: "Carlos - Triagem Geral",
-      caller: "(21) 99988-7766",
-      dateTime: "2026-05-30 11:02",
-      duration: "02:10",
-      sentiment: "Neutro",
-      summary: "Usuário solicitou falar com o profissional de amamentação. Transferido para o ramal correto.",
-      transcript: "Agente: Olá, Hub de Voz da Maternidade. Como posso ajudar?\nUsuário: Queria tirar uma dúvida sobre amamentação.\nAgente: Entendo. Vou te transferir para a equipe do Banco de Leite para atendimento especializado.\nUsuário: Ah, ok, obrigado."
-    },
-    {
-      id: "SES-2026-003",
-      agentName: "Bianca - Pós-parto Monitoria",
-      caller: "(31) 96543-2109",
-      dateTime: "2026-05-29 16:40",
-      duration: "05:12",
-      sentiment: "Positivo",
-      summary: "Acompanhamento pós-parto de rotina. Mãe relata que o bebê está dormindo bem e o umbigo caiu. Nenhuma queixa de dor.",
-      transcript: "Agente: Olá Amanda, tudo bem? Como está o pós-parto de vocês?\nUsuário: Oi, tudo bem. O bebê tá ótimo, o coto umbilical caiu ontem e tá limpinho.\nAgente: Que excelente notícia! E como está a amamentação?\nUsuário: Tá indo super bem, ele pega direitinho.\nAgente: Perfeito Amanda. Lembre-se que em caso de febre ou dor forte, procure nossa emergência."
-    },
-    {
-      id: "SES-2026-004",
-      agentName: "Maria - Suporte Consultas",
-      caller: "(81) 97766-5544",
-      dateTime: "2026-05-28 09:12",
-      duration: "01:30",
-      sentiment: "Negativo",
-      summary: "Usuário irritado devido à demora no atendimento presencial anterior. Ligação encerrada após reclamação.",
-      transcript: "Agente: Hub de Voz, bom dia.\nUsuário: Bom dia nada. Quero registrar uma queixa sobre a recepção ontem, fiquei duas horas esperando.\nAgente: Sinto muito por essa experiência desagradável. Vou registrar sua queixa na nossa ouvidoria agora mesmo.\nUsuário: Certo, espero que resolva alguma coisa."
-    }
-  ]);
-
+  const [sessions, setSessions] = useState<SessionRecord[]>([]);
+  const [selectedSession, setSelectedSession] = useState<SessionRecord | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedSession, setSelectedSession] = useState<SessionRecord | null>(sessions[0]);
 
-  const filteredSessions = sessions.filter(s => 
+  useEffect(() => {
+    fetch('/api/call-logs')
+      .then(res => res.json())
+      .then(data => {
+        if (data.callLogs) {
+           const mappedLogs = data.callLogs.map((log: any) => ({
+             id: log.id,
+             agentName: log.agent || 'Desconhecido',
+             caller: log.patientName || 'Anônimo',
+             dateTime: new Date(log.timestamp).toLocaleString(),
+             duration: log.duration,
+             sentiment: log.status === 'Concluído' ? 'Positivo' : 'Neutro',
+             summary: log.summary || 'Resumo não disponível',
+             transcript: log.transcript || 'Transcrição não disponível',
+             audioUrl: log.audioUrl || ''
+           }));
+           setSessions(mappedLogs);
+        }
+      });
+  }, []);
+const filteredSessions = sessions.filter(s =>
     s.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
     s.caller.includes(searchTerm) ||
     s.agentName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -241,9 +219,8 @@ export default function ResultsPage() {
                 </div>
                 <button 
                   onClick={() => {
-                     // Provide a mock download trigger for the audioUrl
                      const link = document.createElement("a");
-                     link.href = "#"; // Replace with actual selectedSession.audioUrl if available
+                     link.href = selectedSession.audioUrl || "#";
                      link.setAttribute("download", `chamada_${selectedSession.id}.wav`);
                      document.body.appendChild(link);
                      link.click();

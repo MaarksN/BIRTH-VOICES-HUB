@@ -1,3 +1,4 @@
+import { useSessionStore } from '../../store/useSessionStore';
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, Home, Users, BookOpen, BarChart3, Mic, CreditCard, Code, Building2, Settings, Sun, Moon, Laptop, Command, X } from 'lucide-react';
@@ -54,15 +55,17 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
   }, [isOpen, onClose]);
 
   // Focus input when opened
+
   useEffect(() => {
     if (isOpen) {
-      setTimeout(() => {
+      requestAnimationFrame(() => {
         inputRef.current?.focus();
-      }, 50);
+      });
       setSelectedIndex(0);
       setQuery('');
     }
   }, [isOpen]);
+
 
   const items: CommandItem[] = [
     // Navigation

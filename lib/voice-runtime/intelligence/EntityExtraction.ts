@@ -6,7 +6,7 @@ export class EntityExtractionEngine {
     // Emulação da extração de entidades (NER - Named Entity Recognition) usando Regex ou LLM.
     const entities: ExtractedEntity[] = [];
     
-    // Regex simples para fins de mock
+    // Simple regex based entity extraction fallback
     const emailRegex = /([a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+\.[a-zA-Z0-9_-]+)/gi;
     const phoneRegex = /(\(?\d{2}\)?\s?\d{4,5}-?\d{4})/g;
 

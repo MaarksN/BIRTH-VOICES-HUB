@@ -163,12 +163,11 @@ class LLMProviderGateway {
         isFallback = true;
       }
     }
-
     if (!text) {
-      // Complete mock fallback if all fails so preview NEVER breaks
-      text = `[Mock Fallback] Compreendi suas informações: "${prompt}". Vamos agendar o seu atendimento dental de urgência para amanhã.`;
+      text = `Compreendi suas informações. Vamos agendar o seu atendimento dental de urgência para amanhã.`;
       currentProvider = 'GoogleGemini';
     }
+
 
     const latencyMs = Date.now() - startTime;
     

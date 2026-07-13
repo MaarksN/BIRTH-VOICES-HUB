@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { 
-  Settings, Globe, Clock, Bell, Keyboard, LayoutGrid, Eyeglasses, 
+  Settings, Globe, Clock, Bell, Keyboard, LayoutGrid, Glasses,
   Check, ShieldAlert, Sparkles, SlidersHorizontal, ArrowRight, AppWindow
 } from 'lucide-react';
 import { Card, Button, Badge, Switch, Select, Alert, useToast, ToastContainer } from '../../components/design-system';

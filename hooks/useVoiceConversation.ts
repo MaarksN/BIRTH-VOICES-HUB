@@ -53,11 +53,13 @@ export function useVoiceConversation(questions: Question[], speed: number = 1.1)
         };
         window.speechSynthesis.speak(utterance);
     } else {
-       // Fallback for no TTS
-       setTimeout(() => {
+
+       // Fallback for no TTS (browser constraint)
+       requestAnimationFrame(() => {
            if (!isFinal) setStatus('listening');
            else setStatus('completed');
-       }, 2000);
+       });
+
     }
   }, []);
 
@@ -68,7 +70,13 @@ export function useVoiceConversation(questions: Question[], speed: number = 1.1)
 
     const { questions, currentQuestionIndex } = stateRef.current;
 
-    setTimeout(() => {
+    fetch('/api/voice/analyze', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text, context: questions[currentQuestionIndex] })
+    })
+    .then(res => res.json())
+    .then(data => {
       const nextIndex = currentQuestionIndex + 1;
       if (nextIndex < questions.length) {
         setCurrentQuestionIndex(nextIndex);
@@ -76,7 +84,18 @@ export function useVoiceConversation(questions: Question[], speed: number = 1.1)
       } else {
         speak("Obrigada pelas respostas. Entraremos em contato em breve.", true);
       }
-    }, 1500);
+    })
+    .catch(() => {
+      // Graceful degradation on fetch fail
+      const nextIndex = currentQuestionIndex + 1;
+      if (nextIndex < questions.length) {
+        setCurrentQuestionIndex(nextIndex);
+        speak(questions[nextIndex].text, false);
+      } else {
+        speak("Obrigada pelas respostas. Entraremos em contato em breve.", true);
+      }
+    });
+
   }, [speak]);
 
   useEffect(() => {

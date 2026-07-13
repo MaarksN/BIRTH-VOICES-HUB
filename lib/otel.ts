@@ -1,22 +1,10 @@
-import { NodeSDK } from '@opentelemetry/sdk-node';
-import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
-import { Resource } from '@opentelemetry/resources';
+
+import { trace } from '@opentelemetry/api';
+import { resourceFromAttributes } from '@opentelemetry/resources';
 import { SemanticResourceAttributes } from '@opentelemetry/semantic-conventions';
 
-const sdk = new NodeSDK({
-  resource: new Resource({
-    [SemanticResourceAttributes.SERVICE_NAME]: 'birth-voices-app',
-  }),
-  traceExporter: new OTLPTraceExporter({
-    url: 'http://localhost:4318/v1/traces', // Mock endpoint
-  }),
+const resource = resourceFromAttributes({
+  [SemanticResourceAttributes.SERVICE_NAME]: 'birth-voices-app',
 });
 
-sdk.start();
-
-process.on('SIGTERM', () => {
-  sdk.shutdown()
-    .then(() => console.log('SDK shut down successfully'))
-    .catch((error) => console.log('Error shutting down SDK', error))
-    .finally(() => process.exit(0));
-});
+export const tracer = trace.getTracer('birth-voices-runtime', '1.0.0');

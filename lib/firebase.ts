@@ -1,8 +1,12 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
-import firebaseConfig from '../firebase-applet-config.json';
+import { getFirestore, collection, getDocs, setDoc, doc, getDoc, writeBatch } from 'firebase/firestore';
+
+// Configuration for local firestore emulator or safe sandbox
+const firebaseConfig = {
+  projectId: "birth-voices-hub",
+};
 
 const app = initializeApp(firebaseConfig);
-export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
-export const auth = getAuth();
+const firestore = getFirestore(app);
+
+export { firestore, collection, getDocs, setDoc, doc, getDoc, writeBatch };

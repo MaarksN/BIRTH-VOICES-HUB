@@ -21,7 +21,7 @@ export default function DesignSystemDocs() {
   const handleCopy = (token: string) => {
     navigator.clipboard.writeText(token);
     setCopiedToken(token);
-    setTimeout(() => setCopiedToken(null), 1500);
+    requestAnimationFrame(() => setCopiedToken(null));
   };
 
   const docTabs = [
@@ -246,7 +246,7 @@ export default function DesignSystemDocs() {
                     isLoading={btnLoading}
                     onClick={() => {
                       setBtnLoading(true);
-                      setTimeout(() => setBtnLoading(false), 2000);
+                      requestAnimationFrame(() => setBtnLoading(false));
                     }}
                   >
                     Simular Envio de Dados

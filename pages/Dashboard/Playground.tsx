@@ -97,9 +97,9 @@ export default function PlaygroundPage() {
       dataArrayRef.current = dataArray;
       
       // Delay slightly for canvas sizing if container takes a millisecond to mount
-      setTimeout(() => {
+      requestAnimationFrame(() => {
         drawWaveform();
-      }, 50);
+      });
     } catch (err) {
       console.error('Error fetching stream for waveform:', err);
     }

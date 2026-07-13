@@ -1,28 +1,33 @@
-import React, { useState } from 'react';
+
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, Button, Badge } from '../../components/design-system';
 import { Search, Filter, Plus, MoreVertical, Copy, Archive, Trash2, ArrowRight, Play, Activity, Settings, User } from 'lucide-react';
 
-const mockAgents = [
-  { id: 'agt_001', name: 'Catarina Triagem', description: 'Triagem obstétrica e emergencial.', category: 'Saúde', dept: 'Recepção', status: 'active', model: 'Gemini 2.5 Pro', latency: '320ms', csat: '98%', tokens: '1.2M', updated: '2h atrás' },
-  { id: 'agt_002', name: 'SDR Qualificador', description: 'Qualificação de leads inbound B2B.', category: 'Vendas', dept: 'Comercial', status: 'draft', model: 'Gemini 2.5 Flash', latency: '-', csat: '-', tokens: '0', updated: '1d atrás' },
-  { id: 'agt_003', name: 'Suporte N1 T.I.', description: 'Resolução de chamados de rede e acesso.', category: 'Suporte', dept: 'TI', status: 'active', model: 'Gemini 2.5 Flash', latency: '280ms', csat: '92%', tokens: '4.5M', updated: '5h atrás' },
-  { id: 'agt_004', name: 'Cobrança Ativa', description: 'Negociação de dívidas e envio de boletos.', category: 'Financeiro', dept: 'Cobrança', status: 'archived', model: 'GPT-4o', latency: '450ms', csat: '81%', tokens: '800k', updated: '2 sem atrás' },
-];
-
 export default function AgentRegistry() {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
+  const [agents, setAgents] = useState<any[]>([]);
+
+  useEffect(() => {
+    fetch('/api/agents')
+      .then(res => res.json())
+      .then(data => {
+        if (data.agents) {
+          setAgents(data.agents);
+        }
+      });
+  }, []);
   
   return (
-    <div className="space-y-6">
+<div className="space-y-6">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Agent Registry</h1>
           <p className="text-sm text-slate-500">Gerencie todos os agentes do seu workspace.</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline"><Filter className="h-4 w-4 mr-2" /> Filtrar</Button>
+          <Button variant="secondary"><Filter className="h-4 w-4 mr-2" /> Filtrar</Button>
           <Button variant="primary" onClick={() => navigate('/dashboard/agents/new')}>
             <Plus className="h-4 w-4 mr-2" /> Novo Agente
           </Button>
@@ -56,7 +61,7 @@ export default function AgentRegistry() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
-              {mockAgents.map(agent => (
+              {agents.map(agent => (
                 <tr key={agent.id} className="hover:bg-slate-50 dark:hover:bg-slate-850/50 transition-colors group cursor-pointer" onClick={() => navigate(`/dashboard/agents/${agent.id}`)}>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-3">
@@ -72,7 +77,7 @@ export default function AgentRegistry() {
                   <td className="px-4 py-3">
                     {agent.status === 'active' && <Badge variant="success">Em Produção</Badge>}
                     {agent.status === 'draft' && <Badge variant="warning">Rascunho</Badge>}
-                    {agent.status === 'archived' && <Badge variant="outline">Arquivado</Badge>}
+                    {agent.status === 'archived' && <Badge variant="secondary">Arquivado</Badge>}
                   </td>
                   <td className="px-4 py-3 text-slate-600 dark:text-slate-400">
                     {agent.model}
