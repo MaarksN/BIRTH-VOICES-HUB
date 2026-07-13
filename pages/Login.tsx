@@ -29,7 +29,6 @@ export default function LoginPage() {
         throw new Error(data.error || 'Erro ao realizar login.');
       }
 
-      auth.setToken(data.token, data.user);
       navigate('/dashboard');
     } catch (err: any) {
       setError(err.message || 'Erro de conexão.');

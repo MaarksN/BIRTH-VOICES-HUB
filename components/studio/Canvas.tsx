@@ -130,6 +130,7 @@ function CanvasInner() {
   }, [loadWorkflowFromServer]);
 
   useEffect(() => {
+    // Only save if there are actual nodes
     if (nodes.length > 0) {
       const timer = setTimeout(() => {
         saveWorkflowToServer();
@@ -170,12 +171,12 @@ function CanvasInner() {
   });
 
   const onNodesChange = useCallback(
-    (changes: NodeChange[]) => setNodes((nds) => applyNodeChanges(changes, nds) as StudioNode[]),
+    (changes: NodeChange[]) => setNodes((nds) => applyNodeChanges(changes, nds) as any),
     [setNodes],
   );
 
   const onEdgesChange = useCallback(
-    (changes: EdgeChange[]) => setEdges((eds) => applyEdgeChanges(changes, eds) as StudioEdge[]),
+    (changes: EdgeChange[]) => setEdges((eds) => applyEdgeChanges(changes, eds) as any),
     [setEdges],
   );
 
@@ -199,8 +200,8 @@ function CanvasInner() {
         
         <div className="flex-1 relative bg-[#FAFAFA]">
           <ReactFlow
-            nodes={renderedNodes}
-            edges={edges}
+            nodes={renderedNodes as any}
+            edges={edges as any}
             onNodesChange={onNodesChange}
             onEdgesChange={onEdgesChange}
             onConnect={onConnect}

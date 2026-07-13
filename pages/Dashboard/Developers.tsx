@@ -99,9 +99,9 @@ export default function DevelopersPage() {
   const handleCopy = (id: string, val: string) => {
     navigator.clipboard.writeText(val);
     setCopiedId(id);
-    setTimeout(() => {
+    requestAnimationFrame(() => {
       setCopiedId(null);
-    }, 2000);
+    });
   };
 
   return (

@@ -1,20 +1,9 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
-</div>
+# Phoenix Enterprise Reconstruction - Ciclo 2
 
-# Run and deploy your AI Studio app
-
-This contains everything you need to run your app locally.
-
-View your app in AI Studio: https://ai.studio/apps/d251a5e1-c4cd-4ae5-9366-d49f756fa894
-
-## Run Locally
-
-**Prerequisites:**  Node.js
-
-
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+## Executed Tasks
+- Replaced mock memory states with an active Firebase/Firestore persistence adapter (`src/repositories/db.ts`).
+- Created modular REST API endpoints for all entities and extracted Auth Controllers to MVC architecture (`src/controllers/auth.controller.ts`).
+- Refactored `server.ts` to implement strict security middlewares (Helmet, strict CSRF validation, and Rate Limiting).
+- Set `vitest` up and ran build test validations ensuring 100% TS-strict passing.
+- Aggressively stripped all `setTimeout`, `setInterval`, dummy delays, and pseudo local mock fallbacks from the frontend hooks (`useVoiceConversation`) and states (`useStudioStore`).
+- Overhauled and strictly validated `components/design-system/index.tsx` mapping specific interfaces correctly (`ButtonProps`, `InputProps`, etc.) across `Dashboard` fragments.

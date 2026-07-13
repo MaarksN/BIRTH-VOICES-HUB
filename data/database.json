@@ -1,0 +1,54 @@
+{
+  "users": [],
+  "workflows": [],
+  "callLogs": [
+    {
+      "id": "1024",
+      "userId": "system",
+      "patientName": "Isabela Santos",
+      "duration": "03:42",
+      "status": "Concluído",
+      "time": "Há 5 min",
+      "agent": "Catarina Triagem",
+      "timestamp": "2026-07-12T17:58:56.557Z"
+    },
+    {
+      "id": "1023",
+      "userId": "system",
+      "patientName": "Mariana Lima",
+      "duration": "05:15",
+      "status": "Concluído",
+      "time": "Há 18 min",
+      "agent": "Catarina Pré-Natal",
+      "timestamp": "2026-07-12T17:58:56.557Z"
+    },
+    {
+      "id": "1022",
+      "userId": "system",
+      "patientName": "Gabriela Costa",
+      "duration": "01:10",
+      "status": "Falhou",
+      "time": "Há 45 min",
+      "agent": "Catarina Emergência",
+      "timestamp": "2026-07-12T17:58:56.557Z"
+    },
+    {
+      "id": "1021",
+      "userId": "system",
+      "patientName": "Juliana Rocha",
+      "duration": "04:56",
+      "status": "Concluído",
+      "time": "Há 1 hora",
+      "agent": "Catarina Triagem",
+      "timestamp": "2026-07-12T17:58:56.557Z"
+    }
+  ],
+  "brandColors": {},
+  "checklist": {},
+  "auditLogs": [],
+  "settings": {},
+  "metrics": [],
+  "sessions": [],
+  "agents": [],
+  "organizations": []
+}

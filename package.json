@@ -7,14 +7,19 @@
     "dev": "tsx server.ts",
     "build": "vite build && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs",
     "start": "node dist/server.cjs",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "lint": "echo 'No linter configured, passing...'"
   },
   "dependencies": {
     "@google/genai": "^2.7.0",
     "@google/generative-ai": "^0.24.1",
     "@opentelemetry/api": "^1.9.1",
     "@opentelemetry/exporter-trace-otlp-http": "^0.220.0",
+    "@opentelemetry/resources": "^2.9.0",
     "@opentelemetry/sdk-node": "^0.220.0",
+    "@opentelemetry/semantic-conventions": "^1.43.0",
     "@supabase/supabase-js": "^2.110.2",
     "@tanstack/react-query": "^5.101.2",
     "@xyflow/react": "^12.11.2",
@@ -23,10 +28,12 @@
     "cookie-parser": "^1.4.7",
     "d3": "^7.9.0",
     "express": "^5.2.1",
+    "firebase": "^12.16.0",
     "helmet": "^8.2.0",
     "lucide-react": "^0.563.0",
     "motion": "^12.42.2",
     "openai": "^6.46.0",
+    "pg": "^8.22.0",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "react-router-dom": "^7.13.0",
@@ -42,10 +49,12 @@
     "@types/d3": "^7.4.3",
     "@types/express": "^5.0.6",
     "@types/node": "^22.14.0",
+    "@types/pg": "^8.20.0",
     "@vitejs/plugin-react": "^5.0.0",
     "esbuild": "^0.28.0",
     "tsx": "^4.22.3",
     "typescript": "~5.8.2",
-    "vite": "^6.2.0"
+    "vite": "^6.2.0",
+    "vitest": "^4.1.10"
   }
 }

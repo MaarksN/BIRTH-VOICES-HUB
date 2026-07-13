@@ -4,6 +4,7 @@ import path from "path";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI } from "@google/genai";
 import http from "http";
+import crypto from "crypto";
 import { Server as SocketIOServer } from "socket.io";
 import cookieParser from "cookie-parser";
 import helmet from "helmet";
@@ -16,8 +17,9 @@ import {
   generateToken, 
   verifyToken,
   generateRefreshToken,
-  verifyRefreshToken
-} from "./lib/db.js";
+  verifyRefreshToken,
+  User
+} from "./src/repositories/db.js";
 import { otelCollector } from "./lib/voice-runtime/otel.js";
 import { llmProviderGateway } from "./lib/voice-runtime/providers/LLMGateway.js";
 
@@ -1352,6 +1354,67 @@ Regras de posicionamento do layout:
       clearInterval(interval);
       console.log("Supervisor disconnected:", socket.id);
     });
+  });
+
+
+  app.get("/api/agents", (req, res) => {
+    const session = getAuthUser(req, res);
+    if (!session) return res.status(401).json({ error: "Não autorizado." });
+    const db = readDb();
+    res.json({ agents: db.agents || [] });
+  });
+
+  app.post("/api/agents", (req, res) => {
+    const session = getAuthUser(req, res);
+    if (!session) return res.status(401).json({ error: "Não autorizado." });
+    const { name, model, configuration } = req.body;
+    const db = readDb();
+    const newAgent = {
+      id: crypto.randomUUID ? crypto.randomUUID() : crypto.randomBytes(16).toString("hex"),
+      userId: session.id,
+      name,
+      model,
+      configuration,
+      createdAt: new Date().toISOString()
+    };
+    if (!db.agents) db.agents = [];
+    db.agents.push(newAgent);
+    writeDb(db);
+    res.json({ success: true, agent: newAgent });
+  });
+
+  app.delete("/api/agents/:id", (req, res) => {
+    const session = getAuthUser(req, res);
+    if (!session) return res.status(401).json({ error: "Não autorizado." });
+    const db = readDb();
+    if (!db.agents) db.agents = [];
+    db.agents = db.agents.filter(a => a.id !== req.params.id || a.userId !== session.id);
+    writeDb(db);
+    res.json({ success: true });
+  });
+
+  app.get("/api/organizations", (req, res) => {
+    const session = getAuthUser(req, res);
+    if (!session) return res.status(401).json({ error: "Não autorizado." });
+    const db = readDb();
+    res.json({ organizations: db.organizations || [] });
+  });
+
+  app.post("/api/organizations", (req, res) => {
+    const session = getAuthUser(req, res);
+    if (!session) return res.status(401).json({ error: "Não autorizado." });
+    const { name } = req.body;
+    const db = readDb();
+    const newOrg = {
+      id: crypto.randomUUID ? crypto.randomUUID() : crypto.randomBytes(16).toString("hex"),
+      userId: session.id,
+      name,
+      createdAt: new Date().toISOString()
+    };
+    if (!db.organizations) db.organizations = [];
+    db.organizations.push(newOrg);
+    writeDb(db);
+    res.json({ success: true, organization: newOrg });
   });
 
   // Vite middleware for development

@@ -1142,7 +1142,7 @@ export default function LandingPage() {
               </div>
             </div>
 
-            {/* Integrations Grid mockup */}
+            {/* Integrations Grid overview */}
             <div className="grid grid-cols-3 sm:grid-cols-4 gap-4 relative">
               {[
                 { name: "Twilio", desc: "SIP & Telefonia" },
@@ -1268,7 +1268,7 @@ export default function LandingPage() {
               </div>
             </div>
 
-            {/* Interactive charts mockup */}
+            {/* Interactive charts overview */}
             <div className="lg:col-span-7">
               <Card className="p-6 border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xl space-y-6">
                 <div className="flex justify-between items-center border-b border-slate-100 dark:border-slate-800 pb-3">

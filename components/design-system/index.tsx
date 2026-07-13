@@ -5,13 +5,22 @@ import { Check, AlertTriangle, AlertCircle, Info, CheckCircle, X, ChevronDown, R
 // ============================================================================
 // 1. BUTTON COMPONENT
 // ============================================================================
-interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+
+
+export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: 'primary' | 'secondary' | 'outline' | 'danger' | 'ghost' | 'success';
   size?: 'xs' | 'sm' | 'md' | 'lg';
   isLoading?: boolean;
   leftIcon?: React.ReactNode;
   rightIcon?: React.ReactNode;
+  children?: React.ReactNode;
+  className?: string;
+  disabled?: boolean;
+  onClick?: (e?: any) => void;
+  type?: "button" | "submit" | "reset";
 }
+
+
 
 export function Button({
   children,
@@ -64,11 +73,21 @@ export function Button({
 // ============================================================================
 // 2. INPUT & TEXTAREA COMPONENTS
 // ============================================================================
-interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
+
+
+export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   label?: string;
   error?: string;
   helperText?: string;
+  leftIcon?: React.ReactNode;
+  rightIcon?: React.ReactNode;
+  placeholder?: string;
+  className?: string;
+  value?: any;
+  onChange?: (e: any) => void;
 }
+
+
 
 export function Input({
   label,
@@ -96,11 +115,14 @@ export function Input({
   );
 }
 
-interface TextareaProps extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {
+
+export interface TextareaProps extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {
   label?: string;
   error?: string;
   helperText?: string;
+  className?: string;
 }
+
 
 export function Textarea({
   label,
@@ -131,9 +153,16 @@ export function Textarea({
 // ============================================================================
 // 3. CHECKBOX & SWITCH
 // ============================================================================
-interface CheckboxProps extends React.InputHTMLAttributes<HTMLInputElement> {
+
+
+export interface CheckboxProps extends React.InputHTMLAttributes<HTMLInputElement> {
   label: string;
+  className?: string;
+  checked?: boolean;
+  onChange?: (e: any) => void;
 }
+
+
 
 export function Checkbox({ label, className = '', ...props }: CheckboxProps) {
   return (
@@ -182,11 +211,18 @@ export function Switch({ checked, onChange, label, description }: SwitchProps) {
 // ============================================================================
 // 4. SELECT COMPONENT
 // ============================================================================
-interface SelectProps extends React.SelectHTMLAttributes<HTMLSelectElement> {
+
+
+export interface SelectProps extends React.SelectHTMLAttributes<HTMLSelectElement> {
   label?: string;
   error?: string;
   options: { value: string; label: string }[];
+  className?: string;
+  value?: any;
+  onChange?: (e: any) => void;
 }
+
+
 
 export function Select({ label, error, options, className = '', ...props }: SelectProps) {
   return (
@@ -245,12 +281,15 @@ export function Badge({ children, variant = 'primary', className = '' }: BadgePr
 // ============================================================================
 // 6. CARD COMPONENT
 // ============================================================================
-interface CardProps {
+
+export interface CardProps {
   children: React.ReactNode;
   className?: string;
   onClick?: () => void;
   hoverable?: boolean;
+  key?: React.Key;
 }
+
 
 export function Card({ children, className = '', onClick, hoverable = false }: CardProps) {
   return (
@@ -479,7 +518,7 @@ export function TableHead({ children, className = '' }: { children: React.ReactN
   );
 }
 
-export function TableRow({ children, className = '', onClick }: { children: React.ReactNode, className?: string, onClick?: () => void }) {
+export function TableRow({ children, className = '', onClick, key }: any) {
   return (
     <tr 
       onClick={onClick} 
