@@ -1,0 +1,104 @@
+{
+  "users": [
+    {
+      "id": "c135187e-198d-4382-9d6f-c565144e3ea0",
+      "email": "test2@example.com",
+      "passwordHash": "$2b$12$iRVTQ5qIrlRkP.aCNNrdc.GEkontOMM2mwhIIyYrSlBE/XcsAcVVy",
+      "companyName": "Test Co 2",
+      "role": "admin",
+      "createdAt": "2026-07-13T12:29:13.893Z"
+    }
+  ],
+  "workflows": [
+    {
+      "id": "f0f4baf6-7f93-46dd-9e1e-d2e23de7be82",
+      "userId": "c135187e-198d-4382-9d6f-c565144e3ea0",
+      "name": "My Flow",
+      "nodes": [
+        {
+          "id": "1"
+        }
+      ],
+      "edges": [],
+      "updatedAt": "2026-07-13T12:36:35.639Z"
+    }
+  ],
+  "callLogs": [
+    {
+      "id": "1024",
+      "userId": "system",
+      "patientName": "Isabela Santos",
+      "duration": "03:42",
+      "status": "Concluído",
+      "time": "Há 5 min",
+      "agent": "Catarina Triagem",
+      "timestamp": "2026-07-13T12:27:47.146Z"
+    },
+    {
+      "id": "1023",
+      "userId": "system",
+      "patientName": "Mariana Lima",
+      "duration": "05:15",
+      "status": "Concluído",
+      "time": "Há 18 min",
+      "agent": "Catarina Pré-Natal",
+      "timestamp": "2026-07-13T12:27:47.146Z"
+    },
+    {
+      "id": "1022",
+      "userId": "system",
+      "patientName": "Gabriela Costa",
+      "duration": "01:10",
+      "status": "Falhou",
+      "time": "Há 45 min",
+      "agent": "Catarina Emergência",
+      "timestamp": "2026-07-13T12:27:47.146Z"
+    },
+    {
+      "id": "1021",
+      "userId": "system",
+      "patientName": "Juliana Rocha",
+      "duration": "04:56",
+      "status": "Concluído",
+      "time": "Há 1 hora",
+      "agent": "Catarina Triagem",
+      "timestamp": "2026-07-13T12:27:47.146Z"
+    }
+  ],
+  "brandColors": {},
+  "checklist": {},
+  "auditLogs": [
+    {
+      "id": "b31915cd-025a-4c52-9cf8-23a4032f204e",
+      "userId": "c135187e-198d-4382-9d6f-c565144e3ea0",
+      "action": "WORKFLOW_SAVE",
+      "details": {
+        "workflowId": "f0f4baf6-7f93-46dd-9e1e-d2e23de7be82",
+        "name": "My Flow"
+      },
+      "timestamp": "2026-07-13T12:36:35.639Z"
+    },
+    {
+      "id": "1d0ca93b-81ab-4d20-bc4a-dee1b461a355",
+      "userId": "c135187e-198d-4382-9d6f-c565144e3ea0",
+      "action": "USER_LOGIN",
+      "details": {
+        "email": "test2@example.com"
+      },
+      "timestamp": "2026-07-13T12:30:52.591Z"
+    },
+    {
+      "id": "ca0fed2d-871d-4482-a7fb-6aa369b68b2a",
+      "userId": "c135187e-198d-4382-9d6f-c565144e3ea0",
+      "action": "USER_REGISTER",
+      "details": {
+        "email": "test2@example.com",
+        "companyName": "Test Co 2"
+      },
+      "timestamp": "2026-07-13T12:29:13.896Z"
+    }
+  ],
+  "settings": {},
+  "metrics": [],
+  "sessions": []
+}

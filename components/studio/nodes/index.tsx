@@ -1,8 +1,8 @@
 import { NodeProps } from '@xyflow/react';
-import { StudioNodeData } from '../../../lib/studio/types';
+import { StudioNodeData, StudioNode } from '../../../lib/studio/types';
 import { UnifiedNode } from './UnifiedNode';
 
-export function StartNode(props: NodeProps<StudioNodeData>) {
+export function StartNode(props: NodeProps<StudioNode>) {
   return (
     <UnifiedNode 
       {...props} 
@@ -15,7 +15,7 @@ export function StartNode(props: NodeProps<StudioNodeData>) {
   );
 }
 
-export function EndNode(props: NodeProps<StudioNodeData>) {
+export function EndNode(props: NodeProps<StudioNode>) {
   return (
     <UnifiedNode 
       {...props} 
@@ -28,7 +28,7 @@ export function EndNode(props: NodeProps<StudioNodeData>) {
   );
 }
 
-export function PromptNode(props: NodeProps<StudioNodeData>) {
+export function PromptNode(props: NodeProps<StudioNode>) {
   return (
     <UnifiedNode 
       {...props} 
@@ -39,7 +39,7 @@ export function PromptNode(props: NodeProps<StudioNodeData>) {
   );
 }
 
-export function ConditionNode(props: NodeProps<StudioNodeData>) {
+export function ConditionNode(props: NodeProps<StudioNode>) {
   return (
     <UnifiedNode 
       {...props} 
@@ -51,7 +51,7 @@ export function ConditionNode(props: NodeProps<StudioNodeData>) {
   );
 }
 
-export function ToolNode(props: NodeProps<StudioNodeData>) {
+export function ToolNode(props: NodeProps<StudioNode>) {
   return (
     <UnifiedNode 
       {...props} 
@@ -62,7 +62,7 @@ export function ToolNode(props: NodeProps<StudioNodeData>) {
   );
 }
 
-export function LlmNode(props: NodeProps<StudioNodeData>) {
+export function LlmNode(props: NodeProps<StudioNode>) {
   return (
     <UnifiedNode 
       {...props} 
@@ -73,7 +73,7 @@ export function LlmNode(props: NodeProps<StudioNodeData>) {
   );
 }
 
-export function VoiceNode(props: NodeProps<StudioNodeData>) {
+export function VoiceNode(props: NodeProps<StudioNode>) {
   return (
     <UnifiedNode 
       {...props} 
@@ -84,7 +84,7 @@ export function VoiceNode(props: NodeProps<StudioNodeData>) {
   );
 }
 
-export function QuestionNode(props: NodeProps<StudioNodeData>) {
+export function QuestionNode(props: NodeProps<StudioNode>) {
   return (
     <UnifiedNode 
       {...props} 
@@ -96,7 +96,7 @@ export function QuestionNode(props: NodeProps<StudioNodeData>) {
   );
 }
 
-export function SwitchNode(props: NodeProps<StudioNodeData>) {
+export function SwitchNode(props: NodeProps<StudioNode>) {
   return (
     <UnifiedNode 
       {...props} 
@@ -108,7 +108,7 @@ export function SwitchNode(props: NodeProps<StudioNodeData>) {
   );
 }
 
-export function MemoryNode(props: NodeProps<StudioNodeData>) {
+export function MemoryNode(props: NodeProps<StudioNode>) {
   return (
     <UnifiedNode 
       {...props} 
@@ -119,7 +119,7 @@ export function MemoryNode(props: NodeProps<StudioNodeData>) {
   );
 }
 
-export function KnowledgeNode(props: NodeProps<StudioNodeData>) {
+export function KnowledgeNode(props: NodeProps<StudioNode>) {
   return (
     <UnifiedNode 
       {...props} 
@@ -130,7 +130,7 @@ export function KnowledgeNode(props: NodeProps<StudioNodeData>) {
   );
 }
 
-export function HumanHandoffNode(props: NodeProps<StudioNodeData>) {
+export function HumanHandoffNode(props: NodeProps<StudioNode>) {
   return (
     <UnifiedNode 
       {...props} 

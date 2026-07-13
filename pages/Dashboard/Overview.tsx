@@ -629,7 +629,7 @@ export default function RebuiltExecutiveOverview() {
                       <span className="font-medium text-slate-700 dark:text-slate-300">Tokens LLM (14.2M / 20M)</span>
                       <span className="text-emerald-500 font-bold">71%</span>
                     </div>
-                    <Progress value={71} color="bg-emerald-500" />
+                    <Progress value={71} className="bg-emerald-500" />
                   </div>
                   
                   <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex flex-col gap-3">

@@ -1,9 +1,9 @@
 import { Handle, Position, NodeProps } from '@xyflow/react';
-import { StudioNodeData } from '../../../lib/studio/types';
+import { StudioNodeData, StudioNode } from '../../../lib/studio/types';
 import { LucideIcon } from 'lucide-react';
 import * as Icons from 'lucide-react';
 
-interface UnifiedNodeProps extends NodeProps<StudioNodeData> {
+interface UnifiedNodeProps extends NodeProps<StudioNode> {
   iconName: keyof typeof Icons;
   colorClass: string;
   headerTitle: string;

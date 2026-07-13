@@ -1,0 +1,7 @@
+import { Response } from 'express'; import crypto from 'crypto'; import { sessionRepository } from '../repositories/sessionRepository.js'; import { AuthedRequest } from '../middlewares/auth.js'; import { sessionSchema } from '../validators/session.js';
+export const sessionController = {
+  list: (req: AuthedRequest, res: Response) => res.json({ sessions: sessionRepository.findForUser(req.user!.id) }),
+  create: (req: AuthedRequest, res: Response) => { const p = sessionSchema.safeParse(req.body); if (!p.success) return res.status(400).json({ error: p.error.issues[0].message }); res.json({ success: true, session: sessionRepository.create({ id: crypto.randomUUID(), userId: req.user!.id, agentId: p.data.agentId, channel: p.data.channel, status: "active", metadata: p.data.metadata || {}, startTime: new Date().toISOString() }) }); },
+  update: (req: AuthedRequest, res: Response) => { const s = sessionRepository.findByIdAndUser((req.params.id as string), req.user!.id); if (!s) return res.status(404).json({ error: "Not found" }); s.status = req.body.status || s.status; s.metadata = { ...s.metadata, ...(req.body.metadata || {}) }; sessionRepository.update(s); res.json({ success: true, session: s }); },
+  delete: (req: AuthedRequest, res: Response) => { if (!sessionRepository.findByIdAndUser((req.params.id as string), req.user!.id)) return res.status(404).json({ error: "Not found" }); sessionRepository.delete((req.params.id as string)); res.json({ success: true }); }
+};

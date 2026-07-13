@@ -5,7 +5,12 @@ import { Check, AlertTriangle, AlertCircle, Info, CheckCircle, X, ChevronDown, R
 // ============================================================================
 // 1. BUTTON COMPONENT
 // ============================================================================
-interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+interface ButtonProps extends Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, "children" | "onClick" | "className" | "disabled" | "type"> {
+  children?: React.ReactNode;
+  onClick?: (e: React.MouseEvent<HTMLButtonElement>) => void | Promise<void>;
+  className?: string;
+  disabled?: boolean;
+  type?: "button" | "submit" | "reset";
   variant?: 'primary' | 'secondary' | 'outline' | 'danger' | 'ghost' | 'success';
   size?: 'xs' | 'sm' | 'md' | 'lg';
   isLoading?: boolean;
@@ -64,7 +69,11 @@ export function Button({
 // ============================================================================
 // 2. INPUT & TEXTAREA COMPONENTS
 // ============================================================================
-interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
+interface InputProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, "placeholder" | "value" | "onChange" | "className"> {
+  placeholder?: string;
+  value?: string | number | readonly string[];
+  onChange?: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  className?: string;
   label?: string;
   error?: string;
   helperText?: string;
@@ -96,7 +105,8 @@ export function Input({
   );
 }
 
-interface TextareaProps extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {
+interface TextareaProps extends Omit<React.TextareaHTMLAttributes<HTMLTextAreaElement>, "className"> {
+  className?: string;
   label?: string;
   error?: string;
   helperText?: string;
@@ -131,7 +141,10 @@ export function Textarea({
 // ============================================================================
 // 3. CHECKBOX & SWITCH
 // ============================================================================
-interface CheckboxProps extends React.InputHTMLAttributes<HTMLInputElement> {
+interface CheckboxProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, "checked" | "onChange" | "className"> {
+  checked?: boolean;
+  onChange?: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  className?: string;
   label: string;
 }
 
@@ -182,7 +195,10 @@ export function Switch({ checked, onChange, label, description }: SwitchProps) {
 // ============================================================================
 // 4. SELECT COMPONENT
 // ============================================================================
-interface SelectProps extends React.SelectHTMLAttributes<HTMLSelectElement> {
+interface SelectProps extends Omit<React.SelectHTMLAttributes<HTMLSelectElement>, "value" | "onChange" | "className"> {
+  value?: string | number | readonly string[];
+  onChange?: (e: React.ChangeEvent<HTMLSelectElement>) => void;
+  className?: string;
   label?: string;
   error?: string;
   options: { value: string; label: string }[];
@@ -221,7 +237,7 @@ export function Select({ label, error, options, className = '', ...props }: Sele
 // ============================================================================
 interface BadgeProps {
   children: React.ReactNode;
-  variant?: 'primary' | 'secondary' | 'success' | 'warning' | 'danger' | 'info';
+  variant?: 'primary' | 'secondary' | 'success' | 'warning' | 'danger' | 'info' | 'outline';
   className?: string;
 }
 
@@ -246,6 +262,7 @@ export function Badge({ children, variant = 'primary', className = '' }: BadgePr
 // 6. CARD COMPONENT
 // ============================================================================
 interface CardProps {
+  key?: React.Key;
   children: React.ReactNode;
   className?: string;
   onClick?: () => void;
@@ -479,7 +496,7 @@ export function TableHead({ children, className = '' }: { children: React.ReactN
   );
 }
 
-export function TableRow({ children, className = '', onClick }: { children: React.ReactNode, className?: string, onClick?: () => void }) {
+export function TableRow({ children, className = '', onClick, key }: { children: React.ReactNode, className?: string, onClick?: () => void, key?: React.Key }) {
   return (
     <tr 
       onClick={onClick} 

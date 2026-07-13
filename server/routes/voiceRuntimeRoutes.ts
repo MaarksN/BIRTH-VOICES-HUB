@@ -1,0 +1,2 @@
+import { Router } from 'express'; import { voiceRuntimeController } from '../controllers/voiceRuntimeController.js'; import { requireAuth } from '../middlewares/auth.js';
+const r = Router(); r.use(requireAuth); r.get('/', voiceRuntimeController.get); r.post('/', voiceRuntimeController.create); r.put('/', voiceRuntimeController.update); r.delete('/', voiceRuntimeController.delete); export default r;

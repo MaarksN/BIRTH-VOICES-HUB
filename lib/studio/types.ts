@@ -14,7 +14,7 @@ export type NodeType =
   | 'voice'
   | 'llm';
 
-export interface StudioNodeData {
+export interface StudioNodeData extends Record<string, unknown> {
   label: string;
   category: string;
   icon?: string;
@@ -35,7 +35,7 @@ export interface StudioNodeData {
 
 export type StudioNode = Node<StudioNodeData, NodeType>;
 
-export interface StudioEdgeData {
+export interface StudioEdgeData extends Record<string, unknown> {
   condition?: string;
   priority?: number;
   weight?: number;
