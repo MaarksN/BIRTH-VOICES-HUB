@@ -12,6 +12,7 @@ model Tenant {
   name      String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  deletedAt DateTime?
 
   users         User[]
   memberships   Membership[]
@@ -22,6 +23,7 @@ model Tenant {
   sessions      Session[]
   agents        Agent[]
   auditLogs     AuditLog[]
+  settings      Setting[]
 }
 
 model User {
@@ -31,6 +33,7 @@ model User {
   companyName  String
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+  deletedAt    DateTime?
 
   tenantId     String?
   tenant       Tenant?  @relation(fields: [tenantId], references: [id])
@@ -38,6 +41,8 @@ model User {
   memberships  Membership[]
   sessions     Session[]
   auditLogs    AuditLog[]
+
+  @@index([tenantId])
 }
 
 model Membership {
@@ -53,6 +58,8 @@ model Membership {
   updatedAt DateTime @updatedAt
 
   @@unique([userId, tenantId])
+  @@index([tenantId])
+  @@index([roleId])
 }
 
 model Role {
@@ -67,6 +74,8 @@ model Role {
 
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+
+  @@index([tenantId])
 }
 
 model Permission {
@@ -92,8 +101,12 @@ model Workflow {
 
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
   createdBy   String?
   updatedBy   String?
+
+  @@index([tenantId])
+  @@index([userId])
 }
 
 model Session {
@@ -109,6 +122,10 @@ model Session {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  deletedAt DateTime?
+
+  @@index([tenantId])
+  @@index([userId])
 }
 
 model AuditLog {
@@ -120,50 +137,73 @@ model AuditLog {
   action    String
   details   Json     @default("{}")
   timestamp DateTime @default(now())
+
+  @@index([tenantId])
+  @@index([userId])
 }
 
 model Agent {
   id            String   @id @default(uuid())
   tenantId      String
   tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userId        String?
   name          String
   model         String
   configuration Json     @default("{}")
 
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
+  deletedAt     DateTime?
+
+  @@index([tenantId])
+  @@index([userId])
 }
 
 model CallLog {
   id          String   @id @default(uuid())
   tenantId    String
   tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userId      String?
   patientName String
   duration    String
   status      String
   time        String
   agent       String
   timestamp   DateTime @default(now())
+
+  @@index([tenantId])
+  @@index([userId])
 }
 
 model Metric {
   id        String   @id @default(uuid())
   tenantId  String
   tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userId    String?
   name      String
   value     Float
   tags      Json     @default("{}")
   timestamp DateTime @default(now())
+
+  @@index([tenantId])
+  @@index([userId])
 }
 
 model Setting {
   id        String   @id @default(uuid())
+  tenantId  String?
+  tenant    Tenant?  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userId    String?
   key       String
   value     Json
   isGlobal  Boolean  @default(false)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@unique([tenantId, userId, key])
+  @@index([tenantId])
+  @@index([userId])
 }
 
 model APIKey {

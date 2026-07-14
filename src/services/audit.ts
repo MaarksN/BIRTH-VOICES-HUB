@@ -1,22 +1,22 @@
-import { readDb, writeDb } from '../repositories/db.js';
-import crypto from 'crypto';
+import { Redis } from 'ioredis';
+import { Queue, Worker } from 'bullmq';
+import { createAuditLog } from '../repositories/auditLogRepository.js';
 
-export const writeAuditLog = (userId: string, action: string, details: any) => {
-  try {
-    const db = readDb();
-    const logEntry = {
-      id: crypto.randomUUID ? crypto.randomUUID() : crypto.randomBytes(16).toString("hex"),
-      userId,
-      action,
-      details,
-      timestamp: new Date().toISOString()
-    };
-    db.auditLogs.unshift(logEntry);
-    if (db.auditLogs.length > 500) {
-      db.auditLogs = db.auditLogs.slice(0, 500);
-    }
-    writeDb(db);
-  } catch (err) {
-    console.error("Audit log persistence failure:", err);
-  }
-};
+const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';
+const connection = new Redis(redisUrl, { maxRetriesPerRequest: null });
+
+const auditQueue = new Queue('auditLogs', { connection: connection as any });
+
+new Worker(
+  'auditLogs',
+  async (job) => {
+    await createAuditLog(job.data);
+  },
+  { connection: connection as any }
+);
+
+export function writeAuditLog(tenantId: string | undefined, userId: string, action: string, details: unknown) {
+  auditQueue
+    .add('log', { tenantId, userId, action, details }, { removeOnComplete: true, removeOnFail: 100 })
+    .catch((err) => console.error('Audit queue enqueue failure:', err));
+}
