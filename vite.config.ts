@@ -18,6 +18,11 @@ export default defineConfig(({ mode }) => {
         alias: {
           '@': path.resolve(__dirname, '.'),
         }
+      },
+      test: {
+        environment: 'node',
+        setupFiles: ['./vitest.setup.ts'],
+        globals: true
       }
     };
 });

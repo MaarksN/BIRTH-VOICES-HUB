@@ -62,24 +62,30 @@ async function startServer() {
   app.use(cookieParser());
   app.use(express.json());
 
-  // Pure Code Sliding-Window IP Rate Limiter
-  const rateLimits: Record<string, { count: number; resetTime: number }> = {};
-  const rateLimitMiddleware = (req: express.Request, res: express.Response, next: express.NextFunction) => {
+  // Redis-backed Rate Limiter
+  const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';
+  const { Redis } = await import('ioredis');
+  const redisClient = new Redis(redisUrl, { maxRetriesPerRequest: null });
+
+  const rateLimitMiddleware = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
     const ip = req.ip || (req.headers['x-forwarded-for'] as string) || 'unknown';
-    const now = Date.now();
-    const windowMs = 60 * 1000;
-    const limit = 200; // generous but protective
+    const key = `ratelimit:${ip}`;
+    const limit = 200;
+    const windowSeconds = 60;
 
-    if (!rateLimits[ip] || now > rateLimits[ip].resetTime) {
-      rateLimits[ip] = { count: 1, resetTime: now + windowMs };
-    } else {
-      rateLimits[ip].count++;
+    try {
+      const current = await redisClient.incr(key);
+      if (current === 1) {
+        await redisClient.expire(key, windowSeconds);
+      }
+      if (current > limit) {
+        return res.status(429).json({ error: "Limite de requisições excedido. Tente novamente em um minuto." });
+      }
+      next();
+    } catch (err) {
+      // Fallback in case Redis fails
+      next();
     }
-
-    if (rateLimits[ip].count > limit) {
-      return res.status(429).json({ error: "Limite de requisições excedido. Tente novamente em um minuto." });
-    }
-    next();
   };
   app.use(rateLimitMiddleware);
 
@@ -145,18 +151,14 @@ async function startServer() {
     return null;
   };
 
-  // Audit Logging engine
-  const writeAuditLog = (userId: string, action: string, details: any) => {
+  // BullMQ Audit Logging engine
+  const { Queue, Worker } = await import('bullmq');
+  const auditQueue = new Queue('auditLogs', { connection: redisClient as any });
+
+  new Worker('auditLogs', async job => {
     try {
       const db = readDb();
-      const logEntry = {
-        id: crypto.randomUUID ? crypto.randomUUID() : crypto.randomBytes(16).toString("hex"),
-        userId,
-        action,
-        details,
-        timestamp: new Date().toISOString()
-      };
-      db.auditLogs.unshift(logEntry);
+      db.auditLogs.unshift(job.data);
       if (db.auditLogs.length > 500) {
         db.auditLogs = db.auditLogs.slice(0, 500);
       }
@@ -164,6 +166,17 @@ async function startServer() {
     } catch (err) {
       console.error("Audit log persistence failure:", err);
     }
+  }, { connection: redisClient as any });
+
+  const writeAuditLog = (userId: string, action: string, details: any) => {
+    const logEntry = {
+      id: crypto.randomUUID ? crypto.randomUUID() : crypto.randomBytes(16).toString("hex"),
+      userId,
+      action,
+      details,
+      timestamp: new Date().toISOString()
+    };
+    auditQueue.add('log', logEntry, { removeOnComplete: true, removeOnFail: 100 }).catch(console.error);
   };
 
   // --- PERSISTENT DATABASE API ENDPOINTS ---
@@ -1432,9 +1445,13 @@ Regras de posicionamento do layout:
     });
   }
 
-  server.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server running on http://localhost:${PORT}`);
-  });
+  if (process.env.NODE_ENV !== 'test') {
+    server.listen(PORT, "0.0.0.0", () => {
+      console.log(`Server running on http://localhost:${PORT}`);
+    });
+  }
+  
+  return app;
 }
 
-startServer();
+export const appPromise = startServer();
