@@ -1,0 +1,6 @@
+C:\Users\marce\OneDrive\Documents\GitHub\BIRTH-VOICES-HUB\components\design-system\index.tsx - 660
+C:\Users\marce\OneDrive\Documents\GitHub\BIRTH-VOICES-HUB\components\studio\panels\BottomDrawer.tsx - 549
+C:\Users\marce\OneDrive\Documents\GitHub\BIRTH-VOICES-HUB\components\AgentForm.tsx - 650
+C:\Users\marce\OneDrive\Documents\GitHub\BIRTH-VOICES-HUB\pages\Dashboard\Overview.tsx - 1177
+C:\Users\marce\OneDrive\Documents\GitHub\BIRTH-VOICES-HUB\pages\Landing.tsx - 1605
+C:\Users\marce\OneDrive\Documents\GitHub\BIRTH-VOICES-HUB\store\useStudioStore.ts - 1215

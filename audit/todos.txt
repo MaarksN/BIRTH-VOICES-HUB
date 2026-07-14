@@ -1,0 +1,16 @@
+
+components\AgentForm.tsx:289:      title: 'Limpar Todos os Agentes',
+components\AgentForm.tsx:290:      message: 'Tem certeza que deseja apagar TODOS os agentes salvos? Esta ação não pode ser desfeita.',
+components\AgentForm.tsx:301:          setDialogAlert('Todos os agentes foram removidos.');
+components\AgentForm.tsx:384:                  Limpar Todos
+lib\voice-runtime\intelligence\analytics\ExecutiveInsightsEngine.ts:25:      conversionIncreaseSuggestions: ['Aplicar Prompt Challenger v4 em todos os SDRs'],
+pages\Dashboard\AgentRegistry.tsx:22:          <p className="text-sm text-slate-500">Gerencie todos os agentes do seu workspace.</p>
+pages\Dashboard\Governance.tsx:20:          { title: 'Administrator', desc: 'Acesso irrestrito a todos os projetos e faturamento.', count: 2 },
+pages\Landing.tsx:217:        botResponse = "Totalmente seguro! Todos os logs e transcrições de áudio passam por rotinas automáticas de anonimização e criptografia em trânsito e em repouso.";
+pages\Landing.tsx:1564:                <span className="text-slate-400">Todos os sistemas normais</span>
+pages\Landing.tsx:1577:          <p>© 2026 Birth Hub 360 Enterprise. Todos os direitos reservados. Projetado para saúde de alta performance.</p>
+store\useSessionStore.ts:11:export const applyBrandColorToDom = (color: string) => {
+store\useSessionStore.ts:47:    applyBrandColorToDom(color);
+App.tsx:29:import { useSessionStore, applyBrandColorToDom } from './store/useSessionStore';
+App.tsx:89:    applyBrandColorToDom(brandColor);
+
