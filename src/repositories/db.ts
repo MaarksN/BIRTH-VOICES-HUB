@@ -1,6 +1,9 @@
 import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
+import { PrismaClient } from '@prisma/client';
 import { firestore, doc, getDoc, setDoc } from '../../lib/firebase.js';
+
+export const prisma = new PrismaClient();
 
 export interface User {
   id: string;

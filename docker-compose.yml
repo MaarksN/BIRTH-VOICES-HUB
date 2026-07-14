@@ -1,0 +1,70 @@
+version: '3.8'
+
+x-common-env: &common-env
+  NODE_ENV: production
+  PORT: 3000
+  DATABASE_URL: postgresql://devuser:devpassword@postgres:5432/birthvoices?schema=public
+  REDIS_URL: redis://redis:6379
+  # For local testing. Overwrite in production.
+  GEMINI_API_KEY: ${GEMINI_API_KEY:-""}
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: birthvoices-app:latest
+    ports:
+      - "3000:3000"
+    environment:
+      <<: *common-env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - app_network
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: devuser
+      POSTGRES_PASSWORD: devpassword
+      POSTGRES_DB: birthvoices
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - app_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U devuser -d birthvoices"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - app_network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+networks:
+  app_network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:
