@@ -241,7 +241,7 @@ export default function PreferencesPage() {
             <p className="text-xs text-slate-500 leading-relaxed">
               Todas as preferências alteradas aqui reconfiguram dinamicamente o comportamento de renderização dos componentes, cumprindo estritamente as diretrizes de acessibilidade WCAG.
             </p>
-            <Button size="sm" variant="outline" className="w-full" onClick={() => window.location.hash = '#/dashboard/docs'}>
+            <Button size="sm" variant="outline" className="w-full" onClick={() => { window.location.hash = '#/dashboard/docs'; }}>
               Ver Design Tokens
               <ArrowRight className="h-3.5 w-3.5 ml-2" />
             </Button>
