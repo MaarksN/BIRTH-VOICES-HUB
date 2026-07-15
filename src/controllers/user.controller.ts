@@ -27,8 +27,8 @@ export async function updateUserHandler(req: Request, res: Response) {
   if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0].message });
 
   try {
-    await updateUserProfile(req.params.id, req.tenantId!, req.user!, parsed.data);
-    writeAuditLog(req.tenantId, req.user!.id, 'USER_UPDATE', { targetUserId: req.params.id });
+    await updateUserProfile(req.params.id as string, req.tenantId!, req.user!, parsed.data);
+    writeAuditLog(req.tenantId, req.user!.id, 'USER_UPDATE', { targetUserId: req.params.id as string });
     res.json({ success: true, message: 'Perfil atualizado com sucesso.' });
   } catch (err) {
     if (err instanceof UserServiceError) return res.status(err.status).json({ error: err.message });
@@ -38,8 +38,8 @@ export async function updateUserHandler(req: Request, res: Response) {
 
 export async function deleteUserHandler(req: Request, res: Response) {
   try {
-    await deleteUser(req.params.id, req.tenantId!, req.user!.id);
-    writeAuditLog(req.tenantId, req.user!.id, 'USER_DELETE', { targetUserId: req.params.id });
+    await deleteUser(req.params.id as string, req.tenantId!, req.user!.id);
+    writeAuditLog(req.tenantId, req.user!.id, 'USER_DELETE', { targetUserId: req.params.id as string });
     res.json({ success: true, message: 'Usuário excluído com sucesso.' });
   } catch (err) {
     if (err instanceof UserServiceError) return res.status(err.status).json({ error: err.message });

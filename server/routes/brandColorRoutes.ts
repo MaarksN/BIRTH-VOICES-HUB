@@ -1,3 +1,0 @@
-import { Router, Response, NextFunction } from 'express'; import { brandColorController } from '../controllers/brandColorController.js'; import { verifyToken } from '../services/auth.js'; import { AuthedRequest } from '../middlewares/auth.js';
-function oa(q: AuthedRequest, s: Response, n: NextFunction) { const a = q.headers.authorization; if (a && a.startsWith('Bearer ')) { const u = verifyToken(a.split(' ')[1]); if (u) q.user = u; } n(); }
-const r = Router(); r.use(oa); r.get('/', brandColorController.get); r.post('/', brandColorController.save); r.put('/', brandColorController.save); r.delete('/', brandColorController.delete); export default r;

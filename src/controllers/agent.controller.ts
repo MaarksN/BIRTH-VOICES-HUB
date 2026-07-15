@@ -16,6 +16,6 @@ export async function createAgentHandler(req: Request, res: Response) {
 }
 
 export async function deleteAgentHandler(req: Request, res: Response) {
-  await deleteAgent(req.params.id, req.tenantId!);
+  await deleteAgent(req.params.id as string, req.tenantId!);
   res.json({ success: true });
 }
