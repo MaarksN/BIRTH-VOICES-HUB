@@ -134,8 +134,8 @@ export default function ObservabilityPage() {
               { title: 'Tempo Médio de Resposta', value: `${avgLatency}ms`, trend: 'P95 Latency', icon: <Zap className="h-5 w-5" />, color: 'brand' },
               { title: 'Total Traces (Spans)', value: totalSpans.toString(), trend: 'Métricas Ativas', icon: <Activity className="h-5 w-5" />, color: 'blue' },
               { title: 'Status do Sistema', value: 'Operacional', trend: 'Livre de Erros', icon: <Shield className="h-5 w-5" />, color: 'emerald' }
-            ].map((metric) => (
-              <Card className="p-5 border-slate-200/60 dark:border-slate-700/60">
+            ].map((metric, i) => (
+              <Card key={i} className="p-5 border-slate-200/60 dark:border-slate-700/60">
                 <div className="flex justify-between items-start mb-3">
                   <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{metric.title}</span>
                   <div className={`text-${metric.color}-500 dark:text-${metric.color}-400`}>{metric.icon}</div>

@@ -37,7 +37,7 @@ export async function register(email: string, password: string, companyName: str
   const token = generateToken(payload);
   const refreshToken = generateRefreshToken({ id: user.id });
 
-  return { token, refreshToken, user: toPublicUser(user, 'admin') };
+  return { token, refreshToken, user: toPublicUser(user, 'admin'), tenantId: tenant.id };
 }
 
 export async function login(email: string, password: string) {
@@ -53,7 +53,7 @@ export async function login(email: string, password: string) {
   const token = generateToken(payload);
   const refreshToken = generateRefreshToken({ id: user.id });
 
-  return { token, refreshToken, user: toPublicUser(user, role) };
+  return { token, refreshToken, user: toPublicUser(user, role), tenantId: user.tenantId };
 }
 
 export async function refreshSession(refreshToken: string) {
