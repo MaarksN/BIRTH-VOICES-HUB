@@ -1,6 +1,30 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Play, Mic, MicOff, Save, RotateCcw } from 'lucide-react';
 
+interface SpeechRecognitionResultLike {
+  0: { transcript: string };
+}
+
+interface SpeechRecognitionEventLike {
+  results: ArrayLike<SpeechRecognitionResultLike>;
+}
+
+interface SpeechRecognitionErrorEventLike {
+  error: string;
+}
+
+interface SpeechRecognitionLike {
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  onstart: (() => void) | null;
+  onresult: ((event: SpeechRecognitionEventLike) => void) | null;
+  onerror: ((event: SpeechRecognitionErrorEventLike) => void) | null;
+  onend: (() => void) | null;
+  start: () => void;
+  stop: () => void;
+}
+
 export default function PlaygroundPage() {
   const [prompt, setPrompt] = useState('Você é um assistente útil e amigável.');
   const [messages, setMessages] = useState<{role: 'user'|'agent', text: string}[]>([]);
@@ -10,7 +34,7 @@ export default function PlaygroundPage() {
   const [enableSearchGrounding, setEnableSearchGrounding] = useState(false);
   const [enableTTS, setEnableTTS] = useState(false);
   
-  const recognitionRef = useRef<any>(null);
+  const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const originalInputRef = useRef<string>('');
 
   // Audio waveform refs
@@ -81,7 +105,7 @@ export default function PlaygroundPage() {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       streamRef.current = stream;
       
-      const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+      const AudioContextClass = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
       const audioContext = new AudioContextClass();
       audioContextRef.current = audioContext;
       
@@ -180,9 +204,10 @@ export default function PlaygroundPage() {
             console.error('Falha ao tocar áudio', e);
           }
         }
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error(error);
-        setMessages(prev => [...prev, { role: 'agent', text: `[Erro]: ${error.message}` }]);
+        const message = error instanceof Error ? error.message : String(error);
+        setMessages(prev => [...prev, { role: 'agent', text: `[Erro]: ${message}` }]);
       } finally {
         setIsLoading(false);
       }
@@ -203,8 +228,12 @@ export default function PlaygroundPage() {
     }
 
     originalInputRef.current = input;
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    const recognition = new SpeechRecognition();
+    const { SpeechRecognition: SpeechRecognitionCtor, webkitSpeechRecognition } = window as unknown as {
+      SpeechRecognition?: new () => SpeechRecognitionLike;
+      webkitSpeechRecognition?: new () => SpeechRecognitionLike;
+    };
+    const SpeechRecognition = SpeechRecognitionCtor || webkitSpeechRecognition;
+    const recognition = new SpeechRecognition!();
     recognition.continuous = true;
     recognition.interimResults = true;
     recognition.lang = 'pt-BR';
@@ -214,15 +243,15 @@ export default function PlaygroundPage() {
       startAudioWave();
     };
     
-    recognition.onresult = (event: any) => {
+    recognition.onresult = (event: SpeechRecognitionEventLike) => {
       const transcript = Array.from(event.results)
-        .map((result: any) => result[0].transcript)
+        .map((result: SpeechRecognitionResultLike) => result[0].transcript)
         .join('');
-      
+
       setInput(originalInputRef.current + (originalInputRef.current ? ' ' : '') + transcript);
     };
 
-    recognition.onerror = (event: any) => {
+    recognition.onerror = (event: SpeechRecognitionErrorEventLike) => {
       console.error('Erro de reconhecimento de voz', event.error);
       setIsListening(false);
       stopAudioWave();

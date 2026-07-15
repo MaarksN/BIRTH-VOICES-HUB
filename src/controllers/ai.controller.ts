@@ -8,6 +8,10 @@ function getGeminiClient(): GoogleGenAI | null {
   return new GoogleGenAI({ apiKey, httpOptions: { headers: { 'User-Agent': 'aistudio-build' } } });
 }
 
+function getErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : 'Internal server error';
+}
+
 export async function chatHandler(req: Request, res: Response) {
   try {
     const { prompt, currentMessages, provider = 'GoogleGemini' } = req.body;
@@ -27,9 +31,9 @@ export async function chatHandler(req: Request, res: Response) {
       costUSD: result.costUSD,
       fromFallback: result.fromFallback,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Chat API error:', error);
-    res.status(500).json({ error: error.message || 'Internal server error' });
+    res.status(500).json({ error: getErrorMessage(error) });
   }
 }
 
@@ -49,9 +53,9 @@ export async function ttsHandler(req: Request, res: Response) {
     });
     const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
     res.json({ audioBase64: base64Audio });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('TTS API error:', error);
-    res.status(500).json({ error: error.message || 'Internal server error' });
+    res.status(500).json({ error: getErrorMessage(error) });
   }
 }
 
@@ -80,9 +84,9 @@ export async function generateMusicHandler(req: Request, res: Response) {
     }
 
     res.json({ audioBase64, mimeType });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Lyria API error:', error);
-    res.status(500).json({ error: error.message || 'Internal server error' });
+    res.status(500).json({ error: getErrorMessage(error) });
   }
 }
 
@@ -100,9 +104,9 @@ export async function generateVideoHandler(req: Request, res: Response) {
     });
 
     res.json({ operationName: operation.name });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Veo start error:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: getErrorMessage(error) });
   }
 }
 
@@ -117,8 +121,8 @@ export async function videoStatusHandler(req: Request, res: Response) {
     const updated = await ai.operations.getVideosOperation({ operation: op });
 
     res.json({ done: updated.done, error: updated.error });
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
+  } catch (error: unknown) {
+    res.status(500).json({ error: getErrorMessage(error) });
   }
 }
 
@@ -150,9 +154,9 @@ export async function videoDownloadHandler(req: Request, res: Response) {
         },
       })
     );
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Video download error:', error);
-    res.status(500).send(error.message);
+    res.status(500).send(getErrorMessage(error));
   }
 }
 
@@ -215,9 +219,9 @@ Retorne os mesmos nós, mantendo seus IDs e posições intactos, mas modificando
 
     const result = JSON.parse(response.text || '{}');
     res.json(result);
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Refactor API error:', error);
-    res.status(500).json({ error: error.message || 'Internal server error' });
+    res.status(500).json({ error: getErrorMessage(error) });
   }
 }
 
@@ -305,8 +309,8 @@ Regras de posicionamento do layout:
 
     const result = JSON.parse(response.text || '{}');
     res.json(result);
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Generate Workflow API error:', error);
-    res.status(500).json({ error: error.message || 'Internal server error' });
+    res.status(500).json({ error: getErrorMessage(error) });
   }
 }

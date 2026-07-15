@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import { 
-  Play, Pause, Square, ChevronRight, AlertCircle, AlertTriangle, List, 
-  Terminal, BarChart2, Sparkles, Variable, Plus, Trash2, Key, HelpCircle, FastForward, CheckCircle2 
+import {
+  Play, Pause, Square, AlertCircle, AlertTriangle, List,
+  Terminal, BarChart2, Sparkles, Variable, Plus, Trash2, FastForward, CheckCircle2
 } from 'lucide-react';
-import { useStudioStore, nodeRegistry } from '../../../store/useStudioStore';
+import { useStudioStore } from '../../../store/useStudioStore';
 import { validationEngine } from '../../../lib/studio/ValidationEngine';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -19,7 +19,6 @@ export function BottomDrawer() {
     nodes,
     edges,
     isDebugging,
-    activeSimulationNodeId,
     simulationLogs,
     simulationVariables,
     isSimulationPaused,

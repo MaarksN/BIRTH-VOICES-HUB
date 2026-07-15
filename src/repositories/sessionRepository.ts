@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client';
 import { prisma } from '../lib/prisma.js';
 
 export function listSessionsForUser(tenantId: string, userId: string) {
@@ -12,7 +13,7 @@ export function createSession(tenantId: string, userId: string, data: { agentId?
       agentId: data.agentId || 'default_catarina',
       channel: data.channel || 'WebChat',
       status: 'active',
-      metadata: (data.metadata ?? {}) as any,
+      metadata: (data.metadata ?? {}) as Prisma.InputJsonValue,
     },
   });
 }
@@ -21,7 +22,7 @@ export function findSessionForUser(id: string, tenantId: string, userId: string)
   return prisma.session.findFirst({ where: { id, tenantId, userId, deletedAt: null } });
 }
 
-export function updateSession(id: string, data: { status?: string; metadata?: any }) {
+export function updateSession(id: string, data: { status?: string; metadata?: Prisma.InputJsonValue }) {
   return prisma.session.update({ where: { id }, data });
 }
 

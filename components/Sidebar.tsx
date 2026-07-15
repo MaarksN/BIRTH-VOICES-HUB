@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { 
-  Home, Users, BarChart3, Mic, Settings, BookOpen, CreditCard, Code, 
-  Building2, Search, Sun, Moon, Laptop, Bell, Star, Clock, HelpCircle, 
-  ChevronRight, BadgeInfo, Eye, Trash2, CheckSquare, Sparkles, BookMarked,
+import {
+  Home, Users, BarChart3, Mic, Settings, BookOpen, CreditCard, Code,
+  Building2, Search, Sun, Moon, Laptop, Bell, Star, Clock,
+  ChevronRight, Trash2, Sparkles, BookMarked,
   Activity, Shield, StarOff
 } from 'lucide-react';
 import { auth } from '../lib/auth';
@@ -369,10 +369,10 @@ export function Sidebar() {
           </div>
 
           <div className="flex gap-1 mb-3.5 overflow-x-auto pb-1">
-            {['all', 'system', 'ia', 'calls', 'billing'].map(filter => (
+            {(['all', 'system', 'ia', 'calls', 'billing'] as const).map(filter => (
               <button
                 key={filter}
-                onClick={() => setNotifFilter(filter as any)}
+                onClick={() => setNotifFilter(filter)}
                 className={`px-2.5 py-1 text-[9px] font-bold rounded-full border transition-all shrink-0 capitalize ${
                   notifFilter === filter
                     ? 'bg-brand text-white border-brand'

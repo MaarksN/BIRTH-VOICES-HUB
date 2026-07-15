@@ -32,7 +32,7 @@ export class IntelligencePipeline {
     });
   }
 
-  public analyzeTurn(sessionId: string, turn: ConversationTurn, isAudio: boolean = false): ConversationTurn {
+  public analyzeTurn(sessionId: string, turn: ConversationTurn, _isAudio: boolean = false): ConversationTurn {
     const sessionData = this.intelligenceStore.get(sessionId);
     if (!sessionData) return turn;
     

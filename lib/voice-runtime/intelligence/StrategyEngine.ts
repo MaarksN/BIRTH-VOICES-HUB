@@ -5,7 +5,7 @@ import { otelCollector } from '../otel';
 export class StrategyEngine {
   public adaptStrategy(sessionId: string, intelligence: SessionIntelligence): StrategyProfile {
     const spanId = otelCollector.startLocalSpan('StrategyEngine.adaptStrategy', sessionId);
-    let strategy: StrategyProfile = intelligence.strategyProfile || {
+    const strategy: StrategyProfile = intelligence.strategyProfile || {
       tone: 'Professional',
       depth: 'Moderate',
       languageComplexity: 'Standard',

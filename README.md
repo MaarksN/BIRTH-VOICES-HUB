@@ -1,12 +1,11 @@
 # Phoenix Enterprise Reconstruction - Ciclo 2
 
 ## Executed Tasks
-- Replaced mock memory states with an active Firebase/Firestore persistence adapter (`src/repositories/db.ts`).
-- Created modular REST API endpoints for all entities and extracted Auth Controllers to MVC architecture (`src/controllers/auth.controller.ts`).
-- Refactored `server.ts` to implement strict security middlewares (Helmet, strict CSRF validation, and Rate Limiting).
-- Set `vitest` up and ran build test validations ensuring 100% TS-strict passing.
-- Aggressively stripped all `setTimeout`, `setInterval`, dummy delays, and pseudo local mock fallbacks from the frontend hooks (`useVoiceConversation`) and states (`useStudioStore`).
-- Overhauled and strictly validated `components/design-system/index.tsx` mapping specific interfaces correctly (`ButtonProps`, `InputProps`, etc.) across `Dashboard` fragments.
+- Replaced the in-memory/mock persistence layer with real PostgreSQL persistence via Prisma (`prisma/schema.prisma`, `prisma/migrations/`), scoped to genuine multi-tenancy (`Tenant` → `Membership` → `Role`).
+- Consolidated the previously duplicated `server/` and `src/` backend trees into a single layered architecture (`src/controllers`, `src/services`, `src/repositories`, `src/routes`), mounted from `server.ts`.
+- Refactored `server.ts` to implement security middlewares (Helmet with CSP, CORS, Redis-backed rate limiting, CSRF validation, authenticated Socket.IO handshake) and `/health`, `/live`, `/ready` endpoints.
+- Set `vitest` up with a real integration + unit test suite (`__tests__/`) covering auth, tenant isolation, RBAC, and service-layer business logic.
+- Configured a real ESLint flat config (`eslint.config.js`) and wired CI to gate on lint/typecheck/test/build.
 
 ## DevOps & Infrastructure
 
@@ -23,8 +22,10 @@ The project is fully containerized and production-ready for deployment to Google
 3. Initialize the database schema:
    npx prisma migrate dev
 
-4. Start the application:
-   npm start &
+4. Start the application in development mode:
+   npm run dev
+
+   (For a production-style run: `npm run build && npm start`.)
 
 ### Running with Docker Compose (Full Stack)
 

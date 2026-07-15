@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client';
 import { prisma } from '../lib/prisma.js';
 
 export function findWorkflowForTenant(tenantId: string) {
@@ -15,8 +16,8 @@ export function upsertWorkflow(
       where: { id: existingId },
       data: {
         name: data.name ?? undefined,
-        nodes: data.nodes as any,
-        edges: data.edges as any,
+        nodes: data.nodes as Prisma.InputJsonValue,
+        edges: data.edges as Prisma.InputJsonValue,
         updatedBy: userId,
       },
     });
@@ -28,8 +29,8 @@ export function upsertWorkflow(
       createdBy: userId,
       updatedBy: userId,
       name: data.name || 'Default Workflow',
-      nodes: (data.nodes ?? []) as any,
-      edges: (data.edges ?? []) as any,
+      nodes: (data.nodes ?? []) as Prisma.InputJsonValue,
+      edges: (data.edges ?? []) as Prisma.InputJsonValue,
     },
   });
 }

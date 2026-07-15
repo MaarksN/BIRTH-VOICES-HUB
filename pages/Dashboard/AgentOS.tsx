@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { Card, Button, Badge } from '../../components/design-system';
 import { 
   Settings, Brain, Mic, Database, Wrench, Shield, Activity, 
-  GitBranch, PlaySquare, ArrowLeft, Save, Rocket, Zap, Sliders, MessageSquare 
+  GitBranch, PlaySquare, ArrowLeft, Save, Rocket, Zap, MessageSquare
 } from 'lucide-react';
 
 export default function AgentOS() {

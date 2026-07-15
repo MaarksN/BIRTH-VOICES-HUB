@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Check, AlertTriangle, AlertCircle, Info, CheckCircle, X, ChevronDown, RefreshCw, ChevronRight } from 'lucide-react';
+import { AlertTriangle, AlertCircle, Info, CheckCircle, X, ChevronDown, RefreshCw, ChevronRight } from 'lucide-react';
 
 // ============================================================================
 // 1. BUTTON COMPONENT
@@ -16,7 +16,7 @@ export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
   children?: React.ReactNode;
   className?: string;
   disabled?: boolean;
-  onClick?: (e?: any) => void;
+  onClick?: React.MouseEventHandler<HTMLButtonElement>;
   type?: "button" | "submit" | "reset";
 }
 
@@ -83,8 +83,8 @@ export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> 
   rightIcon?: React.ReactNode;
   placeholder?: string;
   className?: string;
-  value?: any;
-  onChange?: (e: any) => void;
+  value?: string | number | readonly string[];
+  onChange?: React.ChangeEventHandler<HTMLInputElement>;
 }
 
 
@@ -159,7 +159,7 @@ export interface CheckboxProps extends React.InputHTMLAttributes<HTMLInputElemen
   label: string;
   className?: string;
   checked?: boolean;
-  onChange?: (e: any) => void;
+  onChange?: React.ChangeEventHandler<HTMLInputElement>;
 }
 
 
@@ -218,8 +218,8 @@ export interface SelectProps extends React.SelectHTMLAttributes<HTMLSelectElemen
   error?: string;
   options: { value: string; label: string }[];
   className?: string;
-  value?: any;
-  onChange?: (e: any) => void;
+  value?: string | number | readonly string[];
+  onChange?: React.ChangeEventHandler<HTMLSelectElement>;
 }
 
 
@@ -518,7 +518,7 @@ export function TableHead({ children, className = '' }: { children: React.ReactN
   );
 }
 
-export function TableRow({ children, className = '', onClick, key }: any) {
+export function TableRow({ children, className = '', onClick }: { children: React.ReactNode, className?: string, onClick?: React.MouseEventHandler<HTMLTableRowElement> }) {
   return (
     <tr 
       onClick={onClick} 

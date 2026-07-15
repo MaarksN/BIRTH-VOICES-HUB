@@ -9,7 +9,7 @@ export interface EmotionalHeatmap {
 }
 
 export class EmotionalAnalyticsEngine {
-  public generateHeatmap(intelligence: SessionIntelligence): EmotionalHeatmap {
+  public generateHeatmap(_intelligence: SessionIntelligence): EmotionalHeatmap {
     // Generate data for heatmaps
     const heatmap: EmotionalHeatmap = {
       predominantEmotions: {

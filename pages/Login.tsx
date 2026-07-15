@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Mic, ArrowRight } from 'lucide-react';
-import { auth } from '../lib/auth';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -30,8 +29,8 @@ export default function LoginPage() {
       }
 
       navigate('/dashboard');
-    } catch (err: any) {
-      setError(err.message || 'Erro de conexão.');
+    } catch (err: unknown) {
+      setError((err instanceof Error && err.message) || 'Erro de conexão.');
       setLoading(false);
     }
   };

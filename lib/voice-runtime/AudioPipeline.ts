@@ -37,7 +37,7 @@ export class AudioPipeline {
     return chunk;
   }
 
-  private detectVoiceActivity(chunk: ArrayBuffer | Uint8Array): boolean {
+  private detectVoiceActivity(_chunk: ArrayBuffer | Uint8Array): boolean {
     // VAD placeholder (e.g. Silero VAD)
     // Simplified logic: returning false to represent silence
     return false; 

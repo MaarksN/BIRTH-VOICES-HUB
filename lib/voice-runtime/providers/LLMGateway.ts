@@ -54,7 +54,7 @@ class LLMProviderGateway {
     }
 
     let currentProvider = preferredProvider;
-    let errorLog: string[] = [];
+    const errorLog: string[] = [];
     let text = '';
     let tokensUsed = Math.ceil((prompt.length + systemInstruction.length) / 4); // basic token estimate
     let isFallback = false;
@@ -158,8 +158,9 @@ class LLMProviderGateway {
           tokensUsed = (data.usage?.input_tokens + data.usage?.output_tokens) || tokensUsed;
           break;
         }
-      } catch (err: any) {
-        errorLog.push(`${provider}: ${err.message}`);
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : String(err);
+        errorLog.push(`${provider}: ${message}`);
         isFallback = true;
       }
     }

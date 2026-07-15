@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import { 
-  Settings, Globe, Clock, Bell, Keyboard, LayoutGrid, Glasses,
-  Check, ShieldAlert, Sparkles, SlidersHorizontal, ArrowRight, AppWindow
+import {
+  Settings, Globe, Bell, Keyboard, LayoutGrid,
+  SlidersHorizontal, ArrowRight
 } from 'lucide-react';
-import { Card, Button, Badge, Switch, Select, Alert, useToast, ToastContainer } from '../../components/design-system';
+import { Card, Button, Badge, Switch, Select, useToast, ToastContainer } from '../../components/design-system';
 
 export default function PreferencesPage() {
   const { toasts, showToast } = useToast();

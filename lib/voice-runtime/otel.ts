@@ -1,4 +1,4 @@
-import { trace, metrics, ValueType, Span, Tracer, Meter } from '@opentelemetry/api';
+import { trace, metrics, ValueType, Tracer, Meter, Attributes } from '@opentelemetry/api';
 
 // Create a custom collector to store real-time spans and metrics for the frontend ObservabilityPage
 export interface LocalSpan {
@@ -8,14 +8,14 @@ export interface LocalSpan {
   startTime: number;
   endTime?: number;
   duration?: number;
-  attributes: Record<string, any>;
+  attributes: Attributes;
 }
 
 export interface LocalMetric {
   name: string;
   value: number;
   timestamp: number;
-  attributes: Record<string, any>;
+  attributes: Attributes;
 }
 
 class OpenTelemetryCollector {
@@ -39,7 +39,7 @@ class OpenTelemetryCollector {
   }
 
   // Record a span locally for dashboard display
-  public startLocalSpan(name: string, sessionId: string, attributes: Record<string, any> = {}): string {
+  public startLocalSpan(name: string, sessionId: string, attributes: Attributes = {}): string {
     const spanId = `span-${Date.now()}-${this.spans.length}`;
     const localSpan: LocalSpan = {
       id: spanId,
@@ -60,7 +60,7 @@ class OpenTelemetryCollector {
     return spanId;
   }
 
-  public endLocalSpan(spanId: string, additionalAttributes: Record<string, any> = {}) {
+  public endLocalSpan(spanId: string, additionalAttributes: Attributes = {}) {
     const span = this.spans.find(s => s.id === spanId);
     if (span) {
       span.endTime = Date.now();
@@ -80,7 +80,7 @@ class OpenTelemetryCollector {
     }
   }
 
-  public recordLocalMetric(name: string, value: number, attributes: Record<string, any> = {}) {
+  public recordLocalMetric(name: string, value: number, attributes: Attributes = {}) {
     this.metrics.push({
       name,
       value,

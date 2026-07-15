@@ -3,7 +3,7 @@ import { observability } from '../Observability';
 
 export class RelationshipEngine {
   public updateRelationship(sessionId: string, intelligence: SessionIntelligence): RelationshipProfile {
-    let profile: RelationshipProfile = intelligence.relationshipProfile || {
+    const profile: RelationshipProfile = intelligence.relationshipProfile || {
       preferences: [],
       history: [],
       interests: [],

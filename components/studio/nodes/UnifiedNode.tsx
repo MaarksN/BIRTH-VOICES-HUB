@@ -1,18 +1,18 @@
 import { Handle, Position, NodeProps } from '@xyflow/react';
-import { StudioNodeData } from '../../../lib/studio/types';
 import { LucideIcon } from 'lucide-react';
 import * as Icons from 'lucide-react';
+import { StudioNode } from '../../../lib/studio/types';
 
-interface UnifiedNodeProps {
-  iconName: keyof typeof Icons;
+export type UnifiedNodeProps = NodeProps<StudioNode> & {
+  iconName: string;
   colorClass: string;
   headerTitle: string;
   inputs?: number;
   outputs?: number;
-}
+};
 
-export function UnifiedNode({ data, iconName, colorClass, headerTitle, inputs = 1, outputs = 1, selected }: any) {
-  const Icon = Icons[iconName] as LucideIcon;
+export function UnifiedNode({ data, iconName, colorClass, headerTitle, inputs = 1, outputs = 1, selected }: UnifiedNodeProps) {
+  const Icon = Icons[iconName as keyof typeof Icons] as LucideIcon;
   const isInvalid = data.validation?.isValid === false;
   const lifecycle = data.lifecycleState || 'Ready';
 

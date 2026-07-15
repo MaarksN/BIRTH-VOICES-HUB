@@ -1,6 +1,6 @@
 import React from 'react';
 import { Card, Button, Badge } from '../../components/design-system';
-import { Shield, Users, Lock, Key, CheckCircle } from 'lucide-react';
+import { Shield, Users, Lock, CheckCircle } from 'lucide-react';
 
 export default function GovernancePage() {
   return (

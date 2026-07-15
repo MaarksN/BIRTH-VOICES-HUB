@@ -32,8 +32,8 @@ export default function RegisterPage() {
 
       auth.setToken(data.token, data.user);
       navigate('/dashboard');
-    } catch (err: any) {
-      setError(err.message || 'Erro de conexão.');
+    } catch (err: unknown) {
+      setError((err instanceof Error && err.message) || 'Erro de conexão.');
       setLoading(false);
     }
   };

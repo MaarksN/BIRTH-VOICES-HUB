@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client';
 import * as sessionRepository from '../repositories/sessionRepository.js';
 
 export class NotFoundError extends Error {}
@@ -16,7 +17,9 @@ export async function updateSession(id: string, tenantId: string, userId: string
 
   return sessionRepository.updateSession(id, {
     status: data.status ?? undefined,
-    metadata: data.metadata ? { ...(existing.metadata as Record<string, unknown>), ...data.metadata } : undefined,
+    metadata: data.metadata
+      ? ({ ...(existing.metadata as Record<string, unknown>), ...data.metadata } as Prisma.InputJsonValue)
+      : undefined,
   });
 }
 

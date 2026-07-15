@@ -11,14 +11,14 @@ export const requireTenant = async (req: Request, res: Response, next: NextFunct
     return res.status(403).json({ error: 'Acesso negado. Usuário sem tenant associado.' });
   }
 
-  (req as any).tenantId = session.tenantId;
-  (req as any).user = session;
+  req.tenantId = session.tenantId;
+  req.user = session;
   next();
 };
 
 export const requireRole = (allowedRoles: string[]) => {
   return (req: Request, res: Response, next: NextFunction) => {
-    const session = (req as any).user;
+    const session = req.user;
     if (!session) {
       return res.status(401).json({ error: 'Não autorizado.' });
     }

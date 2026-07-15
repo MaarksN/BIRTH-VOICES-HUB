@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client';
 import { prisma } from '../lib/prisma.js';
 
 export function listMetricsForUser(tenantId: string, userId: string) {
@@ -11,7 +12,7 @@ export function createMetric(tenantId: string, userId: string, data: { name: str
       userId,
       name: data.name,
       value: data.value,
-      tags: (data.tags ?? {}) as any,
+      tags: (data.tags ?? {}) as Prisma.InputJsonValue,
     },
   });
 }

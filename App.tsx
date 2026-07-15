@@ -1,28 +1,5 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, Suspense, lazy } from 'react';
 import { HashRouter as Router, Routes, Route, Outlet, Navigate, useLocation } from 'react-router-dom';
-import LandingPage from './pages/Landing';
-import LoginPage from './pages/Login';
-import RegisterPage from './pages/Register';
-import Overview from './pages/Dashboard/Overview';
-import AdminPage from './pages/Dashboard/Admin';
-import AnalyticsPage from './pages/Dashboard/Analytics';
-import BillingPage from './pages/Dashboard/Billing';
-import DevelopersPage from './pages/Dashboard/Developers';
-import OrganizationPage from './pages/Dashboard/Organization';
-import PlaygroundPage from './pages/Dashboard/Playground';
-import TelephonyPage from './pages/Dashboard/Telephony';
-import ResultsPage from './pages/Dashboard/Results';
-import DesignSystemDocs from './pages/Dashboard/Docs';
-import PreferencesPage from './pages/Dashboard/Preferences';
-import AgentRegistry from './pages/Dashboard/AgentRegistry';
-import AgentOS from './pages/Dashboard/AgentOS';
-import KnowledgeManager from './pages/Dashboard/KnowledgeManager';
-import ToolRegistry from './pages/Dashboard/ToolRegistry';
-import AgentMarketplace from './pages/Dashboard/AgentMarketplace';
-import ObservabilityPage from './pages/Dashboard/Observability';
-import GovernancePage from './pages/Dashboard/Governance';
-import VoiceStudioPage from './pages/Dashboard/VoiceStudio';
-import SupervisionPage from './pages/Dashboard/Supervision';
 import { Sidebar } from './components/Sidebar';
 import { AgentForm } from './components/AgentForm';
 import { auth } from './lib/auth';
@@ -31,6 +8,38 @@ import { ThemeProvider } from './components/design-system/ThemeContext';
 import { ErrorBoundary } from './components/design-system/ErrorBoundary';
 import { CommandPalette } from './components/design-system/CommandPalette';
 import { GlobalHelpCenter } from './components/GlobalHelpCenter';
+
+// Route-level code splitting: each page ships as its own chunk instead of one
+// monolithic bundle, so the initial load only pays for Landing/Login/Register.
+const LandingPage = lazy(() => import('./pages/Landing'));
+const LoginPage = lazy(() => import('./pages/Login'));
+const RegisterPage = lazy(() => import('./pages/Register'));
+const Overview = lazy(() => import('./pages/Dashboard/Overview'));
+const AdminPage = lazy(() => import('./pages/Dashboard/Admin'));
+const AnalyticsPage = lazy(() => import('./pages/Dashboard/Analytics'));
+const BillingPage = lazy(() => import('./pages/Dashboard/Billing'));
+const DevelopersPage = lazy(() => import('./pages/Dashboard/Developers'));
+const OrganizationPage = lazy(() => import('./pages/Dashboard/Organization'));
+const PlaygroundPage = lazy(() => import('./pages/Dashboard/Playground'));
+const TelephonyPage = lazy(() => import('./pages/Dashboard/Telephony'));
+const ResultsPage = lazy(() => import('./pages/Dashboard/Results'));
+const DesignSystemDocs = lazy(() => import('./pages/Dashboard/Docs'));
+const PreferencesPage = lazy(() => import('./pages/Dashboard/Preferences'));
+const AgentRegistry = lazy(() => import('./pages/Dashboard/AgentRegistry'));
+const AgentOS = lazy(() => import('./pages/Dashboard/AgentOS'));
+const KnowledgeManager = lazy(() => import('./pages/Dashboard/KnowledgeManager'));
+const ToolRegistry = lazy(() => import('./pages/Dashboard/ToolRegistry'));
+const AgentMarketplace = lazy(() => import('./pages/Dashboard/AgentMarketplace'));
+const ObservabilityPage = lazy(() => import('./pages/Dashboard/Observability'));
+const GovernancePage = lazy(() => import('./pages/Dashboard/Governance'));
+const VoiceStudioPage = lazy(() => import('./pages/Dashboard/VoiceStudio'));
+const SupervisionPage = lazy(() => import('./pages/Dashboard/Supervision'));
+
+const RouteFallback = () => (
+  <div className="flex h-screen w-full items-center justify-center bg-slate-50 dark:bg-slate-900">
+    <div className="h-8 w-8 animate-spin rounded-full border-2 border-slate-300 border-t-blue-600" />
+  </div>
+);
 
 const DashboardLayout = () => {
   // Simple auth check
@@ -93,6 +102,7 @@ export default function App() {
     <ThemeProvider>
       <ErrorBoundary>
         <Router>
+          <Suspense fallback={<RouteFallback />}>
           <Routes>
             <Route path="/" element={<LandingPage />} />
             <Route path="/login" element={<LoginPage />} />
@@ -128,6 +138,7 @@ export default function App() {
               <Route path="preferences" element={<PreferencesPage />} />
             </Route>
           </Routes>
+          </Suspense>
         </Router>
       </ErrorBoundary>
     </ThemeProvider>

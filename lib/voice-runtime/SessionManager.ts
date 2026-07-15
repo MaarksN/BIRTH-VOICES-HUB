@@ -5,8 +5,6 @@ import { memoryPipeline } from './MemoryPipeline';
 import { streamingEngine } from './StreamingEngine';
 import { audioPipeline } from './AudioPipeline';
 import { failoverEngine } from './FailoverEngine';
-import { providerManager } from './ProviderManager';
-import { toolEngine } from './ToolEngine';
 import { liveSupervisorEngine } from './intelligence/LiveSupervisorEngine';
 import { conversationOrchestrator } from './intelligence/ConversationOrchestrator';
 
@@ -148,9 +146,10 @@ export class SessionManager {
 
       this.updateState(sessionId, 'Listening');
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       this.updateState(sessionId, 'Error');
-      observability.logEvent(sessionId, 'SESSION_ERROR', { error: error.message });
+      const message = error instanceof Error ? error.message : String(error);
+      observability.logEvent(sessionId, 'SESSION_ERROR', { error: message });
     }
   }
 
@@ -158,7 +157,8 @@ export class SessionManager {
     this.updateState(sessionId, 'Finished');
     streamingEngine.cleanup(sessionId);
     
-    // Trigger end of session conversational intelligence
+    // Lazy require avoids a circular import with IntelligencePipeline at module load time.
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { intelligencePipeline } = require('./intelligence/IntelligencePipeline');
     intelligencePipeline.evaluateSessionEnd(sessionId);
 
@@ -169,7 +169,8 @@ export class SessionManager {
     const session = this.sessions.get(sessionId);
     if (!session) return undefined;
     
-    // Attach intelligence snapshot for monitoring/debugging
+    // Attach intelligence snapshot for monitoring/debugging (lazy require avoids a circular import)
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { intelligencePipeline } = require('./intelligence/IntelligencePipeline');
     session.intelligence = intelligencePipeline.getIntelligence(sessionId);
     

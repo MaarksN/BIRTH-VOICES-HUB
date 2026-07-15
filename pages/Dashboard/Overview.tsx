@@ -1,17 +1,27 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
-import { 
-  Users, Phone, Clock, FileText, TrendingUp, Sparkles, CheckCircle2, 
-  AlertTriangle, Play, HelpCircle, Code, ShieldCheck, Activity, 
-  ArrowRight, Landmark, Calendar, RefreshCw, Star, StarOff, AlertCircle,
-  Eye, CornerDownRight, Volume2, ShieldAlert, HeartHandshake, MousePointerClick, Hourglass, Settings
+import {
+  Users, Phone, FileText, Sparkles, CheckCircle2,
+  Play, Code, ShieldCheck, Activity,
+  Calendar, RefreshCw,
+  ShieldAlert, MousePointerClick, Settings
 } from 'lucide-react';
-import { 
-  Card, Button, Badge, Progress, Spinner, 
-  Table, TableHead, TableRow, TableCell, Alert, Tooltip, Modal, useToast, ToastContainer 
+import {
+  Card, Button, Badge, Progress, Spinner,
+  Tooltip, Modal, useToast, ToastContainer
 } from '../../components/design-system';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, LineChart, Line } from 'recharts';
+
+interface CallLogEntry {
+  id: string;
+  patientName?: string;
+  patient?: string;
+  duration?: string;
+  agent?: string;
+  status?: string;
+  time?: string;
+}
 
 export default function RebuiltExecutiveOverview() {
   const navigate = useNavigate();
@@ -36,7 +46,7 @@ export default function RebuiltExecutiveOverview() {
     firstCallCompleted: false
   });
 
-  const [recentCalls, setRecentCalls] = useState<any[]>([]);
+  const [recentCalls, setRecentCalls] = useState<CallLogEntry[]>([]);
 
   const fetchCalls = async () => {
     try {

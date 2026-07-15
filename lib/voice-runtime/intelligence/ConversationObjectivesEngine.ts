@@ -3,7 +3,7 @@ import { observability } from '../Observability';
 
 export class ConversationObjectivesEngine {
   public updateProgress(sessionId: string, intelligence: SessionIntelligence): ObjectiveProgress[] {
-    let objectives: ObjectiveProgress[] = intelligence.objectives || [
+    const objectives: ObjectiveProgress[] = intelligence.objectives || [
       {
         id: crypto.randomUUID(),
         type: 'primary',

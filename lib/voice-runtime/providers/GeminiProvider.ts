@@ -5,11 +5,11 @@ export class GeminiLiveProvider extends BaseProvider {
   public name = 'Google Gemini 2.5 Pro Live';
   public type = 'E2E' as const;
   
-  public async initialize(config: any): Promise<void> {
+  public async initialize(_config: Record<string, unknown>): Promise<void> {
     console.debug(`[${this.name}] Initialized`);
   }
 
-  public async process(input: any, context?: any): Promise<ProviderResponse> {
+  public async process(_input: any, _context?: any): Promise<ProviderResponse> {
     return {
       text: 'Compreendo seus sintomas. Vou registrar e avisar o médico.',
       latencyMs: 320

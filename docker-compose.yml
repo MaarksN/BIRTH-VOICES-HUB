@@ -1,10 +1,11 @@
-version: '3.8'
-
 x-common-env: &common-env
   NODE_ENV: production
   PORT: 3000
   DATABASE_URL: postgresql://devuser:devpassword@postgres:5432/birthvoices?schema=public
   REDIS_URL: redis://redis:6379
+  ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:3000}
+  JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set}
+  REFRESH_TOKEN_SECRET: ${REFRESH_TOKEN_SECRET:?REFRESH_TOKEN_SECRET must be set}
   # For local testing. Overwrite in production.
   GEMINI_API_KEY: ${GEMINI_API_KEY:-""}
 

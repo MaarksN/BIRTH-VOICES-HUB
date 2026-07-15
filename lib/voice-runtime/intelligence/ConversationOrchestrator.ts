@@ -3,21 +3,21 @@ import { intelligencePipeline } from './IntelligencePipeline';
 import { liveDecisionEngine } from './LiveDecisionEngine';
 import { interruptionEngine } from './InterruptionEngine';
 import { silenceEngine } from './SilenceEngine';
-import { speechPatternEngine } from './SpeechPatternEngine';
+import { speechPatternEngine, RawAudioInfo } from './SpeechPatternEngine';
 import { fillerWordEngine } from './FillerWordEngine';
 import { naturalnessEngine } from './NaturalnessEngine';
 import { trustEngine } from './TrustEngine';
 import { relationshipEngine } from './RelationshipEngine';
 import { conversationObjectivesEngine } from './ConversationObjectivesEngine';
 import { strategyEngine } from './StrategyEngine';
-import { knowledgeConfidenceEngine } from './KnowledgeConfidenceEngine';
+import { knowledgeConfidenceEngine, KnowledgeDocument } from './KnowledgeConfidenceEngine';
 import { hallucinationDetectionEngine } from './HallucinationDetectionEngine';
 import { responseOptimizationEngine } from './ResponseOptimizationEngine';
 import { observability } from '../Observability';
 
 export class ConversationOrchestrator {
   
-  public processIncomingAudio(session: VoiceSession, audioData: any) {
+  public processIncomingAudio(session: VoiceSession, audioData: RawAudioInfo) {
     // Process audio patterns (speech pattern, filler words, etc)
     if (!session.intelligence) return;
     speechPatternEngine.analyzeAudio(session.sessionId, session.intelligence, audioData);
@@ -52,7 +52,7 @@ export class ConversationOrchestrator {
     observability.endSpan(`orchestrator-in-${session.sessionId}-${turn.id}`, session.sessionId, 'ORCHESTRATOR_IN_COMPLETED');
   }
 
-  public processOutgoingTurn(session: VoiceSession, turn: ConversationTurn, groundedKnowledge: any[] = []): ConversationTurn {
+  public processOutgoingTurn(session: VoiceSession, turn: ConversationTurn, groundedKnowledge: KnowledgeDocument[] = []): ConversationTurn {
     observability.startSpan(`orchestrator-out-${session.sessionId}-${turn.id}`);
     
     const intelligence = session.intelligence;

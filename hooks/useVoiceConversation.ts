@@ -4,6 +4,30 @@ import { Question } from '../types';
 const POSITIVE_WORDS = ['sim', 'claro', 'ótimo', 'bom', 'gostei', 'certeza', 'ok', 'beleza', 'excelente', 'rápido'];
 const NEGATIVE_WORDS = ['não', 'ruim', 'péssimo', 'errado', 'difícil', 'problema', 'demora', 'caro', 'infelizmente'];
 
+interface SpeechRecognitionResultLike {
+  isFinal: boolean;
+  0: { transcript: string };
+}
+
+interface SpeechRecognitionEventLike {
+  resultIndex: number;
+  results: ArrayLike<SpeechRecognitionResultLike>;
+}
+
+interface SpeechRecognitionErrorEventLike {
+  error: string;
+}
+
+interface SpeechRecognitionLike {
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  onresult: ((event: SpeechRecognitionEventLike) => void) | null;
+  onerror: ((event: SpeechRecognitionErrorEventLike) => void) | null;
+  start: () => void;
+  stop: () => void;
+}
+
 const analyzeSentiment = (text: string) => {
   const lower = text.toLowerCase();
 
@@ -20,7 +44,7 @@ export function useVoiceConversation(questions: Question[], speed: number = 1.1)
   const [transcript, setTranscript] = useState<{role: 'agent'|'user', text: string}[]>([]);
   const [sentiment, setSentiment] = useState<'positive' | 'neutral' | 'negative'>('neutral');
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-  const recognitionRef = useRef<any>(null);
+  const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const [isSupported, setIsSupported] = useState(false);
 
   // Keep track of latest state for callbacks
@@ -76,7 +100,7 @@ export function useVoiceConversation(questions: Question[], speed: number = 1.1)
       body: JSON.stringify({ text, context: questions[currentQuestionIndex] })
     })
     .then(res => res.json())
-    .then(data => {
+    .then(() => {
       const nextIndex = currentQuestionIndex + 1;
       if (nextIndex < questions.length) {
         setCurrentQuestionIndex(nextIndex);
@@ -100,7 +124,11 @@ export function useVoiceConversation(questions: Question[], speed: number = 1.1)
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      const { SpeechRecognition: SpeechRecognitionCtor, webkitSpeechRecognition } = window as unknown as {
+        SpeechRecognition?: new () => SpeechRecognitionLike;
+        webkitSpeechRecognition?: new () => SpeechRecognitionLike;
+      };
+      const SpeechRecognition = SpeechRecognitionCtor || webkitSpeechRecognition;
       if (SpeechRecognition) {
         setIsSupported(true);
         const recognition = new SpeechRecognition();
@@ -108,7 +136,7 @@ export function useVoiceConversation(questions: Question[], speed: number = 1.1)
         recognition.lang = 'pt-BR';
         recognition.interimResults = true;
 
-        recognition.onresult = (event: any) => {
+        recognition.onresult = (event: SpeechRecognitionEventLike) => {
           let finalTranscript = '';
           let interimTranscript = '';
 
@@ -129,7 +157,7 @@ export function useVoiceConversation(questions: Question[], speed: number = 1.1)
           }
         };
 
-        recognition.onerror = (event: any) => {
+        recognition.onerror = (event: SpeechRecognitionErrorEventLike) => {
           console.error('Speech recognition error', event.error);
           if (event.error === 'no-speech') {
               // Maybe restart listening?

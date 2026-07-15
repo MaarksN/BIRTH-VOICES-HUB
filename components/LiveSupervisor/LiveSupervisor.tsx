@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { AlertCircle, ShieldAlert, HeartPulse, Activity, Zap, Shield, Phone, Clock, Wifi, WifiOff } from 'lucide-react';
+import { AlertCircle, ShieldAlert, HeartPulse, Activity, Zap, Shield, Clock, Wifi, WifiOff } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { io, Socket } from 'socket.io-client';
 
@@ -21,7 +21,7 @@ export function LiveSupervisor({ sessionId = "demo-session-123" }: LiveSuperviso
   const [objections, setObjections] = useState<string[]>([]);
   const [callDuration, setCallDuration] = useState<number>(0);
   const [isConnected, setIsConnected] = useState<boolean>(false);
-  const [socketInstance, setSocketInstance] = useState<any>(null);
+  const [socketInstance, setSocketInstance] = useState<Socket | null>(null);
   const [intervened, setIntervened] = useState<boolean>(false);
 
   // Scenario-based WebSocket connection

@@ -8,6 +8,14 @@ type Session = {
   status: string;
 };
 
+interface CallLogEntry {
+  id?: string;
+  patientName?: string;
+  duration?: string;
+  agent?: string;
+  status?: string;
+}
+
 export default function AdminPage() {
   const [sessions, setSessions] = useState<Session[]>([]);
   const [loading, setLoading] = useState(true);
@@ -21,7 +29,7 @@ export default function AdminPage() {
       })
       .then(data => {
         const logs = Array.isArray(data) ? data : [];
-        const mapped: Session[] = logs.map((log: any, i: number) => ({
+        const mapped: Session[] = logs.map((log: CallLogEntry, i: number) => ({
           id: log.id || `sess_${100 + i}`,
           summary: `Chamada realizada com paciente ${log.patientName || 'Não identificado'}. Duração: ${log.duration || '00:00'}.`,
           agent: log.agent || 'Catarina Triagem',
@@ -97,8 +105,15 @@ export default function AdminPage() {
   );
 }
 
-function StatCard({ icon: Icon, label, value, color }: any) {
-    const colors: any = {
+interface StatCardProps {
+    icon: React.ComponentType<{ className?: string }>;
+    label: string;
+    value: string;
+    color: string;
+}
+
+function StatCard({ icon: Icon, label, value, color }: StatCardProps) {
+    const colors: Record<string, string> = {
         blue: 'bg-blue-50 text-blue-600',
         green: 'bg-green-50 text-green-600',
         red: 'bg-red-50 text-red-600',

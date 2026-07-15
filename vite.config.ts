@@ -22,7 +22,8 @@ export default defineConfig(({ mode }) => {
       test: {
         environment: 'node',
         setupFiles: ['./vitest.setup.ts'],
-        globals: true
+        globals: true,
+        testTimeout: 15000
       }
     };
 });

@@ -1,6 +1,6 @@
 import React from 'react';
-import { Card, Button, Badge } from '../../components/design-system';
-import { Code, Plug, Activity, Plus, Settings } from 'lucide-react';
+import { Card, Button } from '../../components/design-system';
+import { Plug, Plus, Settings } from 'lucide-react';
 
 export default function ToolRegistry() {
   return (

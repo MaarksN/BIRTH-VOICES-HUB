@@ -10,7 +10,7 @@ export class MemoryPipeline {
     historical: MemoryNode[];
   }> = new Map();
 
-  public initialize(sessionId: string, initialContext: any = {}) {
+  public initialize(sessionId: string, initialContext: Record<string, unknown> = {}) {
     this.memoryStore.set(sessionId, {
       immediate: [],
       session: [],

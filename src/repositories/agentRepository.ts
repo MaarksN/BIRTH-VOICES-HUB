@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client';
 import { prisma } from '../lib/prisma.js';
 
 export function listAgentsForTenant(tenantId: string) {
@@ -11,7 +12,7 @@ export function createAgent(tenantId: string, userId: string, data: { name: stri
       userId,
       name: data.name,
       model: data.model,
-      configuration: (data.configuration ?? {}) as any,
+      configuration: (data.configuration ?? {}) as Prisma.InputJsonValue,
     },
   });
 }

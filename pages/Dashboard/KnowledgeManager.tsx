@@ -1,6 +1,6 @@
 import React from 'react';
 import { Card, Button, Badge } from '../../components/design-system';
-import { BookMarked, UploadCloud, Search, RefreshCw, FileText, Database } from 'lucide-react';
+import { UploadCloud, RefreshCw, Database } from 'lucide-react';
 
 export default function KnowledgeManager() {
   return (

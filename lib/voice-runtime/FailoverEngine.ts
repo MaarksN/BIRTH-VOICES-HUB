@@ -14,7 +14,7 @@ export class FailoverEngine {
   ): Promise<T> {
     
     let currentProviderId = preferredProviderId;
-    let attempts = [preferredProviderId, ...fallbacks];
+    const attempts = [preferredProviderId, ...fallbacks];
 
     for (let i = 0; i < attempts.length; i++) {
       try {
@@ -24,15 +24,16 @@ export class FailoverEngine {
         const result = await operation(provider);
         return result;
 
-      } catch (error: any) {
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : String(error);
         observability.logEvent(sessionId, 'FAILOVER_TRIGGERED', {
           failedProvider: currentProviderId,
-          error: error.message,
+          error: message,
           nextProvider: attempts[i + 1] || 'NONE'
         });
-        
+
         if (i === attempts.length - 1) {
-          throw new Error(`All providers failed for ${operationName}. Last error: ${error.message}`);
+          throw new Error(`All providers failed for ${operationName}. Last error: ${message}`);
         }
       }
     }

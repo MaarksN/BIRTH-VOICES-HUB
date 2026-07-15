@@ -1,8 +1,13 @@
 import { KnowledgeConfidence } from '../types';
 import { observability } from '../Observability';
 
+export interface KnowledgeDocument {
+  name: string;
+  [key: string]: unknown;
+}
+
 export class KnowledgeConfidenceEngine {
-  public evaluateKnowledge(sessionId: string, text: string, sourceDocs: any[]): KnowledgeConfidence {
+  public evaluateKnowledge(sessionId: string, text: string, sourceDocs: KnowledgeDocument[]): KnowledgeConfidence {
     const confidence: KnowledgeConfidence = {
       source: 'Internal Knowledge Base',
       confidence: sourceDocs.length > 0 ? 95 : 30, // Mocked confidence based on docs

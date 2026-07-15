@@ -11,7 +11,7 @@ export interface EmotionalState {
 export class EmotionEngine {
   private sessionStates: Map<string, EmotionalState> = new Map();
 
-  public analyzeTurn(sessionId: string, text: string, audioData?: ArrayBuffer | Uint8Array): EmotionSnapshot[] {
+  public analyzeTurn(sessionId: string, text: string, _audioData?: ArrayBuffer | Uint8Array): EmotionSnapshot[] {
     const spanId = otelCollector.startLocalSpan('EmotionEngine.analyzeTurn', sessionId, { textLength: text.length });
     const textLower = text.toLowerCase();
     
@@ -28,8 +28,8 @@ export class EmotionEngine {
     if (textLower.includes('hã') || textLower.includes('err') || textLower.includes('hum')) baseConfidence -= 15;
     const calculatedConfidence = Math.min(100, Math.max(30, baseConfidence));
     
-    let detectedEmotions: EmotionSnapshot[] = [];
-    let state = this.sessionStates.get(sessionId) || { empathyScore: 50, confidenceScore: 50, frustrationScore: 0 };
+    const detectedEmotions: EmotionSnapshot[] = [];
+    const state = this.sessionStates.get(sessionId) || { empathyScore: 50, confidenceScore: 50, frustrationScore: 0 };
 
     if (textLower.includes('obrigado') || textLower.includes('bom') || textLower.includes('ajudou') || textLower.includes('perfeito')) {
       detectedEmotions.push({

@@ -5,11 +5,11 @@ export class ElevenLabsProvider extends BaseProvider {
   public name = 'ElevenLabs TTS';
   public type = 'TTS' as const;
   
-  public async initialize(config: any): Promise<void> {
+  public async initialize(_config: Record<string, unknown>): Promise<void> {
     console.debug(`[${this.name}] Initialized`);
   }
 
-  public async process(input: string): Promise<ProviderResponse> {
+  public async process(_input: string): Promise<ProviderResponse> {
     return {
       audio: {
         data: new Uint8Array(1024), // Mock audio data

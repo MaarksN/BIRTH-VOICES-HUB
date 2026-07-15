@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
-import { 
-  HelpCircle, Sparkles, X, Send, ArrowRight, BookOpen, 
-  Lightbulb, Keyboard, MessageSquare, Mic, User, ShieldCheck, HeartHandshake
+import {
+  Sparkles, X, Send, ArrowRight,
+  Lightbulb, ShieldCheck
 } from 'lucide-react';
-import { Card, Button, Badge, Spinner, useToast } from './design-system';
+import { Card, Button, Spinner } from './design-system';
 
 interface Message {
   id: string;
@@ -14,7 +14,6 @@ interface Message {
 
 export function GlobalHelpCenter() {
   const location = useLocation();
-  const { showToast } = useToast();
   const [isOpen, setIsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'chat' | 'docs' | 'shortcuts'>('chat');
   
@@ -81,7 +80,6 @@ export function GlobalHelpCenter() {
 
     const userMsg: Message = { id: Date.now().toString(), sender: 'user', text: input };
     setMessages(prev => [...prev, userMsg]);
-    const userQuery = input;
     setInput('');
     setIsTyping(true);
 

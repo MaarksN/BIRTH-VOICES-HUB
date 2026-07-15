@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Trash, Save, Mic, Settings, MessageSquare, Database, Link as LinkIcon, Brain } from 'lucide-react';
+import { Plus, Trash, Save, Mic, MessageSquare, Database, Link as LinkIcon, Brain, LucideIcon } from 'lucide-react';
 import { AgentConfig, AgentTemplate, Question } from '../types';
 
 const CATARINA_BASE_PROMPT = `Você é Catarina, uma agente de inteligência artificial especializada em conduzir conversas profissionais por voz em português brasileiro.
@@ -162,7 +162,7 @@ export function AgentForm() {
     }).catch(() => {});
   }, [config]);
 
-  const updateConfig = (field: keyof AgentConfig, value: any) => {
+  const updateConfig = <K extends keyof AgentConfig>(field: K, value: AgentConfig[K]) => {
     setConfig(prev => ({ ...prev, [field]: value }));
   };
 
@@ -547,7 +547,7 @@ export function AgentForm() {
                     <div className="flex gap-4">
                       <select
                         value={q.type}
-                        onChange={(e) => updateQuestion(q.id, 'type', e.target.value as any)}
+                        onChange={(e) => updateQuestion(q.id, 'type', e.target.value)}
                         className="p-2 text-sm border border-slate-300 rounded-lg bg-white"
                       >
                         <option value="open">Resposta Aberta</option>
@@ -600,7 +600,14 @@ export function AgentForm() {
   );
 }
 
-function TabButton({ active, onClick, icon: Icon, label }: any) {
+interface TabButtonProps {
+  active: boolean;
+  onClick: () => void;
+  icon: LucideIcon;
+  label: string;
+}
+
+function TabButton({ active, onClick, icon: Icon, label }: TabButtonProps) {
   return (
     <button
       onClick={onClick}
@@ -616,7 +623,13 @@ function TabButton({ active, onClick, icon: Icon, label }: any) {
   );
 }
 
-function TemplateButton({ active, onClick, label }: any) {
+interface TemplateButtonProps {
+  active: boolean;
+  onClick: () => void;
+  label: string;
+}
+
+function TemplateButton({ active, onClick, label }: TemplateButtonProps) {
     return (
         <button
           onClick={onClick}

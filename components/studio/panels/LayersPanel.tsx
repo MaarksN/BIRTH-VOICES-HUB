@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
-import { 
-  Layers, Bookmark, Cpu, Component, ChevronDown, ChevronRight, Hash, 
-  Database, Mic, Headphones, Play, Square, MessageSquare, GitBranch, 
-  Wrench, BrainCircuit, HelpCircle, Split, BookOpen, Star, Search, Sparkles, 
-  FileCode, ShoppingBag, FolderOpen, Heart, Trash2 
+import {
+  Component, ChevronDown, ChevronRight,
+  Database, Mic, Headphones, Play, Square, MessageSquare, GitBranch,
+  Wrench, BrainCircuit, HelpCircle, Split, BookOpen, Search,
+  FolderOpen
 } from 'lucide-react';
 import { StudioNode } from '../../../lib/studio/types';
-import { useStudioStore, nodeRegistry, NodeRegistryItem } from '../../../store/useStudioStore';
+import { useStudioStore, nodeRegistry } from '../../../store/useStudioStore';
 
 interface LayersPanelProps {
   nodes: StudioNode[];

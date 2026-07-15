@@ -2,7 +2,7 @@ import { useSessionStore } from '../../store/useSessionStore';
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, Home, Users, BookOpen, BarChart3, Mic, CreditCard, Code, Building2, Settings, Sun, Moon, Laptop, Command, X } from 'lucide-react';
-import { useTheme, ThemeMode } from './ThemeContext';
+import { useTheme } from './ThemeContext';
 
 interface CommandPaletteProps {
   isOpen: boolean;

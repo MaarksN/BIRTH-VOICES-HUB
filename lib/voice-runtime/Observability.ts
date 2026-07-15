@@ -1,10 +1,10 @@
-import { RuntimeEvent, LatencyMetrics, VoiceSession } from './types';
+import { RuntimeEvent } from './types';
 
 export class ObservabilityEngine {
   private events: Map<string, RuntimeEvent[]> = new Map();
   private activeSpans: Map<string, number> = new Map();
 
-  public logEvent(sessionId: string, type: string, payload: any = {}): RuntimeEvent {
+  public logEvent(sessionId: string, type: string, payload: Record<string, unknown> = {}): RuntimeEvent {
     const event: RuntimeEvent = {
       id: crypto.randomUUID(),
       timestamp: Date.now(),
@@ -27,7 +27,7 @@ export class ObservabilityEngine {
     this.activeSpans.set(spanId, Date.now());
   }
 
-  public endSpan(spanId: string, sessionId: string, type: string, additionalPayload: any = {}) {
+  public endSpan(spanId: string, sessionId: string, type: string, additionalPayload: Record<string, unknown> = {}) {
     const start = this.activeSpans.get(spanId);
     if (!start) return;
 

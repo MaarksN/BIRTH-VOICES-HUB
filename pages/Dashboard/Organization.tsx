@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Save, UserPlus, Upload, Shield, Video, Loader2, Play } from 'lucide-react';
+import { Save, UserPlus, Upload, Shield, Video, Loader2 } from 'lucide-react';
 import { auth } from '../../lib/auth';
 import { useSessionStore } from '../../store/useSessionStore';
 
@@ -27,7 +27,7 @@ export default function OrganizationPage() {
   }, [brandColor]);
 
   useEffect(() => {
-    let interval: any;
+    let interval: ReturnType<typeof setInterval> | undefined;
     if (videoOperation && !videoUrl && !videoError) {
       interval = setInterval(async () => {
         try {
@@ -45,7 +45,7 @@ export default function OrganizationPage() {
             setIsGeneratingVideo(false);
             setVideoOperation(null);
           }
-        } catch (e: any) {
+        } catch (e: unknown) {
           console.error(e);
         }
       }, 5000); // poll every 5s
@@ -95,8 +95,8 @@ export default function OrganizationPage() {
       if (!res.ok) throw new Error(data.error || 'Erro na chamada de API');
       
       setVideoOperation(data.operationName);
-    } catch (err: any) {
-      setVideoError(err.message);
+    } catch (err: unknown) {
+      setVideoError(err instanceof Error ? err.message : String(err));
       setIsGeneratingVideo(false);
     }
   };

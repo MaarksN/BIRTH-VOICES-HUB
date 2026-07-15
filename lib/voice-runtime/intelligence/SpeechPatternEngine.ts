@@ -1,8 +1,15 @@
 import { SpeechPattern, SessionIntelligence } from '../types';
 import { observability } from '../Observability';
 
+export interface RawAudioInfo {
+  text?: string;
+  duration?: number;
+  volume?: number;
+  energy?: number;
+}
+
 export class SpeechPatternEngine {
-  public analyzeAudio(sessionId: string, intelligence: SessionIntelligence, rawAudioInfo: any): SpeechPattern {
+  public analyzeAudio(sessionId: string, intelligence: SessionIntelligence, rawAudioInfo: RawAudioInfo): SpeechPattern {
     // Determine speed (WPM) based on raw text length if available, or a stable acoustic profile
     const text = rawAudioInfo?.text || '';
     const wordsCount = text.trim() ? text.trim().split(/\s+/).length : 0;

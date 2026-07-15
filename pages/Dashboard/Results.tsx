@@ -1,6 +1,18 @@
 
 import React, { useState, useEffect } from 'react';
-import { Download, FileText, Calendar, Clock, Smile, MessageSquare, Search, ChevronRight, Music } from 'lucide-react';
+import { Download, FileText, Clock, MessageSquare, Search, Music } from 'lucide-react';
+
+interface CallLogEntry {
+  id: string;
+  agent?: string;
+  patientName?: string;
+  timestamp: string;
+  duration: string;
+  status?: string;
+  summary?: string;
+  transcript?: string;
+  audioUrl?: string;
+}
 
 interface SessionRecord {
   id: string;
@@ -24,7 +36,7 @@ export default function ResultsPage() {
       .then(res => res.json())
       .then(data => {
         if (data.callLogs) {
-           const mappedLogs = data.callLogs.map((log: any) => ({
+           const mappedLogs = data.callLogs.map((log: CallLogEntry) => ({
              id: log.id,
              agentName: log.agent || 'Desconhecido',
              caller: log.patientName || 'Anônimo',

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Card, Badge, Spinner, Table, TableHead, TableRow, TableCell } from '../../components/design-system';
-import { Activity, BarChart2, Server, Zap, Shield, HelpCircle, Terminal, RefreshCw, Layers } from 'lucide-react';
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Legend, PieChart, Pie, Cell } from 'recharts';
+import { Activity, BarChart2, Server, Zap, Shield, Terminal, RefreshCw, Layers } from 'lucide-react';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell } from 'recharts';
 
 interface LocalSpan {
   id: string;
@@ -22,7 +22,7 @@ interface LocalMetric {
 
 export default function ObservabilityPage() {
   const [spans, setSpans] = useState<LocalSpan[]>([]);
-  const [metrics, setMetrics] = useState<LocalMetric[]>([]);
+  const [, setMetrics] = useState<LocalMetric[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedSpan, setSelectedSpan] = useState<LocalSpan | null>(null);
   const [autoRefresh, setAutoRefresh] = useState(true);
@@ -85,7 +85,7 @@ export default function ObservabilityPage() {
   // Latency over time (by engine)
   const latencyTimeline = spans
     .slice(-15) // last 15 traces
-    .map((s, index) => ({
+    .map((s) => ({
       time: new Date(s.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
       latency: s.duration || 0,
       engine: s.name.replace('Engine.', ' ')
@@ -134,7 +134,7 @@ export default function ObservabilityPage() {
               { title: 'Tempo Médio de Resposta', value: `${avgLatency}ms`, trend: 'P95 Latency', icon: <Zap className="h-5 w-5" />, color: 'brand' },
               { title: 'Total Traces (Spans)', value: totalSpans.toString(), trend: 'Métricas Ativas', icon: <Activity className="h-5 w-5" />, color: 'blue' },
               { title: 'Status do Sistema', value: 'Operacional', trend: 'Livre de Erros', icon: <Shield className="h-5 w-5" />, color: 'emerald' }
-            ].map((metric, i) => (
+            ].map((metric) => (
               <Card className="p-5 border-slate-200/60 dark:border-slate-700/60">
                 <div className="flex justify-between items-start mb-3">
                   <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{metric.title}</span>

@@ -1,4 +1,3 @@
-import { SessionIntelligence, VoiceSession } from '../../types';
 import { observability } from '../../Observability';
 
 export interface DashboardMetrics {

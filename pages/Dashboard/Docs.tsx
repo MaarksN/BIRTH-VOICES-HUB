@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
-import { 
-  BookOpen, Code, Palette, Play, Sparkles, 
-  Layers, CheckSquare, Heart, CheckCircle2, Copy 
+import {
+  Code, Palette, Play,
+  Layers
 } from 'lucide-react';
-import { 
-  Card, Button, Badge, Progress, Spinner, 
-  Tabs, Avatar, Table, TableHead, TableRow, TableCell,
-  Alert, Tooltip, Checkbox, Switch, Input, Textarea, Select
+import {
+  Card, Button, Badge,
+  Tabs, Avatar,
+  Alert, Checkbox, Switch, Input, Select
 } from '../../components/design-system';
 
 export default function DesignSystemDocs() {
@@ -16,13 +16,6 @@ export default function DesignSystemDocs() {
   const [checkState, setCheckState] = useState(true);
   const [inputText, setInputText] = useState('');
   const [selectVal, setSelectVal] = useState('c1');
-  const [copiedToken, setCopiedToken] = useState<string | null>(null);
-
-  const handleCopy = (token: string) => {
-    navigator.clipboard.writeText(token);
-    setCopiedToken(token);
-    requestAnimationFrame(() => setCopiedToken(null));
-  };
 
   const docTabs = [
     { id: 'tokens', label: 'Design Tokens', icon: <Palette className="h-4 w-4" /> },

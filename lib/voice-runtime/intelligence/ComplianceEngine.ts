@@ -2,7 +2,7 @@ import { ComplianceIssue, ConversationTurn, ExtractedEntity } from '../types';
 import { observability } from '../Observability';
 
 export class ComplianceEngine {
-  public detectComplianceIssues(sessionId: string, turn: ConversationTurn, entities: ExtractedEntity[]): ComplianceIssue[] {
+  public detectComplianceIssues(sessionId: string, turn: ConversationTurn, _entities: ExtractedEntity[]): ComplianceIssue[] {
     const issues: ComplianceIssue[] = [];
 
     // Simulate compliance detection (e.g. PCI DSS for credit cards, LGPD for CPF)

@@ -35,7 +35,7 @@ export interface ConversationTurn {
   role: 'user' | 'assistant' | 'system' | 'tool';
   content: string;
   timestamp: number;
-  toolCalls?: any[];
+  toolCalls?: Record<string, unknown>[];
   emotions?: EmotionSnapshot[];
   intent?: IntentSnapshot;
   entities?: ExtractedEntity[];
@@ -48,7 +48,7 @@ export interface RuntimeEvent {
   id: string;
   timestamp: number;
   type: string;
-  payload: any;
+  payload: Record<string, unknown>;
   latency?: number;
 }
 

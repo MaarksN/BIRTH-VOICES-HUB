@@ -64,13 +64,14 @@ export class StreamingEngine {
   public cleanup(sessionId: string) {
     const inCtrl = this.inputStreams.get(sessionId);
     if (inCtrl) {
-      try { inCtrl.close(); } catch (e) {}
+      // Ignore errors closing an already-closed/errored stream controller
+      try { inCtrl.close(); } catch { /* already closed */ }
       this.inputStreams.delete(sessionId);
     }
 
     const outCtrl = this.outputStreams.get(sessionId);
     if (outCtrl) {
-      try { outCtrl.close(); } catch (e) {}
+      try { outCtrl.close(); } catch { /* already closed */ }
       this.outputStreams.delete(sessionId);
     }
 

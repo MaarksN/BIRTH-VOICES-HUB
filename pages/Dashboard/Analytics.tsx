@@ -67,8 +67,15 @@ export default function AnalyticsPage() {
   );
 }
 
-function StatCard({ icon: Icon, label, value, color }: any) {
-    const colors: any = {
+interface StatCardProps {
+    icon: React.ComponentType<{ className?: string }>;
+    label: string;
+    value: string;
+    color: string;
+}
+
+function StatCard({ icon: Icon, label, value, color }: StatCardProps) {
+    const colors: Record<string, string> = {
         blue: 'bg-blue-50 text-blue-600',
         green: 'bg-green-50 text-green-600',
         orange: 'bg-orange-50 text-orange-600',
@@ -87,7 +94,13 @@ function StatCard({ icon: Icon, label, value, color }: any) {
     )
 }
 
-function FunnelBar({ label, value, color }: any) {
+interface FunnelBarProps {
+    label: string;
+    value: string;
+    color: string;
+}
+
+function FunnelBar({ label, value, color }: FunnelBarProps) {
     return (
         <div>
             <div className="flex justify-between text-xs text-slate-600 mb-1">

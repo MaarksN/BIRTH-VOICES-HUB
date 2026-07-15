@@ -1,8 +1,7 @@
-import { EdgeProps, getBezierPath, BaseEdge } from '@xyflow/react';
-import { StudioEdgeData } from '../../../lib/studio/types';
+import { getBezierPath, BaseEdge, EdgeProps } from '@xyflow/react';
+import { StudioEdge as StudioEdgeType } from '../../../lib/studio/types';
 
 export function StudioEdge({
-  id,
   sourceX,
   sourceY,
   targetX,
@@ -13,7 +12,7 @@ export function StudioEdge({
   selected,
   data,
   markerEnd,
-}: any) {
+}: EdgeProps<StudioEdgeType>) {
   const [edgePath, labelX, labelY] = getBezierPath({
     sourceX,
     sourceY,

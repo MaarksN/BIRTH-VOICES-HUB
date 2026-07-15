@@ -1,7 +1,6 @@
 import { prisma } from '../lib/prisma.js';
 
-const SYSTEM_ROLE_NAMES = ['admin', 'user'] as const;
-export type SystemRoleName = typeof SYSTEM_ROLE_NAMES[number];
+export type SystemRoleName = 'admin' | 'user';
 
 export async function getOrCreateSystemRole(name: SystemRoleName) {
   const existing = await prisma.role.findFirst({ where: { name, tenantId: null } });

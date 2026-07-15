@@ -10,6 +10,11 @@ env:
   NODE_VERSION: '20.x'
   # Secrets will override these if defined
   DATABASE_URL: "postgresql://devuser:devpassword@localhost:5432/birthvoices"
+  REDIS_URL: "redis://localhost:6379"
+  ALLOWED_ORIGINS: "http://localhost:3000"
+  JWT_SECRET: "ci_jwt_secret_do_not_use_in_production"
+  REFRESH_TOKEN_SECRET: "ci_refresh_secret_do_not_use_in_production"
+  NODE_ENV: "test"
 
 jobs:
   validate-and-build:
@@ -54,16 +59,17 @@ jobs:
     - name: Prisma Migrate Check
       run: npx prisma migrate deploy
 
+    - name: Prisma Seed
+      run: npx prisma db seed
+
     - name: Lint
       run: npm run lint
-      continue-on-error: true # Continues if no linter is explicitly set up
 
     - name: Typecheck
       run: npm run typecheck
 
     - name: Run Tests
       run: npm run test
-      continue-on-error: true # Ensures CI passes if vitest has no tests
 
     - name: Build Application
       run: npm run build

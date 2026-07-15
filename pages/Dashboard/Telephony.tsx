@@ -29,8 +29,8 @@ export default function TelephonyPage() {
       }
       const blob = new Blob([bytes], { type: data.mimeType || 'audio/wav' });
       setGeneratedMusicUrl(URL.createObjectURL(blob));
-    } catch (err: any) {
-      setMusicError(err.message);
+    } catch (err: unknown) {
+      setMusicError(err instanceof Error ? err.message : String(err));
     } finally {
       setIsGeneratingMusic(false);
     }

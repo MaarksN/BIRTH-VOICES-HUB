@@ -12,6 +12,7 @@ import http from "http";
 import { Server as SocketIOServer } from "socket.io";
 import cookieParser from "cookie-parser";
 import helmet from "helmet";
+import cors from "cors";
 import { Redis } from "ioredis";
 import { verifyToken } from "./src/lib/auth-tokens.js";
 import { csrfProtection } from "./src/middlewares/index.js";
@@ -67,23 +68,16 @@ async function startServer() {
       },
     },
   }));
-  app.use((req, res, next) => {
-    const origin = req.headers.origin;
-    if (origin && allowedOrigins.includes(origin)) {
-      res.setHeader('Access-Control-Allow-Origin', origin);
-      res.setHeader('Access-Control-Allow-Credentials', 'true');
-      res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
-      res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization');
-    }
-    if (req.method === 'OPTIONS') return res.sendStatus(204);
-    next();
-  });
+  app.use(cors({ origin: allowedOrigins, credentials: true }));
   app.use(cookieParser());
   app.use(express.json());
 
   // Redis-backed Rate Limiter
   const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';
-  const redisClient = new Redis(redisUrl, { maxRetriesPerRequest: null });
+  // Bounded retries + short timeouts so a Redis outage makes rate-limit/health checks fail fast
+  // and degrade gracefully, instead of hanging every request forever waiting on the command queue.
+  const redisClient = new Redis(redisUrl, { maxRetriesPerRequest: 1, connectTimeout: 2000, commandTimeout: 2000 });
+  redisClient.on('error', (err) => console.error('Redis client error:', err.message));
 
   const rateLimitMiddleware = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
     const ip = req.ip || (req.headers['x-forwarded-for'] as string) || 'unknown';
@@ -100,7 +94,7 @@ async function startServer() {
         return res.status(429).json({ error: "Limite de requisições excedido. Tente novamente em um minuto." });
       }
       next();
-    } catch (err) {
+    } catch {
       next();
     }
   };
@@ -126,7 +120,7 @@ async function startServer() {
     if (!session) {
       return next(new Error('unauthorized'));
     }
-    (socket as any).user = session;
+    socket.data.user = session;
     next();
   });
 
@@ -139,8 +133,8 @@ async function startServer() {
 
       let emotions = { empathy: 85, confidence: 90, frustration: 10 };
       let intent = { primary: 'Fornecer informações', confidence: 90 };
-      let objections: string[] = [];
-      let alerts: any[] = [];
+      const objections: string[] = [];
+      const alerts: Array<{ id: string; level: string; message: string; timestamp: number }> = [];
 
       if (callDuration < 12) {
         emotions = { empathy: 84, confidence: 89, frustration: 6 };
@@ -188,7 +182,7 @@ async function startServer() {
   });
 
   // Centralized error handler
-  app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  app.use((err: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
     console.error('Unhandled request error:', err);
     if (res.headersSent) return;
     res.status(500).json({ error: 'Erro interno no servidor.' });

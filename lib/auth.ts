@@ -20,7 +20,7 @@ export const auth = {
     return getCookie('logged_in');
   },
 
-  setToken: (token: string, user: any) => {
+  setToken: (_token: string, _user: unknown) => {
     // Deprecated for client-side write, cookies are set and managed by server httpOnly and secure flows.
   },
 

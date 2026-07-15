@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client';
 import { prisma } from '../lib/prisma.js';
 
 export function findSetting(tenantId: string | null, userId: string | null, key: string) {
@@ -9,8 +10,8 @@ export function upsertSetting(tenantId: string | null, userId: string | null, ke
     where: {
       tenantId_userId_key: { tenantId: tenantId as string, userId: userId as string, key },
     },
-    create: { tenantId, userId, key, value: value as any, isGlobal: !tenantId && !userId },
-    update: { value: value as any },
+    create: { tenantId, userId, key, value: value as Prisma.InputJsonValue, isGlobal: !tenantId && !userId },
+    update: { value: value as Prisma.InputJsonValue },
   });
 }
 

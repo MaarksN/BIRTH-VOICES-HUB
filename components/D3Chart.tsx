@@ -44,7 +44,7 @@ export default function LineChart() {
     // X Axis
     svg.append('g')
       .attr('transform', `translate(0,${innerHeight})`)
-      .call(d3.axisBottom(x).ticks(5).tickFormat(d3.timeFormat('%d/%m') as any))
+      .call(d3.axisBottom(x).ticks(5).tickFormat(d3.timeFormat('%d/%m')))
       .attr('color', '#94a3b8');
 
     // Y Axis

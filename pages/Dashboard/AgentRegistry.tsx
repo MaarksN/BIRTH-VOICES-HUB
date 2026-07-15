@@ -1,13 +1,24 @@
 
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Card, Button, Badge } from '../../components/design-system';
-import { Search, Filter, Plus, MoreVertical, Copy, Archive, Trash2, ArrowRight, Play, Activity, Settings, User } from 'lucide-react';
+import { Button, Badge } from '../../components/design-system';
+import { Search, Filter, Plus, Copy, Trash2, Activity, Settings, User } from 'lucide-react';
+
+interface AgentRecord {
+  id: string;
+  name?: string;
+  dept?: string;
+  status?: 'active' | 'draft' | 'archived' | string;
+  model?: string;
+  latency?: string;
+  csat?: string | number;
+  updated?: string;
+}
 
 export default function AgentRegistry() {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
-  const [agents, setAgents] = useState<any[]>([]);
+  const [agents, setAgents] = useState<AgentRecord[]>([]);
 
   useEffect(() => {
     fetch('/api/agents')

@@ -1,6 +1,6 @@
 import { create } from 'zustand';
-import { StudioNode, StudioEdge, FlowHealthScore, ValidationIssue } from '../lib/studio/types';
-import { addEdge, Connection, EdgeChange, NodeChange, applyNodeChanges, applyEdgeChanges } from '@xyflow/react';
+import { StudioNode, StudioEdge, NodeType } from '../lib/studio/types';
+import { addEdge, Connection } from '@xyflow/react';
 
 export type NodeLifecycleState = 
   | 'Created'
@@ -26,7 +26,7 @@ export interface NodeRegistryItem {
   version: string;
   compatibilities: string[];
   dependencies: string[];
-  defaultConfig: Record<string, any>;
+  defaultConfig: Record<string, unknown>;
   documentation: {
     goal: string;
     inputsDesc: string[];
@@ -42,7 +42,7 @@ export interface SimulationLog {
   nodeLabel?: string;
   type: 'info' | 'success' | 'warn' | 'error' | 'event';
   message: string;
-  payload?: any;
+  payload?: unknown;
 }
 
 export interface StudioState {
@@ -60,7 +60,7 @@ export interface StudioState {
   activeSimulationNodeId: string | null;
   simulationStepIndex: number;
   simulationLogs: SimulationLog[];
-  simulationVariables: Record<string, any>;
+  simulationVariables: Record<string, unknown>;
   isSimulationPaused: boolean;
   simulationSpeedMs: number; // default 1500ms
   
@@ -70,7 +70,7 @@ export interface StudioState {
   setSelectedNodeId: (id: string | null) => void;
   addNodeFromRegistry: (type: string, position?: { x: number; y: number }) => void;
   deleteNode: (id: string) => void;
-  updateNodeConfig: (id: string, key: string, value: any) => void;
+  updateNodeConfig: (id: string, key: string, value: unknown) => void;
   updateNodeMetadata: (id: string, updates: { label?: string; description?: string }) => void;
   toggleFavorite: (type: string) => void;
   saveAsTemplate: (name: string) => void;
@@ -91,7 +91,7 @@ export interface StudioState {
   stepSimulationBackward: () => void;
   addSimulationLog: (log: Omit<SimulationLog, 'timestamp'>) => void;
   clearSimulationLogs: () => void;
-  updateSimulationVariable: (key: string, value: any) => void;
+  updateSimulationVariable: (key: string, value: unknown) => void;
   deleteSimulationVariable: (key: string) => void;
   
   // AI Refactor / Optimize / Generation
@@ -419,7 +419,7 @@ const initialEdges: StudioEdge[] = [
   { id: 'e-k1-e1', source: 'knowledge-1', target: 'end-1', type: 'studioEdge', data: { category: 'Flow', description: 'Concluído' } },
 ];
 
-let simulationInterval: any = null;
+let simulationInterval: ReturnType<typeof setInterval> | null = null;
 
 export const useStudioStore = create<StudioState>((set, get) => ({
   nodes: initialNodes,
@@ -480,7 +480,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
     const newId = `${type}-${Date.now()}`;
     const newNode: StudioNode = {
       id: newId,
-      type: type as any,
+      type: type as NodeType,
       position: position || { x: 400 + (get().nodes.length * 25) % 200, y: 300 + (get().nodes.length * 25) % 200 },
       data: {
         label: `${regItem.label} ${get().nodes.filter(n => n.type === type).length + 1}`,
@@ -933,11 +933,12 @@ export const useStudioStore = create<StudioState>((set, get) => ({
           message: `Catarina AI completou a refatoração do grafo de execução visual usando IA real!`
         });
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
+      const errMessage = err instanceof Error ? err.message : String(err);
       get().addSimulationLog({
         type: 'error',
-        message: `Falha na refatoração real da Catarina AI: ${err.message}. Revertendo para simulação offline local...`
+        message: `Falha na refatoração real da Catarina AI: ${errMessage}. Revertendo para simulação offline local...`
       });
 
       // Fallback local logic to guarantee the user's workflow never breaks
@@ -998,7 +999,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
       const data = await response.json();
       if (data && data.nodes && data.edges) {
         const lifecycles: Record<string, NodeLifecycleState> = {};
-        data.nodes.forEach((n: any) => {
+        data.nodes.forEach((n: { id: string }) => {
           lifecycles[n.id] = 'Ready';
         });
 
@@ -1015,11 +1016,12 @@ export const useStudioStore = create<StudioState>((set, get) => ({
           message: `Catarina AI (Gemini Real) gerou um grafo completo contendo ${data.nodes.length} nodes e ${data.edges.length} conexões com sucesso!`
         });
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
+      const errMessage = err instanceof Error ? err.message : String(err);
       get().addSimulationLog({
         type: 'error',
-        message: `Falha na geração real de fluxo: ${err.message}.`
+        message: `Falha na geração real de fluxo: ${errMessage}.`
       });
     }
   },
@@ -1030,7 +1032,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
         const data = await res.json();
         if (data.workflow) {
           const lifecycles: Record<string, NodeLifecycleState> = {};
-          data.workflow.nodes.forEach((n: any) => {
+          data.workflow.nodes.forEach((n: { id: string }) => {
             lifecycles[n.id] = 'Ready';
           });
           set({

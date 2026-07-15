@@ -1,19 +1,18 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
-import { 
-  ShieldCheck, Zap, Cpu, Sparkles, Database, GitMerge, BarChart3, Radio, Sliders, 
-  Smartphone, Lock, Globe, ArrowRight, Play, CheckCircle, ChevronDown, ChevronRight, 
-  Activity, Terminal, Code2, Layers, BookOpen, CreditCard, Network, Star, ExternalLink, 
-  HelpCircle, Shield, KeyRound, Eye, HeartHandshake, PhoneCall, Heart, MessageSquare, 
-  ClipboardCheck, ArrowUpRight, HelpCircle as HelpIcon, Check, X, RefreshCw, Layers2,
-  LockKeyhole, Server, EyeOff, UserCheck, AlertCircle, Sun, Moon, Mic
+import {
+  ShieldCheck, Sparkles, Database, GitMerge, BarChart3, Radio, Sliders,
+  Smartphone, Lock, Globe, ArrowRight, CheckCircle, ChevronDown,
+  Activity, Terminal, Code2, Layers, CreditCard, Star,
+  HelpCircle, KeyRound, HeartHandshake, Heart, MessageSquare,
+  ArrowUpRight, Check, Layers2,
+  LockKeyhole, Server, UserCheck, Sun, Moon, Mic
 } from 'lucide-react';
 import { useTheme } from '../components/design-system/ThemeContext';
 import { Card, Button, Badge, Progress, useToast, ToastContainer } from '../components/design-system';
 
 export default function LandingPage() {
-  const navigate = useNavigate();
   const { theme, setTheme } = useTheme();
   const { toasts, showToast } = useToast();
 

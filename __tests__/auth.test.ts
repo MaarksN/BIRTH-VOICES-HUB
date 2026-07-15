@@ -1,9 +1,9 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import request from 'supertest';
+import type { Express } from 'express';
 import { appPromise } from '../server.js';
-import { readDb } from '../src/repositories/db.js';
 
-let app: any;
+let app: Express;
 
 beforeAll(async () => {
   app = await appPromise;

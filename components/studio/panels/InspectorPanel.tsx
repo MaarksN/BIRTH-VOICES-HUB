@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { 
-  Settings2, Code, Activity, Database, Key, HelpCircle, Variable, Plus, 
-  ChevronDown, BookOpen, Link, Sparkles, RefreshCw, Trash2, ShieldAlert
+import {
+  Settings2, Code, Activity, Variable, Plus,
+  BookOpen, Link, Trash2, ShieldAlert
 } from 'lucide-react';
 import { StudioNode } from '../../../lib/studio/types';
 import { useStudioStore, nodeRegistry } from '../../../store/useStudioStore';
@@ -18,7 +18,6 @@ export function InspectorPanel({ selectedNode }: InspectorPanelProps) {
   const [showAddVar, setShowAddVar] = useState(false);
 
   const {
-    nodes,
     edges,
     nodeLifecycles,
     updateNodeMetadata,
@@ -59,7 +58,7 @@ export function InspectorPanel({ selectedNode }: InspectorPanelProps) {
     updateNodeMetadata(id, { description: e.target.value });
   };
 
-  const handleConfigChange = (key: string, value: any) => {
+  const handleConfigChange = (key: string, value: string) => {
     updateNodeConfig(id, key, value);
   };
 
