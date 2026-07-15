@@ -11,6 +11,7 @@ import {
   applyEdgeChanges,
   BackgroundVariant,
   ReactFlowProvider,
+  SelectionMode,
   useOnSelectionChange,
   useReactFlow
 } from '@xyflow/react';
@@ -150,7 +151,7 @@ function CanvasInner() {
             snapToGrid={true}
             snapGrid={[20, 20]}
             elevateNodesOnSelect={true}
-            selectionMode="partial"
+            selectionMode={SelectionMode.Partial}
             panOnScroll={true}
             zoomOnPinch={true}
             panOnDrag={[1, 2]} // Space + drag also works by default

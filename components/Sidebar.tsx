@@ -201,10 +201,9 @@ export function Sidebar() {
               const matched = allNavItems.find(item => item.path === favPath);
               if (!matched) return null;
               return (
-                <Link 
+                <Link
                   key={favPath}
-                  href={favPath} 
-                  to={favPath} 
+                  to={favPath}
                   className={navItemClass(favPath)} 
                   style={navItemStyle(favPath)}
                 >
@@ -230,7 +229,6 @@ export function Sidebar() {
           {allNavItems.filter(item => item.section === 'workspace').map(item => (
             <Link 
               key={item.path}
-              href={item.path} 
               to={item.path} 
               className={navItemClass(item.path)} 
               style={navItemStyle(item.path)}
@@ -255,7 +253,6 @@ export function Sidebar() {
           {allNavItems.filter(item => item.section === 'admin').map(item => (
             <Link 
               key={item.path}
-              href={item.path} 
               to={item.path} 
               className={navItemClass(item.path)} 
               style={navItemStyle(item.path)}
@@ -286,9 +283,8 @@ export function Sidebar() {
                 const matched = allNavItems.find(item => item.path === recentPath);
                 if (!matched) return null;
                 return (
-                  <Link 
+                  <Link
                     key={recentPath}
-                    href={recentPath}
                     to={recentPath}
                     className="flex items-center gap-2 px-2.5 py-1.5 rounded text-[11px] text-slate-400 hover:text-white hover:bg-slate-850 transition-colors"
                   >

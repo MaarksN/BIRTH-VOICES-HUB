@@ -518,7 +518,7 @@ export function TableHead({ children, className = '' }: { children: React.ReactN
   );
 }
 
-export function TableRow({ children, className = '', onClick }: { children: React.ReactNode, className?: string, onClick?: React.MouseEventHandler<HTMLTableRowElement> }) {
+export function TableRow({ children, className = '', onClick }: any) {
   return (
     <tr 
       onClick={onClick} 

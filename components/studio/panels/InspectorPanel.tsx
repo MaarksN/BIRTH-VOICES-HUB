@@ -144,7 +144,7 @@ export function InspectorPanel({ selectedNode }: InspectorPanelProps) {
                   <div>
                     <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Developer Notes / Description</label>
                     <textarea 
-                      value={data.description || ''}
+                      value={typeof data.description === 'string' ? data.description : ''}
                       onChange={handleDescChange}
                       className="w-full text-sm px-3 py-2 bg-white border border-gray-200 rounded-lg focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none resize-none h-24 shadow-sm transition-all text-gray-800"
                       placeholder="Ex: Este prompt acolhe o cliente e valida o telefone inicial..."
