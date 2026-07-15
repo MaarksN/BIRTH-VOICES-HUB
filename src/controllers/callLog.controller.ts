@@ -22,7 +22,7 @@ export async function updateCallLogHandler(req: Request, res: Response) {
   if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0].message });
 
   try {
-    const log = await updateCallLog(req.params.id, req.tenantId!, parsed.data);
+    const log = await updateCallLog(req.params.id as string, req.tenantId!, parsed.data);
     res.json({ success: true, log });
   } catch (err) {
     if (err instanceof NotFoundError) return res.status(404).json({ error: err.message });
@@ -32,7 +32,7 @@ export async function updateCallLogHandler(req: Request, res: Response) {
 
 export async function deleteCallLogHandler(req: Request, res: Response) {
   try {
-    await deleteCallLog(req.params.id, req.tenantId!);
+    await deleteCallLog(req.params.id as string, req.tenantId!);
     res.json({ success: true, message: 'Log excluído com sucesso.' });
   } catch (err) {
     if (err instanceof NotFoundError) return res.status(404).json({ error: err.message });

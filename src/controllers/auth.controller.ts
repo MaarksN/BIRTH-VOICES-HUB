@@ -1,83 +1,97 @@
 import { Request, Response } from 'express';
-import { registerSchema, loginSchema } from '../validators/index.js';
-import { register, login, AuthError } from '../services/authService.js';
+import { loginSchema, registerSchema } from '../validators/index.js';
+import { z } from 'zod';
+
+const tokenSchema = z.object({
+  token: z.string().optional()
+});
+import { register, login, refreshSession, AuthError } from '../services/authService.js';
 import { writeAuditLog } from '../services/audit.js';
-import { getAuthUser } from '../middlewares/index.js';
-import { findUserById } from '../repositories/userRepository.js';
-
-const COOKIE_BASE = { secure: process.env.NODE_ENV === 'production', sameSite: 'lax' as const };
-
-function setSessionCookies(res: Response, token: string, refreshToken: string, publicUser: { id: string; name: string; company: string; email: string; role: string }) {
-  res.cookie('access_token', token, { ...COOKIE_BASE, httpOnly: true, maxAge: 900000 });
-  res.cookie('refresh_token', refreshToken, { ...COOKIE_BASE, httpOnly: true, maxAge: 86400 * 30 * 1000 });
-  res.cookie('logged_in', 'true', { ...COOKIE_BASE, maxAge: 86400 * 30 * 1000 });
-  res.cookie('user_info', JSON.stringify(publicUser), { ...COOKIE_BASE, maxAge: 86400 * 30 * 1000 });
-}
+import { createMetric } from '../repositories/metricRepository.js';
+import { setCookie } from '../lib/cookies.js';
 
 export async function registerHandler(req: Request, res: Response) {
+  const parsed = registerSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: parsed.error.issues[0].message });
+  }
+
+  const { email, password, companyName } = parsed.data;
+
   try {
-    const parsed = registerSchema.safeParse(req.body);
-    if (!parsed.success) {
-      return res.status(400).json({ error: parsed.error.issues[0].message });
-    }
-
-    const result = await register(parsed.data.email, parsed.data.password, parsed.data.companyName);
-    setSessionCookies(res, result.token, result.refreshToken, result.user);
-    writeAuditLog(undefined, result.user.id, 'USER_REGISTER', { email: result.user.email, companyName: parsed.data.companyName });
-
-    res.json({ token: result.token, user: result.user });
-  } catch (err) {
-    if (err instanceof AuthError) return res.status(err.status).json({ error: err.message });
+    const result = await register(email, password, companyName);
+    writeAuditLog(result.tenantId, result.user.id, 'USER_REGISTER', {});
+    setCookie(res, 'access_token', result.token);
+    setCookie(res, 'refresh_token', result.refreshToken);
+    res.json(result);
+  } catch (err: any) {
     console.error('Register Error:', err);
-    res.status(500).json({ error: 'Erro interno no servidor.' });
+    if (err.status) {
+      return res.status(err.status).json({ error: err.message });
+    }
+    if (err instanceof AuthError) {
+      return res.status(err.status).json({ error: err.message });
+    }
+    res.status(500).json({ error: 'Erro interno no servidor' });
   }
 }
 
 export async function loginHandler(req: Request, res: Response) {
+  const parsed = loginSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: parsed.error.issues[0].message });
+  }
+
+  const { email, password } = parsed.data;
+
   try {
-    const parsed = loginSchema.safeParse(req.body);
-    if (!parsed.success) {
-      return res.status(400).json({ error: parsed.error.issues[0].message });
-    }
-
-    const result = await login(parsed.data.email, parsed.data.password);
-    setSessionCookies(res, result.token, result.refreshToken, result.user);
-    writeAuditLog(undefined, result.user.id, 'USER_LOGIN', { email: result.user.email });
-
-    res.json({ token: result.token, user: result.user });
-  } catch (err) {
-    if (err instanceof AuthError) return res.status(err.status).json({ error: err.message });
+    const result = await login(email, password);
+    writeAuditLog(result.tenantId, result.user.id, 'USER_LOGIN', {});
+    createMetric(result.tenantId, result.user.id, { name: 'user_login', value: 1, tags: { userId: result.user.id } });
+    setCookie(res, 'access_token', result.token);
+    setCookie(res, 'refresh_token', result.refreshToken);
+    res.json(result);
+  } catch (err: any) {
     console.error('Login Error:', err);
+    if (err.status) {
+      return res.status(err.status).json({ error: err.message });
+    }
+    if (err instanceof AuthError) {
+      return res.status(err.status).json({ error: err.message });
+    }
+    res.status(500).json({ error: 'Erro interno no servidor' });
+  }
+}
+
+export async function refreshHandler(req: Request, res: Response) {
+  const parsed = tokenSchema.safeParse(req.body);
+  const refreshToken = parsed.success ? parsed.data.token : req.cookies?.refresh_token;
+
+  if (!refreshToken) {
+    return res.status(401).json({ error: 'Refresh token não fornecido.' });
+  }
+
+  try {
+    const result = await refreshSession(refreshToken);
+    if (!result) {
+      res.clearCookie('access_token');
+      res.clearCookie('refresh_token');
+      return res.status(401).json({ error: 'Refresh token inválido.' });
+    }
+    setCookie(res, 'access_token', result.token);
+    res.json(result);
+  } catch (err) {
+    console.error('Refresh Token Error:', err);
     res.status(500).json({ error: 'Erro interno no servidor.' });
   }
 }
 
-export async function meHandler(req: Request, res: Response) {
-  const session = await getAuthUser(req, res);
-  if (!session) return res.status(401).json({ error: 'Não autorizado.' });
-
-  const user = await findUserById(session.id);
-  if (!user) return res.status(404).json({ error: 'Usuário não encontrado.' });
-
-  res.json({
-    user: {
-      id: user.id,
-      name: user.email.split('@')[0],
-      company: user.companyName,
-      email: user.email,
-      role: session.role,
-    },
-  });
-}
-
 export async function logoutHandler(req: Request, res: Response) {
-  const session = await getAuthUser(req, res);
-  if (session) {
-    writeAuditLog(session.tenantId, session.id, 'USER_LOGOUT', { email: session.email });
-  }
   res.clearCookie('access_token');
   res.clearCookie('refresh_token');
-  res.clearCookie('logged_in');
-  res.clearCookie('user_info');
-  res.json({ success: true, message: 'Desconectado com sucesso.' });
+  res.json({ success: true, message: 'Logout realizado com sucesso' });
+}
+
+export async function meHandler(req: Request, res: Response) {
+  res.json({ user: req.user });
 }
