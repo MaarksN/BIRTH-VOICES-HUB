@@ -13,7 +13,6 @@ router.get('/workflow/history', requireTenant, getWorkflowHistoryHandler);
 router.post('/workflow/restore', requireTenant, restoreWorkflowVersionHandler);
 router.post('/workflow/duplicate', requireTenant, duplicateWorkflowHandler);
 
-export default router;
 
 import { addCommentHandler, resolveCommentHandler, lockNodeHandler, unlockNodeHandler } from '../controllers/workflowCollab.controller.js';
 
@@ -21,3 +20,4 @@ router.post('/workflow/comments', requireTenant, addCommentHandler);
 router.post('/workflow/comments/resolve', requireTenant, resolveCommentHandler);
 router.post('/workflow/lock', requireTenant, lockNodeHandler);
 router.post('/workflow/unlock', requireTenant, unlockNodeHandler);
+export default router;
