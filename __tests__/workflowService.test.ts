@@ -23,7 +23,7 @@ describe('workflowService.saveWorkflow', () => {
     mockUpsert.mockResolvedValue({ id: 'wf-1', name: 'New Flow' } as Awaited<ReturnType<typeof upsertWorkflow>>);
 
     await saveWorkflow('tenant-1', 'user-1', { name: 'New Flow' });
-    expect(mockUpsert).toHaveBeenCalledWith('tenant-1', 'user-1', null, expect.objectContaining({ name: 'New Flow' }));
+    expect(mockUpsert).toHaveBeenCalledWith('tenant-1', 'user-1', null, { name: 'New Flow' });
   });
 
   it('updates the existing workflow id when one already exists', async () => {
@@ -31,7 +31,7 @@ describe('workflowService.saveWorkflow', () => {
     mockUpsert.mockResolvedValue({ id: 'wf-existing', name: 'Updated' } as Awaited<ReturnType<typeof upsertWorkflow>>);
 
     await saveWorkflow('tenant-1', 'user-1', { name: 'Updated' });
-    expect(mockUpsert).toHaveBeenCalledWith('tenant-1', 'user-1', 'wf-existing', expect.objectContaining({ name: 'Updated' }));
+    expect(mockUpsert).toHaveBeenCalledWith('tenant-1', 'user-1', 'wf-existing', { name: 'Updated' });
   });
 });
 

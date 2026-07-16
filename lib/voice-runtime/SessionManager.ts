@@ -38,7 +38,7 @@ export class SessionManager {
     // Initialize pipelines
     latencyMonitor.initialize(sessionId);
     memoryPipeline.initialize(sessionId);
-    streamingEngine.createSessionStreams(sessionId, undefined);
+    streamingEngine.createSessionStreams(sessionId);
 
     observability.logEvent(sessionId, 'SESSION_CREATED', { agentId, callerId });
     

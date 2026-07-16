@@ -1,16 +1,10 @@
 import { Request, Response } from 'express';
 import { agentSchema } from '../validators/index.js';
-import { listAgents, createAgent, deleteAgent, getAgent, updateAgentConfig } from '../services/agentService.js';
+import { listAgents, createAgent, deleteAgent } from '../services/agentService.js';
 
 export async function listAgentsHandler(req: Request, res: Response) {
   const agents = await listAgents(req.tenantId!);
   res.json({ agents });
-}
-
-export async function getAgentHandler(req: Request, res: Response) {
-  const agent = await getAgent(String(req.params.id), req.tenantId!);
-  if (!agent) return res.status(404).json({ error: 'Agente não encontrado.' });
-  res.json({ agent });
 }
 
 export async function createAgentHandler(req: Request, res: Response) {
@@ -21,16 +15,7 @@ export async function createAgentHandler(req: Request, res: Response) {
   res.json({ success: true, agent });
 }
 
-export async function updateAgentConfigHandler(req: Request, res: Response) {
-  try {
-     const agent = await updateAgentConfig(String(req.params.id), req.tenantId!, req.body);
-     res.json({ success: true, agent });
-  } catch(err: any) {
-     res.status(404).json({ error: err.message });
-  }
-}
-
 export async function deleteAgentHandler(req: Request, res: Response) {
-  await deleteAgent(String(String(req.params.id)), req.tenantId!);
+  await deleteAgent(String(req.params.id), req.tenantId!);
   res.json({ success: true });
 }

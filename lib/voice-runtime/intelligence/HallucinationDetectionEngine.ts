@@ -1,6 +1,6 @@
 import { HallucinationAlert, ConversationTurn } from '../types';
 import { observability } from '../Observability';
-export interface KnowledgeDocument { id?: string; name: string; keyword: string; content: string; addedAt?: number; }
+import { KnowledgeDocument } from './KnowledgeConfidenceEngine';
 
 export class HallucinationDetectionEngine {
   public checkResponse(sessionId: string, turn: ConversationTurn, groundedKnowledge: KnowledgeDocument[]): HallucinationAlert | null {
