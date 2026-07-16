@@ -17,6 +17,7 @@ import { verifyToken } from "./src/lib/auth-tokens.js";
 import { csrfProtection } from "./src/middlewares/index.js";
 import { createHealthRouter } from "./src/routes/health.routes.js";
 import apiRoutes from "./src/routes/index.js";
+import telephonyRoutes from "./src/routes/telephony.routes.js";
 import { otelCollector } from "./lib/voice-runtime/otel.js";
 import { logger } from "./src/lib/logger.js";
 
@@ -110,6 +111,13 @@ async function startServer() {
   // Tighter limiter on login/register specifically — brute-force/credential-stuffing protection
   // that the shared 200 req/min global limit doesn't provide.
   app.use(['/api/auth/login', '/api/auth/register'], createRateLimiter('auth', 10, 60));
+
+  // Twilio webhooks: mounted before csrfProtection/express.json() because Twilio sends
+  // application/x-www-form-urlencoded bodies with no Origin header (the CSRF check would reject
+  // every request). Authenticity is instead verified per-request via the Twilio request signature
+  // inside telephonyRoutes — see validateTwilioSignature.
+  app.use('/api', createRateLimiter('telephony', 120, 60), telephonyRoutes);
+
   app.use(csrfProtection);
   app.use(express.json());
 

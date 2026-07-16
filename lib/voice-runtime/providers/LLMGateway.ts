@@ -165,7 +165,10 @@ class LLMProviderGateway {
       }
     }
     if (!text) {
-      text = `Compreendi suas informações. Vamos agendar o seu atendimento dental de urgência para amanhã.`;
+      // Never fabricate a confirmation (e.g. a scheduled appointment) when every provider failed —
+      // for a caller reaching out about maternal/birth care, a false "you're booked" is worse than
+      // an honest apology.
+      text = `Peço desculpas, estou com uma instabilidade técnica no momento. Por favor, tente novamente em alguns instantes.`;
       currentProvider = 'GoogleGemini';
     }
 

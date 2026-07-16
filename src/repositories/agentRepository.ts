@@ -37,3 +37,11 @@ export function updateAgent(id: string, tenantId: string, data: { name?: string;
 export function deleteAgentForTenant(id: string, tenantId: string) {
   return prisma.agent.updateMany({ where: { id, tenantId }, data: { deletedAt: new Date() } });
 }
+
+export function findAgentByPhoneNumber(phoneNumber: string) {
+  return prisma.agent.findFirst({ where: { phoneNumber, deletedAt: null } });
+}
+
+export function findAgentById(id: string) {
+  return prisma.agent.findFirst({ where: { id, deletedAt: null } });
+}
