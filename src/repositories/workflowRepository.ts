@@ -9,15 +9,17 @@ export function upsertWorkflow(
   tenantId: string,
   userId: string,
   existingId: string | null,
-  data: { name?: string; nodes?: unknown; edges?: unknown }
+  data: { name?: string; nodes?: unknown; edges?: unknown; metadata?: unknown; version?: number }
 ) {
   if (existingId) {
     return prisma.workflow.update({
       where: { id: existingId },
       data: {
         name: data.name ?? undefined,
-        nodes: data.nodes as Prisma.InputJsonValue,
-        edges: data.edges as Prisma.InputJsonValue,
+        nodes: data.nodes !== undefined ? (data.nodes as Prisma.InputJsonValue) : undefined,
+        edges: data.edges !== undefined ? (data.edges as Prisma.InputJsonValue) : undefined,
+        metadata: data.metadata !== undefined ? (data.metadata as Prisma.InputJsonValue) : undefined,
+        version: data.version ?? undefined,
         updatedBy: userId,
       },
     });
@@ -28,9 +30,11 @@ export function upsertWorkflow(
       userId,
       createdBy: userId,
       updatedBy: userId,
-      name: data.name || 'Default Workflow',
+      name: data.name || "Default Workflow",
       nodes: (data.nodes ?? []) as Prisma.InputJsonValue,
       edges: (data.edges ?? []) as Prisma.InputJsonValue,
+      metadata: (data.metadata ?? {}) as Prisma.InputJsonValue,
+      version: data.version ?? 1,
     },
   });
 }

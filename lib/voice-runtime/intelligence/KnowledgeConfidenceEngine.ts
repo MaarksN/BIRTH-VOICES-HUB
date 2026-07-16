@@ -1,29 +1,38 @@
 import { KnowledgeConfidence } from '../types';
-import { observability } from '../Observability';
-
-export interface KnowledgeDocument {
-  name: string;
-  [key: string]: unknown;
-}
 
 export class KnowledgeConfidenceEngine {
-  public evaluateKnowledge(sessionId: string, text: string, sourceDocs: KnowledgeDocument[]): KnowledgeConfidence {
-    const confidence: KnowledgeConfidence = {
-      source: 'Internal Knowledge Base',
-      confidence: sourceDocs.length > 0 ? 95 : 30, // Mocked confidence based on docs
-      isUpToDate: true,
-      document: sourceDocs.length > 0 ? sourceDocs[0].name : 'None',
-      version: '1.0',
-      snippetUsed: text.substring(0, 50),
-      embeddingsScore: sourceDocs.length > 0 ? 0.89 : 0.2
-    };
 
-    if (confidence.confidence < 70) {
-      observability.logEvent(sessionId, 'LOW_KNOWLEDGE_CONFIDENCE', { confidence });
-      // Na prática: acionar fallback de resposta "Não encontrei informação"
+  public evaluateKnowledge(query: string, availableDocuments: any[]): KnowledgeConfidence {
+    // RAG Simulator: In a real scenario, this would query a vector DB (Pinecone, PgVector).
+    // Due to sandbox constraints, we simulate semantic search over JSON.
+
+    let bestMatchScore = 0;
+    let snippetUsed = 'Não encontrei informações específicas sobre isso.';
+    let documentName = 'Unknown';
+    let isUpToDate = false;
+
+    // Simple keyword simulation
+    const lowerQuery = query.toLowerCase();
+
+    for (const doc of availableDocuments) {
+        if (lowerQuery.includes(doc.keyword) || doc.content.toLowerCase().includes(lowerQuery)) {
+            bestMatchScore = 0.85; // Simulated high confidence
+            snippetUsed = doc.content;
+            documentName = doc.name;
+            isUpToDate = true;
+            break;
+        }
     }
 
-    return confidence;
+    return {
+      source: 'Internal Knowledge Base',
+      confidence: bestMatchScore,
+      isUpToDate,
+      document: documentName,
+      version: 'v1.0',
+      snippetUsed,
+      embeddingsScore: bestMatchScore
+    };
   }
 }
 
