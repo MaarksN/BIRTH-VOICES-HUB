@@ -5,13 +5,15 @@ export function findSetting(tenantId: string | null, userId: string | null, key:
   return prisma.setting.findFirst({ where: { tenantId, userId, key } });
 }
 
-export function upsertSetting(tenantId: string | null, userId: string | null, key: string, value: unknown) {
-  return prisma.setting.upsert({
-    where: {
-      tenantId_userId_key: { tenantId: tenantId as string, userId: userId as string, key },
-    },
-    create: { tenantId, userId, key, value: value as Prisma.InputJsonValue, isGlobal: !tenantId && !userId },
-    update: { value: value as Prisma.InputJsonValue },
+export async function upsertSetting(tenantId: string | null, userId: string | null, key: string, value: unknown) {
+  // Prisma's compound-unique `where` rejects null for a nullable member (tenantId/userId),
+  // so `upsert` can't be used directly when either is null (e.g. tenant-wide settings).
+  const existing = await prisma.setting.findFirst({ where: { tenantId, userId, key } });
+  if (existing) {
+    return prisma.setting.update({ where: { id: existing.id }, data: { value: value as Prisma.InputJsonValue } });
+  }
+  return prisma.setting.create({
+    data: { tenantId, userId, key, value: value as Prisma.InputJsonValue, isGlobal: !tenantId && !userId },
   });
 }
 
