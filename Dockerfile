@@ -3,7 +3,10 @@ FROM node:20-alpine AS builder
 WORKDIR /app
 
 # Install dependencies and build tools
-RUN apk add --no-cache libc6-compat
+# openssl is required so Prisma's platform detection can correctly identify the OpenSSL 3.x
+# available on modern Alpine and select the matching linux-musl-openssl-3.0.x query engine —
+# without it, detection silently falls back to an OpenSSL 1.1 engine that fails to load at runtime.
+RUN apk add --no-cache libc6-compat openssl
 COPY package.json package-lock.json ./
 RUN npm ci
 
@@ -26,6 +29,7 @@ RUN npm run build
 # --- Stage 2: Production Dependencies ---
 FROM node:20-alpine AS deps
 WORKDIR /app
+RUN apk add --no-cache openssl
 COPY package.json package-lock.json ./
 COPY prisma/ ./prisma/
 RUN npm ci --omit=dev
@@ -34,9 +38,10 @@ RUN npx prisma generate
 # --- Stage 3: Runner ---
 FROM node:20-alpine AS runner
 WORKDIR /app
+RUN apk add --no-cache openssl
 
-ENV NODE_ENV production
-ENV PORT 3000
+ENV NODE_ENV=production
+ENV PORT=3000
 
 # Create non-root user
 RUN addgroup --system --gid 1001 nodejs

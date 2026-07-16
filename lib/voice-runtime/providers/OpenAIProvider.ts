@@ -1,4 +1,5 @@
 import { BaseProvider, ProviderResponse } from './BaseProvider';
+import { logger } from '../../../src/lib/logger.js';
 
 export class OpenAIRealtimeProvider extends BaseProvider {
   public id = 'OpenAI';
@@ -6,7 +7,7 @@ export class OpenAIRealtimeProvider extends BaseProvider {
   public type = 'E2E' as const;
   
   public async initialize(_config: Record<string, unknown>): Promise<void> {
-    console.debug(`[${this.name}] Initialized`);
+    logger.debug(`[${this.name}] Initialized`);
   }
 
   public async process(input: any, context?: any): Promise<ProviderResponse> {

@@ -1,4 +1,5 @@
 import { BaseProvider, ProviderResponse } from './BaseProvider';
+import { logger } from '../../../src/lib/logger.js';
 
 export class GeminiLiveProvider extends BaseProvider {
   public id = 'GoogleGemini';
@@ -7,7 +8,7 @@ export class GeminiLiveProvider extends BaseProvider {
   private ws?: WebSocket;
   
   public async initialize(_config: Record<string, unknown>): Promise<void> {
-    console.debug(`[${this.name}] Initialized`);
+    logger.debug(`[${this.name}] Initialized`);
   }
 
   public async process(input: any, context?: any): Promise<ProviderResponse> {
@@ -55,7 +56,7 @@ export class GeminiLiveProvider extends BaseProvider {
     if (this.ws) {
         this.ws.close();
     }
-    console.debug(`[${this.name}] Destroyed`);
+    logger.debug(`[${this.name}] Destroyed`);
   }
 }
 

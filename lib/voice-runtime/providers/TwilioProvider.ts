@@ -1,5 +1,6 @@
 import { BaseProvider, ProviderResponse } from './BaseProvider';
 import { WebSocket } from 'ws';
+import { logger } from '../../../src/lib/logger.js';
 
 export class TwilioProvider extends BaseProvider {
   public id = 'Twilio';
@@ -8,7 +9,7 @@ export class TwilioProvider extends BaseProvider {
   private wss?: WebSocket;
 
   public async initialize(config: Record<string, unknown>): Promise<void> {
-    console.debug(`[${this.name}] Initialized with config:`, config);
+    logger.debug(`[${this.name}] Initialized with config`, config);
   }
 
   public async process(_input: any, _context?: any): Promise<ProviderResponse> {
@@ -26,7 +27,7 @@ export class TwilioProvider extends BaseProvider {
     this.wss.on('message', (msg) => {
       // Decode twilio media payload
       // Extract mu-law or similar and process to raw PCM for AudioPipeline
-      console.log('Received Twilio chunk length', msg.toString().length);
+      logger.debug('Received Twilio chunk length', msg.toString().length);
     });
   }
 
@@ -38,7 +39,7 @@ export class TwilioProvider extends BaseProvider {
     if (this.wss) {
       this.wss.close();
     }
-    console.debug(`[${this.name}] Destroyed`);
+    logger.debug(`[${this.name}] Destroyed`);
   }
 }
 

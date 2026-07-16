@@ -1,4 +1,5 @@
 import { RuntimeEvent } from './types';
+import { logger } from '../../src/lib/logger.js';
 
 export class ObservabilityEngine {
   private events: Map<string, RuntimeEvent[]> = new Map();
@@ -19,7 +20,7 @@ export class ObservabilityEngine {
     this.events.get(sessionId)!.push(event);
     
     // In production, this would stream to DataDog, OpenTelemetry, etc.
-    console.debug(`[Observability] [${sessionId}] ${type}`, payload);
+    logger.debug(`[Observability] [${sessionId}] ${type}`, payload);
     return event;
   }
 

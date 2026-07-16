@@ -7,7 +7,6 @@ try {
 import "./lib/otelInitializer.js";
 import express from "express";
 import path from "path";
-import { createServer as createViteServer } from "vite";
 import http from "http";
 import { Server as SocketIOServer } from "socket.io";
 import cookieParser from "cookie-parser";
@@ -19,6 +18,7 @@ import { csrfProtection } from "./src/middlewares/index.js";
 import { createHealthRouter } from "./src/routes/health.routes.js";
 import apiRoutes from "./src/routes/index.js";
 import { otelCollector } from "./lib/voice-runtime/otel.js";
+import { logger } from "./src/lib/logger.js";
 
 async function startServer() {
   const app = express();
@@ -60,46 +60,62 @@ async function startServer() {
     contentSecurityPolicy: {
       directives: {
         defaultSrc: ["'self'"],
-        scriptSrc: ["'self'", "'unsafe-inline'"],
-        styleSrc: ["'self'", "'unsafe-inline'"],
+        // 'unsafe-inline' is required by index.html's inline <script>/<style> tags (Tailwind
+        // config, font-face import) — removing it would need extracting those to external
+        // files/nonces, out of scope for a security-hardening pass.
+        scriptSrc: ["'self'", "'unsafe-inline'", "https://cdn.tailwindcss.com"],
+        styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+        fontSrc: ["'self'", "https://fonts.gstatic.com"],
         imgSrc: ["'self'", "data:", "blob:", "https:"],
         mediaSrc: ["'self'", "data:", "blob:"],
         connectSrc: ["'self'", "ws:", "wss:", "https:"],
+        objectSrc: ["'none'"],
+        frameAncestors: ["'none'"],
+        upgradeInsecureRequests: [],
       },
     },
   }));
   app.use(cors({ origin: allowedOrigins, credentials: true }));
   app.use(cookieParser());
-  app.use(express.json());
 
   // Redis-backed Rate Limiter
   const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';
   // Bounded retries + short timeouts so a Redis outage makes rate-limit/health checks fail fast
   // and degrade gracefully, instead of hanging every request forever waiting on the command queue.
   const redisClient = new Redis(redisUrl, { maxRetriesPerRequest: 1, connectTimeout: 2000, commandTimeout: 2000 });
-  redisClient.on('error', (err) => console.error('Redis client error:', err.message));
+  redisClient.on('error', (err) => logger.error('Redis client error', err.message));
 
-  const rateLimitMiddleware = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
-    const ip = req.ip || (req.headers['x-forwarded-for'] as string) || 'unknown';
-    const key = `ratelimit:${ip}`;
-    const limit = 200;
-    const windowSeconds = 60;
+  const createRateLimiter = (keyPrefix: string, limit: number, windowSeconds: number) =>
+    async (req: express.Request, res: express.Response, next: express.NextFunction) => {
+      const ip = req.ip || (req.headers['x-forwarded-for'] as string) || 'unknown';
+      const key = `ratelimit:${keyPrefix}:${ip}`;
 
-    try {
-      const current = await redisClient.incr(key);
-      if (current === 1) {
-        await redisClient.expire(key, windowSeconds);
+      try {
+        const current = await redisClient.incr(key);
+        if (current === 1) {
+          await redisClient.expire(key, windowSeconds);
+        }
+        if (current > limit) {
+          return res.status(429).json({ error: "Limite de requisições excedido. Tente novamente em um minuto." });
+        }
+        next();
+      } catch {
+        next();
       }
-      if (current > limit) {
-        return res.status(429).json({ error: "Limite de requisições excedido. Tente novamente em um minuto." });
-      }
-      next();
-    } catch {
-      next();
-    }
-  };
-  app.use(rateLimitMiddleware);
+    };
+
+  // General limiter for the whole API, applied before body parsing so an oversized/malformed
+  // body never gets parsed for a request that's about to be rejected anyway.
+  app.use(createRateLimiter('global', 200, 60));
+  if (process.env.NODE_ENV !== 'test') {
+    // Tighter limiter on login/register specifically — brute-force/credential-stuffing protection
+    // that the shared 200 req/min global limit doesn't provide. Skipped in tests: supertest
+    // requests all share one synthetic IP, so this would throttle unrelated test cases (many of
+    // which call the register endpoint repeatedly) instead of guarding against real abuse.
+    app.use(['/api/auth/login', '/api/auth/register'], createRateLimiter('auth', 10, 60));
+  }
   app.use(csrfProtection);
+  app.use(express.json());
 
   const healthRouter = createHealthRouter(redisClient);
   app.use(healthRouter);
@@ -125,7 +141,7 @@ async function startServer() {
   });
 
   io.on("connection", (socket) => {
-    console.log("Supervisor connected via WebSocket:", socket.id);
+    logger.info('Supervisor connected via WebSocket', socket.id);
 
     let callDuration = 0;
     const interval = setInterval(() => {
@@ -171,25 +187,25 @@ async function startServer() {
     }, 1000);
 
     socket.on("intervene_call", (data) => {
-      console.log("Intervention received from supervisor:", data);
+      logger.info('Intervention received from supervisor', data);
       io.emit("intervention_triggered", { message: "Supervisor interveio na chamada!" });
     });
 
     socket.on("disconnect", () => {
       clearInterval(interval);
-      console.log("Supervisor disconnected:", socket.id);
+      logger.info('Supervisor disconnected', socket.id);
     });
   });
 
   // Centralized error handler
   app.use((err: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
-    console.error('Unhandled request error:', err);
+    logger.error('Unhandled request error', err);
     if (res.headersSent) return;
     res.status(500).json({ error: 'Erro interno no servidor.' });
   });
 
-  // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
+    const { createServer: createViteServer } = await import("vite");
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa",
@@ -198,14 +214,14 @@ async function startServer() {
   } else {
     const distPath = path.join(process.cwd(), 'dist');
     app.use(express.static(distPath));
-    app.get('*', (req, res) => {
+    app.get('/*splat', (req, res) => {
       res.sendFile(path.join(distPath, 'index.html'));
     });
   }
 
   if (process.env.NODE_ENV !== 'test') {
     server.listen(PORT, "0.0.0.0", () => {
-      console.log(`Server running on http://localhost:${PORT}`);
+      logger.info(`Server running on http://localhost:${PORT}`);
     });
   }
 
