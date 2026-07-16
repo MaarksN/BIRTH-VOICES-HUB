@@ -85,6 +85,10 @@ Configurar em **Settings → Secrets and variables → Actions → New repositor
 - **God Component**: `pages/Dashboard/Developers.tsx` (385 linhas) refatorado — lógica de API keys/webhooks extraída para `hooks/useDeveloperSettings.ts` (132 linhas), componente reduzido a 304 linhas de JSX puro.
 - **Arquivos órfãos removidos**: `report.md`, `migrated_prompt_history/` (1.1MB, dump de histórico de prompts) — confirmado sem nenhuma referência em código/CI antes de remover.
 - **`coverage/`** (77 arquivos de relatório de teste) desrastreado do git.
+- **`.env.example`**: faltavam `PORT`, `NODE_ENV` e as 3 chaves opcionais de IA (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `ELEVENLABS_API_KEY`) que o código já lê em `lib/voice-runtime/providers/*` — adicionadas.
+- **`DEPLOYMENT.md`**: exemplo de `docker run` usava a porta errada (5001 em vez de 3000) e a lista de secrets **omitia `REFRESH_TOKEN_SECRET`** — o mesmo tipo de lacuna que quebrava o `deploy.yml` antes desta sessão, só que na documentação. Corrigido.
+- **`SECURITY.md`**: descrevia refresh tokens como "ainda não implementados via cookie httpOnly" — informação desatualizada (já são cookies httpOnly hoje, e ficaram mais rígidos ainda com o hardening de CSRF/rate-limit desta sessão). Corrigido, e passou a documentar o rate limit de auth dedicado.
+- **`README.md`**: não mencionava nenhuma variável de ambiente nem onde encontrar os secrets necessários — adicionada seção curta apontando para `.env.example` e `DEPLOYMENT.md`.
 
 ## Dívida técnica remanescente (documentada, não implementada)
 
