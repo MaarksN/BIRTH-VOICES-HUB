@@ -9,7 +9,6 @@ export * from './FailoverEngine';
 export * from './ProviderManager';
 export * from './Observability';
 export * from './providers/BaseProvider';
-export * from "./providers/TwilioProvider";
 export * from './intelligence/IntelligencePipeline';
 export * from './intelligence/EmotionEngine';
 export * from './intelligence/IntentEngine';

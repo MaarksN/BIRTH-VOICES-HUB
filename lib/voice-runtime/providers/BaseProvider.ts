@@ -3,7 +3,6 @@ import { AudioChunk } from '../types';
 export interface ProviderResponse {
   text?: string;
   audio?: AudioChunk;
-  stream?: any;
   error?: unknown;
   latencyMs: number;
 }

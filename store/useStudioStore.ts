@@ -46,16 +46,6 @@ export interface SimulationLog {
 }
 
 export interface StudioState {
-  past: { nodes: StudioNode[]; edges: StudioEdge[] }[];
-  future: { nodes: StudioNode[]; edges: StudioEdge[] }[];
-  clipboard: { nodes: StudioNode[]; edges: StudioEdge[] } | null;
-  undo: () => void;
-  redo: () => void;
-  copySelection: () => void;
-  pasteSelection: () => void;
-  autoAlignNodes: () => void;
-  deleteSelection: () => void;
-  saveSnapshot: () => void;
   nodes: StudioNode[];
   edges: StudioEdge[];
   selectedNodeId: string | null;
@@ -432,112 +422,6 @@ const initialEdges: StudioEdge[] = [
 let simulationInterval: ReturnType<typeof setInterval> | null = null;
 
 export const useStudioStore = create<StudioState>((set, get) => ({
-  past: [],
-  future: [],
-  clipboard: null,
-
-  saveSnapshot: () => {
-    const { nodes, edges, past } = get();
-    // avoid saving identical snapshots
-    if (past.length > 0) {
-       const last = past[past.length - 1];
-       if (JSON.stringify(last.nodes) === JSON.stringify(nodes) && JSON.stringify(last.edges) === JSON.stringify(edges)) return;
-    }
-    set({
-      past: [...past, { nodes: structuredClone(nodes), edges: structuredClone(edges) }],
-      future: []
-    });
-  },
-
-  undo: () => {
-    const { past, future, nodes, edges } = get();
-    if (past.length === 0) return;
-    const previous = past[past.length - 1];
-    const newPast = past.slice(0, past.length - 1);
-    set({
-      past: newPast,
-      future: [{ nodes, edges }, ...future],
-      nodes: previous.nodes,
-      edges: previous.edges
-    });
-  },
-
-  redo: () => {
-    const { past, future, nodes, edges } = get();
-    if (future.length === 0) return;
-    const next = future[0];
-    const newFuture = future.slice(1);
-    set({
-      past: [...past, { nodes, edges }],
-      future: newFuture,
-      nodes: next.nodes,
-      edges: next.edges
-    });
-  },
-
-  copySelection: () => {
-    const { nodes, edges } = get();
-    const selectedNodes = nodes.filter(n => n.selected);
-    const selectedNodeIds = new Set(selectedNodes.map(n => n.id));
-    const selectedEdges = edges.filter(e => selectedNodeIds.has(e.source) && selectedNodeIds.has(e.target));
-    set({ clipboard: { nodes: selectedNodes, edges: selectedEdges } });
-  },
-
-  autoAlignNodes: () => {
-    const { nodes, saveSnapshot } = get();
-    saveSnapshot();
-    const sorted = [...nodes].sort((a, b) => a.position.y - b.position.y);
-    let currentY = 50;
-    const aligned = sorted.map(n => {
-       const res = { ...n, position: { x: 300, y: currentY } };
-       currentY += 150;
-       return res;
-    });
-    set({ nodes: aligned });
-  },
-
-  deleteSelection: () => {
-    const { nodes, edges, saveSnapshot } = get();
-    const selectedNodes = nodes.filter(n => n.selected).map(n => n.id);
-    if (selectedNodes.length === 0) return;
-
-    saveSnapshot();
-    set({
-       nodes: nodes.filter(n => !n.selected),
-       edges: edges.filter(e => !selectedNodes.includes(e.source) && !selectedNodes.includes(e.target))
-    });
-  },
-
-  pasteSelection: () => {
-    const { clipboard, nodes, edges, saveSnapshot } = get();
-    if (!clipboard || clipboard.nodes.length === 0) return;
-    saveSnapshot();
-
-    const idMapping: Record<string, string> = {};
-    const newNodes = clipboard.nodes.map(n => {
-      const newId = crypto.randomUUID();
-      idMapping[n.id] = newId;
-      return {
-        ...n,
-        id: newId,
-        selected: true,
-        position: { x: n.position.x + 50, y: n.position.y + 50 }
-      };
-    });
-
-    const newEdges = clipboard.edges.map(e => ({
-      ...e,
-      id: crypto.randomUUID(),
-      source: idMapping[e.source],
-      target: idMapping[e.target]
-    }));
-
-    set({
-      nodes: [...nodes.map(n => ({...n, selected: false})), ...newNodes],
-      edges: [...edges.map(e => ({...e, selected: false})), ...newEdges]
-    });
-  },
-
   nodes: initialNodes,
   edges: initialEdges,
   selectedNodeId: null,
