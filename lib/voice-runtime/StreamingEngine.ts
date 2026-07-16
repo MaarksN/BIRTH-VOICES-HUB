@@ -7,8 +7,27 @@ export class StreamingEngine {
   private inputStreams: Map<string, ReadableStreamDefaultController<AudioChunk>> = new Map();
   private outputStreams: Map<string, ReadableStreamDefaultController<AudioChunk>> = new Map();
   private outputCallbacks: Map<string, StreamCallback[]> = new Map();
+  private webSockets: Map<string, any> = new Map();
 
-  public createSessionStreams(sessionId: string) {
+  public createSessionStreams(sessionId: string, wsConnection?: any) {
+    if (wsConnection) {
+      this.webSockets.set(sessionId, wsConnection);
+
+      wsConnection.on('message', (msg: any) => {
+        // Here we would parse Twilio media payload, or generic WebSocket binary frames
+        const chunk: AudioChunk = {
+          data: typeof msg === 'string' ? new TextEncoder().encode(msg) : msg,
+          timestamp: Date.now(),
+          isSpeech: true
+        };
+        this.writeInput(sessionId, chunk);
+      });
+
+      wsConnection.on('close', () => {
+        this.cleanup(sessionId);
+      });
+    }
+
     const input = new ReadableStream<AudioChunk>({
       start: (controller) => {
         this.inputStreams.set(sessionId, controller);
@@ -47,6 +66,12 @@ export class StreamingEngine {
 
     const callbacks = this.outputCallbacks.get(sessionId) || [];
     callbacks.forEach(cb => cb(chunk));
+
+    // Also send over WebSocket if connected
+    const ws = this.webSockets.get(sessionId);
+    if (ws && ws.readyState === 1) { // 1 = OPEN
+      ws.send(chunk.data);
+    }
   }
 
   public onOutput(sessionId: string, callback: StreamCallback) {
@@ -57,14 +82,17 @@ export class StreamingEngine {
 
   public interrupt(sessionId: string) {
     observability.logEvent(sessionId, 'STREAMING_INTERRUPTED');
-    // Clear pending audio chunks in output buffer
-    // Send interruption signal to provider
+
+    const ws = this.webSockets.get(sessionId);
+    if (ws && ws.readyState === 1) {
+       // Twilio specific clear instruction if using Media Streams, or general abort signal
+       ws.send(JSON.stringify({ event: 'clear' }));
+    }
   }
 
   public cleanup(sessionId: string) {
     const inCtrl = this.inputStreams.get(sessionId);
     if (inCtrl) {
-      // Ignore errors closing an already-closed/errored stream controller
       try { inCtrl.close(); } catch { /* already closed */ }
       this.inputStreams.delete(sessionId);
     }
@@ -76,6 +104,12 @@ export class StreamingEngine {
     }
 
     this.outputCallbacks.delete(sessionId);
+
+    const ws = this.webSockets.get(sessionId);
+    if (ws) {
+      ws.close();
+      this.webSockets.delete(sessionId);
+    }
   }
 }
 
