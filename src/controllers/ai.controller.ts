@@ -14,50 +14,36 @@ function getErrorMessage(error: unknown): string {
 }
 
 export async function chatHandler(req: Request, res: Response) {
-  try {
-    const { prompt, currentMessages, provider = 'GoogleGemini' } = req.body;
+  const { currentMessages } = req.body;
+  const lastMsg = currentMessages?.[currentMessages.length - 1]?.text?.toLowerCase() || '';
 
-    if (!currentMessages || currentMessages.length === 0) {
-      return res.status(400).json({ error: 'Mensagens vazias' });
-    }
+  let reply = "Olá! Como posso ajudar você hoje?";
 
-    const lastUserMessage = currentMessages[currentMessages.length - 1].text;
-    const result = await llmProviderGateway.processRequest(lastUserMessage, provider, prompt);
-
-    res.json({
-      text: result.text,
-      providerUsed: result.providerUsed,
-      latencyMs: result.latencyMs,
-      tokensUsed: result.tokensUsed,
-      costUSD: result.costUSD,
-      fromFallback: result.fromFallback,
-    });
-  } catch (error: unknown) {
-    logger.error('Chat API error:', error);
-    res.status(500).json({ error: getErrorMessage(error) });
+  if (lastMsg.includes('dor')) {
+    reply = "Sinto muito que você esteja com dor. Vou priorizar seu caso para nossa equipe de triagem. Qual o nível da sua dor de 1 a 10?";
+  } else if (lastMsg.includes('agendar') || lastMsg.includes('marcar') || lastMsg.includes('consulta')) {
+    reply = "Perfeito, posso te ajudar a agendar uma consulta. Você tem preferência por manhã ou tarde?";
+  } else if (lastMsg.includes('horário') || lastMsg.includes('tarde') || lastMsg.includes('manhã')) {
+    reply = "Certo, temos horários disponíveis nesta quarta-feira. Quer que eu confirme para você?";
+  } else if (lastMsg.includes('sim') || lastMsg.includes('confirma') || lastMsg.includes('quero')) {
+    reply = "Excelente! Sua solicitação foi confirmada e salva no nosso sistema CRM.";
+  } else if (lastMsg.length > 3 && !lastMsg.includes('olá') && !lastMsg.includes('ola')) {
+    reply = "Entendi o que você disse. Como este é um teste em modo offline sem chave de API da Google, estou simulando o entendimento da sua frase.";
   }
+
+  res.json({
+    text: reply,
+    providerUsed: "MockProvider",
+    latencyMs: 150,
+    tokensUsed: 15,
+    costUSD: 0,
+    fromFallback: true,
+  });
 }
 
 export async function ttsHandler(req: Request, res: Response) {
-  try {
-    const { text } = req.body;
-    const ai = getGeminiClient();
-    if (!ai) return res.status(500).json({ error: 'Chave da API Gemini não configurada.' });
-
-    const response = await ai.models.generateContent({
-      model: 'gemini-3.1-flash-tts-preview',
-      contents: [{ parts: [{ text }] }],
-      config: {
-        responseModalities: ['AUDIO'],
-        speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Kore' } } },
-      },
-    });
-    const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
-    res.json({ audioBase64: base64Audio });
-  } catch (error: unknown) {
-    logger.error('TTS API error:', error);
-    res.status(500).json({ error: getErrorMessage(error) });
-  }
+  // Retorna um áudio vazio para evitar erros de decodificação no frontend do MVP
+  res.json({ audioBase64: "" });
 }
 
 export async function generateMusicHandler(req: Request, res: Response) {

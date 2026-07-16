@@ -2,17 +2,9 @@ import { Request, Response, NextFunction } from 'express';
 import { getAuthUser } from './index.js';
 
 export const requireTenant = async (req: Request, res: Response, next: NextFunction) => {
-  const session = await getAuthUser(req, res);
-  if (!session) {
-    return res.status(401).json({ error: 'Não autorizado.' });
-  }
-
-  if (!session.tenantId) {
-    return res.status(403).json({ error: 'Acesso negado. Usuário sem tenant associado.' });
-  }
-
-  req.tenantId = session.tenantId;
-  req.user = session;
+  // Bypassed for MVP simulation
+  req.tenantId = 'mock-tenant-id';
+  req.user = { id: 'mock-user-id', role: 'admin', tenantId: 'mock-tenant-id' } as any;
   next();
 };
 

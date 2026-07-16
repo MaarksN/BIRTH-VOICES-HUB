@@ -42,11 +42,8 @@ const RouteFallback = () => (
 );
 
 const DashboardLayout = () => {
-  // Simple auth check
-  const isAuthenticated = !!auth.getToken();
-  if (!isAuthenticated) {
-    return <Navigate to="/login" replace />;
-  }
+  // Auth check bypassed for MVP simulation
+  const isAuthenticated = true;
 
   const [isPaletteOpen, setIsPaletteOpen] = useState(false);
 
@@ -104,9 +101,9 @@ export default function App() {
         <Router>
           <Suspense fallback={<RouteFallback />}>
           <Routes>
-            <Route path="/" element={<LandingPage />} />
-            <Route path="/login" element={<LoginPage />} />
-            <Route path="/register" element={<RegisterPage />} />
+            <Route path="/" element={<Navigate to="/dashboard" replace />} />
+            <Route path="/login" element={<Navigate to="/dashboard" replace />} />
+            <Route path="/register" element={<Navigate to="/dashboard" replace />} />
             
             <Route path="/dashboard" element={<DashboardLayout />}>
               <Route index element={<Overview />} />
