@@ -7,11 +7,16 @@ on:
       - release/*
   workflow_dispatch:
 
+<<<<<<< HEAD
 permissions:
   contents: read
 
 concurrency:
   group: deploy-${{ github.workflow }}-${{ github.ref }}
+=======
+concurrency:
+  group: deploy-${{ github.ref }}
+>>>>>>> 175667d58856090c33c9372cd110a6c2a365a7dc
   cancel-in-progress: false
 
 env:
@@ -27,6 +32,8 @@ jobs:
     name: Build & Deploy to Cloud Run
     runs-on: ubuntu-latest
     environment: production
+    permissions:
+      contents: read
 
     steps:
       - name: Checkout repository
@@ -80,7 +87,11 @@ jobs:
             GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
             JWT_SECRET=${{ secrets.JWT_SECRET }}
             REFRESH_TOKEN_SECRET=${{ secrets.REFRESH_TOKEN_SECRET }}
+<<<<<<< HEAD
             ALLOWED_ORIGINS=${{ secrets.PRODUCTION_ALLOWED_ORIGINS }}
+=======
+            ALLOWED_ORIGINS=${{ vars.ALLOWED_ORIGINS }}
+>>>>>>> 175667d58856090c33c9372cd110a6c2a365a7dc
 
       - name: Show deployed service URL
         run: echo "Service URL => ${{ steps.deploy.outputs.url }}"
