@@ -1,8 +1,9 @@
 import { Redis } from 'ioredis';
 import { Queue, Worker } from 'bullmq';
 import { createAuditLog } from '../repositories/auditLogRepository.js';
+import { getRedisUrl } from '../lib/env.js';
 
-const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';
+const redisUrl = getRedisUrl();
 // BullMQ requires maxRetriesPerRequest: null on its connection; enqueue failures are still caught
 // below so a Redis outage degrades to "audit log skipped" rather than blocking the request path.
 const connection = new Redis(redisUrl, { maxRetriesPerRequest: null, connectTimeout: 2000 });

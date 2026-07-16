@@ -6,9 +6,14 @@ on:
   pull_request:
     branches: [ main, master ]
 
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   NODE_VERSION: '20.x'
-  # Secrets will override these if defined
+  # Fixed values for the ephemeral CI database/cache — these are not read from
+  # repository secrets; CI never talks to production infrastructure.
   DATABASE_URL: "postgresql://devuser:devpassword@localhost:5432/birthvoices"
   REDIS_URL: "redis://localhost:6379"
   ALLOWED_ORIGINS: "http://localhost:3000"
@@ -20,6 +25,8 @@ jobs:
   validate-and-build:
     name: Validate, Test & Build
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
 
     services:
       postgres:
@@ -78,6 +85,8 @@ jobs:
     name: Docker Build & Push Artifact
     runs-on: ubuntu-latest
     needs: validate-and-build
+    permissions:
+      contents: read
 
     steps:
     - name: Checkout Repository

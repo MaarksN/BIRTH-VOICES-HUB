@@ -15,6 +15,7 @@ import helmet from "helmet";
 import cors from "cors";
 import { Redis } from "ioredis";
 import { verifyToken } from "./src/lib/auth-tokens.js";
+import { getRedisUrl } from "./src/lib/env.js";
 import { csrfProtection } from "./src/middlewares/index.js";
 import { createHealthRouter } from "./src/routes/health.routes.js";
 import apiRoutes from "./src/routes/index.js";
@@ -73,7 +74,7 @@ async function startServer() {
   app.use(express.json());
 
   // Redis-backed Rate Limiter
-  const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';
+  const redisUrl = getRedisUrl();
   // Bounded retries + short timeouts so a Redis outage makes rate-limit/health checks fail fast
   // and degrade gracefully, instead of hanging every request forever waiting on the command queue.
   const redisClient = new Redis(redisUrl, { maxRetriesPerRequest: 1, connectTimeout: 2000, commandTimeout: 2000 });
