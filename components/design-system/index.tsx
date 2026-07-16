@@ -518,6 +518,7 @@ export function TableHead({ children, className = '' }: { children: React.ReactN
   );
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function TableRow({ children, className = '', onClick }: any) {
   return (
     <tr 

@@ -13,6 +13,8 @@ The documentation has been structured to support developers, partners, and integ
 - [Security Guidelines](./SECURITY.md)
 - [Testing Strategy](./TESTING.md)
 - [Troubleshooting](./TROUBLESHOOTING.md)
+- [Production Runbook](./docs/RUNBOOK.md)
+- [Secrets Guide](./docs/secrets-guide.md)
 - [Roadmap](./ROADMAP.md)
 - [Contributing](./CONTRIBUTING.md)
 

@@ -30,6 +30,7 @@ export class MemoryPipeline {
   private addMemoryNode(
     sessionId: string, 
     level: MemoryLevel, 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     content: any, 
     ttl: number | null = null, 
     priority: number = 50,

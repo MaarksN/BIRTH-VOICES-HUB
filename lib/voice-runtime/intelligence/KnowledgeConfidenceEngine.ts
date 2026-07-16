@@ -2,6 +2,7 @@ import { KnowledgeConfidence } from '../types';
 
 export class KnowledgeConfidenceEngine {
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   public evaluateKnowledge(query: string, availableDocuments: any[]): KnowledgeConfidence {
     // RAG Simulator: In a real scenario, this would query a vector DB (Pinecone, PgVector).
     // Due to sandbox constraints, we simulate semantic search over JSON.

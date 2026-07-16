@@ -42,3 +42,22 @@ export function upsertWorkflow(
 export function deleteWorkflow(id: string) {
   return prisma.workflow.update({ where: { id }, data: { deletedAt: new Date() } });
 }
+
+export function findWorkflowById(id: string) {
+  return prisma.workflow.findUnique({ where: { id } });
+}
+
+// Optimistic concurrency: only applies the metadata write if `version` still matches what the
+// caller last read. Returns the affected row count so callers can detect a lost-update race
+// (two collaborators editing locks/comments on the same workflow at once) and retry.
+export async function updateMetadataIfVersion(id: string, expectedVersion: number, userId: string, metadata: unknown) {
+  const { count } = await prisma.workflow.updateMany({
+    where: { id, version: expectedVersion },
+    data: {
+      metadata: metadata as Prisma.InputJsonValue,
+      version: { increment: 1 },
+      updatedBy: userId,
+    },
+  });
+  return count;
+}

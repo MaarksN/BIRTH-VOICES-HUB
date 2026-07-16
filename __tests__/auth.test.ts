@@ -36,9 +36,13 @@ beforeAll(async () => {
 describe('Authentication API', () => {
   it('should register a new user', async () => {
     vi.mocked(userRepository.findUserByEmail).mockResolvedValue(null);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     vi.mocked(tenantRepository.createTenant).mockResolvedValue({ id: 'tenant-1' } as any);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     vi.mocked(roleRepository.getOrCreateSystemRole).mockResolvedValue({ id: 'role-1' } as any);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     vi.mocked(userRepository.createUser).mockResolvedValue({ id: 'user-1', email: 'test@example.com', passwordHash: 'hash', companyName: 'Test Inc', tenantId: 'tenant-1' } as any);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     vi.mocked(userRepository.createMembership).mockResolvedValue(true as any);
 
     const res = await request(app)
@@ -61,10 +65,12 @@ describe('Authentication API', () => {
       passwordHash: bcrypt.hashSync('password123', 1),
       tenantId: 'tenant-1',
       companyName: 'Test Inc'
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } as any);
 
     vi.mocked(userRepository.findMembershipWithRole).mockResolvedValue({
       role: { name: 'admin' }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } as any);
 
     const res = await request(app)
@@ -85,6 +91,7 @@ describe('Authentication API', () => {
       passwordHash: bcrypt.hashSync('password123', 1),
       tenantId: 'tenant-1',
       companyName: 'Test Inc'
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } as any);
 
     const res = await request(app)

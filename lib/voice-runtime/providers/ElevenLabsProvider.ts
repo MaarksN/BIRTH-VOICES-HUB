@@ -1,5 +1,6 @@
 import { BaseProvider, ProviderResponse } from './BaseProvider';
 import { ElevenLabsClient } from 'elevenlabs';
+import { logger } from '../../../src/lib/logger.js';
 
 export class ElevenLabsProvider extends BaseProvider {
   public id = 'ElevenLabs';
@@ -12,7 +13,7 @@ export class ElevenLabsProvider extends BaseProvider {
     if (apiKey) {
       this.client = new ElevenLabsClient({ apiKey });
     }
-    console.debug(`[${this.name}] Initialized`);
+    logger.debug(`[${this.name}] Initialized`);
   }
 
   public async process(input: string): Promise<ProviderResponse> {
@@ -50,7 +51,7 @@ export class ElevenLabsProvider extends BaseProvider {
         stream: responseStream
       };
     } catch (err: unknown) {
-      console.error(`[${this.name}] Error processing TTS:`, err);
+      logger.error(`[${this.name}] Error processing TTS`, err);
       return {
         audio: {
           data: new Uint8Array(0),
@@ -67,7 +68,7 @@ export class ElevenLabsProvider extends BaseProvider {
   }
 
   public async destroy(): Promise<void> {
-    console.debug(`[${this.name}] Destroyed`);
+    logger.debug(`[${this.name}] Destroyed`);
   }
 }
 

@@ -1,12 +1,13 @@
 import { BaseProvider } from './providers/BaseProvider';
 import { observability } from './Observability';
+import { logger } from '../../src/lib/logger.js';
 
 export class ProviderManager {
   private providers: Map<string, BaseProvider> = new Map();
 
   public registerProvider(provider: BaseProvider) {
     this.providers.set(provider.id, provider);
-    console.debug(`[ProviderManager] Registered provider: ${provider.name} (${provider.type})`);
+    logger.debug(`[ProviderManager] Registered provider: ${provider.name} (${provider.type})`);
   }
 
   public getProvider(id: string): BaseProvider | undefined {

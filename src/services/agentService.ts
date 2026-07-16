@@ -12,10 +12,12 @@ export function createAgent(tenantId: string, userId: string, data: { name: stri
   return agentRepository.createAgent(tenantId, userId, data);
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function updateAgentConfig(id: string, tenantId: string, configData: any) {
   const existing = await agentRepository.getAgent(id, tenantId);
   if (!existing) throw new Error('Agente não encontrado.');
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const currentConfig = (existing.configuration as any) || {};
   const mergedConfig = { ...currentConfig, ...configData };
 

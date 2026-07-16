@@ -12,6 +12,7 @@ export async function getWorkflowHistory(tenantId: string) {
   // Using JSON metadata for now as per rules to not alter Prisma schema
   const existing = await workflowRepository.findWorkflowForTenant(tenantId);
   if (!existing) return [];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const metadata = existing.metadata as any;
   return metadata?.history || [];
 }
@@ -19,6 +20,7 @@ export async function getWorkflowHistory(tenantId: string) {
 export async function saveWorkflow(tenantId: string, userId: string, data: { name?: string; nodes?: unknown; edges?: unknown, commitMessage?: string }) {
   const existing = await workflowRepository.findWorkflowForTenant(tenantId);
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const metadata = existing?.metadata as any || {};
   const newVersion = (existing?.version || 0) + 1;
 
@@ -57,8 +59,10 @@ export async function restoreWorkflowVersion(tenantId: string, userId: string, v
   const existing = await workflowRepository.findWorkflowForTenant(tenantId);
   if (!existing) throw new NotFoundError('Workflow não encontrado.');
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const metadata = existing.metadata as any;
   const history = metadata?.history || [];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const snapshot = history.find((h: any) => h.version === versionToRestore);
 
   if (!snapshot) throw new NotFoundError('Versão não encontrada.');

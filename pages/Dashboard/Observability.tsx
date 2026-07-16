@@ -10,6 +10,7 @@ interface LocalSpan {
   startTime: number;
   endTime?: number;
   duration?: number;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   attributes: Record<string, any>;
 }
 
@@ -17,6 +18,7 @@ interface LocalMetric {
   name: string;
   value: number;
   timestamp: number;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   attributes: Record<string, any>;
 }
 

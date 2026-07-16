@@ -8,7 +8,8 @@ const tokenSchema = z.object({
 import { register, login, refreshSession, AuthError } from '../services/authService.js';
 import { writeAuditLog } from '../services/audit.js';
 import { createMetric } from '../repositories/metricRepository.js';
-import { setCookie } from '../lib/cookies.js';
+import { setCookie, ACCESS_TOKEN_MAX_AGE_MS, REFRESH_TOKEN_MAX_AGE_MS } from '../lib/cookies.js';
+import { logger } from '../lib/logger.js';
 
 export async function registerHandler(req: Request, res: Response) {
   const parsed = registerSchema.safeParse(req.body);
@@ -21,11 +22,12 @@ export async function registerHandler(req: Request, res: Response) {
   try {
     const result = await register(email, password, companyName);
     writeAuditLog(result.tenantId, result.user.id, 'USER_REGISTER', {});
-    setCookie(res, 'access_token', result.token);
-    setCookie(res, 'refresh_token', result.refreshToken);
+    setCookie(res, 'access_token', result.token, ACCESS_TOKEN_MAX_AGE_MS);
+    setCookie(res, 'refresh_token', result.refreshToken, REFRESH_TOKEN_MAX_AGE_MS);
     res.json(result);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } catch (err: any) {
-    console.error('Register Error:', err);
+    logger.error('Register Error', err);
     if (err.status) {
       return res.status(err.status).json({ error: err.message });
     }
@@ -48,11 +50,12 @@ export async function loginHandler(req: Request, res: Response) {
     const result = await login(email, password);
     writeAuditLog(result.tenantId, result.user.id, 'USER_LOGIN', {});
     createMetric(result.tenantId, result.user.id, { name: 'user_login', value: 1, tags: { userId: result.user.id } });
-    setCookie(res, 'access_token', result.token);
-    setCookie(res, 'refresh_token', result.refreshToken);
+    setCookie(res, 'access_token', result.token, ACCESS_TOKEN_MAX_AGE_MS);
+    setCookie(res, 'refresh_token', result.refreshToken, REFRESH_TOKEN_MAX_AGE_MS);
     res.json(result);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } catch (err: any) {
-    console.error('Login Error:', err);
+    logger.error('Login Error', err);
     if (err.status) {
       return res.status(err.status).json({ error: err.message });
     }
@@ -78,10 +81,10 @@ export async function refreshHandler(req: Request, res: Response) {
       res.clearCookie('refresh_token');
       return res.status(401).json({ error: 'Refresh token inválido.' });
     }
-    setCookie(res, 'access_token', result.token);
+    setCookie(res, 'access_token', result.token, ACCESS_TOKEN_MAX_AGE_MS);
     res.json(result);
   } catch (err) {
-    console.error('Refresh Token Error:', err);
+    logger.error('Refresh Token Error', err);
     res.status(500).json({ error: 'Erro interno no servidor.' });
   }
 }

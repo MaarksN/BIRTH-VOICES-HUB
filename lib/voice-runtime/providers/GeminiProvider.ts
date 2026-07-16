@@ -1,4 +1,5 @@
 import { BaseProvider, ProviderResponse } from './BaseProvider';
+import { logger } from '../../../src/lib/logger.js';
 
 export class GeminiLiveProvider extends BaseProvider {
   public id = 'GoogleGemini';
@@ -7,9 +8,11 @@ export class GeminiLiveProvider extends BaseProvider {
   private ws?: WebSocket;
   
   public async initialize(_config: Record<string, unknown>): Promise<void> {
-    console.debug(`[${this.name}] Initialized`);
+    logger.debug(`[${this.name}] Initialized`);
   }
 
+   
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   public async process(input: any, context?: any): Promise<ProviderResponse> {
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
@@ -39,6 +42,7 @@ export class GeminiLiveProvider extends BaseProvider {
           text: response.text || 'Desculpe, não consegui gerar uma resposta.',
           latencyMs: Date.now() - start
         };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch(err: any) {
         return {
           text: `Erro: ${err.message}`,
@@ -55,7 +59,7 @@ export class GeminiLiveProvider extends BaseProvider {
     if (this.ws) {
         this.ws.close();
     }
-    console.debug(`[${this.name}] Destroyed`);
+    logger.debug(`[${this.name}] Destroyed`);
   }
 }
 

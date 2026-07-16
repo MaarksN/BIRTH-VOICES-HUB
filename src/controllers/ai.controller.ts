@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { GoogleGenAI, GenerateVideosOperation } from '@google/genai';
 import { llmProviderGateway } from '../../lib/voice-runtime/providers/LLMGateway.js';
+import { logger } from '../lib/logger.js';
 
 function getGeminiClient(): GoogleGenAI | null {
   const apiKey = process.env.GEMINI_API_KEY;
@@ -32,7 +33,7 @@ export async function chatHandler(req: Request, res: Response) {
       fromFallback: result.fromFallback,
     });
   } catch (error: unknown) {
-    console.error('Chat API error:', error);
+    logger.error('Chat API error:', error);
     res.status(500).json({ error: getErrorMessage(error) });
   }
 }
@@ -54,7 +55,7 @@ export async function ttsHandler(req: Request, res: Response) {
     const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
     res.json({ audioBase64: base64Audio });
   } catch (error: unknown) {
-    console.error('TTS API error:', error);
+    logger.error('TTS API error:', error);
     res.status(500).json({ error: getErrorMessage(error) });
   }
 }
@@ -85,7 +86,7 @@ export async function generateMusicHandler(req: Request, res: Response) {
 
     res.json({ audioBase64, mimeType });
   } catch (error: unknown) {
-    console.error('Lyria API error:', error);
+    logger.error('Lyria API error:', error);
     res.status(500).json({ error: getErrorMessage(error) });
   }
 }
@@ -105,7 +106,7 @@ export async function generateVideoHandler(req: Request, res: Response) {
 
     res.json({ operationName: operation.name });
   } catch (error: unknown) {
-    console.error('Veo start error:', error);
+    logger.error('Veo start error:', error);
     res.status(500).json({ error: getErrorMessage(error) });
   }
 }
@@ -155,7 +156,7 @@ export async function videoDownloadHandler(req: Request, res: Response) {
       })
     );
   } catch (error: unknown) {
-    console.error('Video download error:', error);
+    logger.error('Video download error:', error);
     res.status(500).send(getErrorMessage(error));
   }
 }
@@ -220,7 +221,7 @@ Retorne os mesmos nós, mantendo seus IDs e posições intactos, mas modificando
     const result = JSON.parse(response.text || '{}');
     res.json(result);
   } catch (error: unknown) {
-    console.error('Refactor API error:', error);
+    logger.error('Refactor API error:', error);
     res.status(500).json({ error: getErrorMessage(error) });
   }
 }
@@ -310,7 +311,7 @@ Regras de posicionamento do layout:
     const result = JSON.parse(response.text || '{}');
     res.json(result);
   } catch (error: unknown) {
-    console.error('Generate Workflow API error:', error);
+    logger.error('Generate Workflow API error:', error);
     res.status(500).json({ error: getErrorMessage(error) });
   }
 }

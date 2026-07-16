@@ -22,6 +22,7 @@ export function createAgent(tenantId: string, userId: string, data: { name: stri
 }
 
 export function updateAgent(id: string, tenantId: string, data: { name?: string; model?: string; configuration?: unknown }) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const updateData: any = {};
   if (data.name) updateData.name = data.name;
   if (data.model) updateData.model = data.model;

@@ -7,12 +7,15 @@ export class StreamingEngine {
   private inputStreams: Map<string, ReadableStreamDefaultController<AudioChunk>> = new Map();
   private outputStreams: Map<string, ReadableStreamDefaultController<AudioChunk>> = new Map();
   private outputCallbacks: Map<string, StreamCallback[]> = new Map();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private webSockets: Map<string, any> = new Map();
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   public createSessionStreams(sessionId: string, wsConnection?: any) {
     if (wsConnection) {
       this.webSockets.set(sessionId, wsConnection);
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       wsConnection.on('message', (msg: any) => {
         // Here we would parse Twilio media payload, or generic WebSocket binary frames
         const chunk: AudioChunk = {

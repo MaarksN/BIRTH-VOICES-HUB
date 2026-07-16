@@ -35,7 +35,6 @@ export function LiveSupervisor({ sessionId = "demo-session-123" }: LiveSuperviso
 
     socket.on('connect', () => {
       setIsConnected(true);
-      console.log('LiveSupervisor connected via Socket.io');
     });
 
     socket.on('telemetry_stream', (data) => {
