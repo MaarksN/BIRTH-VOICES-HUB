@@ -8,7 +8,7 @@ const tokenSchema = z.object({
 import { register, login, refreshSession, AuthError } from '../services/authService.js';
 import { writeAuditLog } from '../services/audit.js';
 import { createMetric } from '../repositories/metricRepository.js';
-import { setCookie } from '../lib/cookies.js';
+import { setCookie, setLoggedInCookie } from '../lib/cookies.js';
 
 export async function registerHandler(req: Request, res: Response) {
   const parsed = registerSchema.safeParse(req.body);
@@ -22,6 +22,7 @@ export async function registerHandler(req: Request, res: Response) {
     const result = await register(email, password, companyName);
     writeAuditLog(result.tenantId, result.user.id, 'USER_REGISTER', {});
     setCookie(res, 'access_token', result.token);
+    setLoggedInCookie(res);
     setCookie(res, 'refresh_token', result.refreshToken);
     res.json(result);
   } catch (err: any) {
@@ -49,6 +50,7 @@ export async function loginHandler(req: Request, res: Response) {
     writeAuditLog(result.tenantId, result.user.id, 'USER_LOGIN', {});
     createMetric(result.tenantId, result.user.id, { name: 'user_login', value: 1, tags: { userId: result.user.id } });
     setCookie(res, 'access_token', result.token);
+    setLoggedInCookie(res);
     setCookie(res, 'refresh_token', result.refreshToken);
     res.json(result);
   } catch (err: any) {
@@ -79,6 +81,7 @@ export async function refreshHandler(req: Request, res: Response) {
       return res.status(401).json({ error: 'Refresh token inválido.' });
     }
     setCookie(res, 'access_token', result.token);
+    setLoggedInCookie(res);
     res.json(result);
   } catch (err) {
     console.error('Refresh Token Error:', err);
@@ -89,6 +92,7 @@ export async function refreshHandler(req: Request, res: Response) {
 export async function logoutHandler(req: Request, res: Response) {
   res.clearCookie('access_token');
   res.clearCookie('refresh_token');
+  res.clearCookie('logged_in');
   res.json({ success: true, message: 'Logout realizado com sucesso' });
 }
 
