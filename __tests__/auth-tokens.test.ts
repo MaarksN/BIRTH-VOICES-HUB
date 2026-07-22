@@ -28,6 +28,30 @@ describe('Password hashing', () => {
   it('returns false for an empty stored hash instead of throwing', () => {
     expect(verifyPassword('anything', '')).toBe(false);
   });
+
+  describe('PBKDF2 fallback for legacy passwords', () => {
+    const legacyHash = 'test-salt:5d8f3c7af30ccfd1307a800f7eb9edce860a7d71334874d12a3da4df0cfda84f1d79709ce281f3c820d17b754145f702ed68aa5f8b48adac4cff5ca051f8b45e';
+
+    it('verifies a legacy password correctly', () => {
+      expect(verifyPassword('my-legacy-password', legacyHash)).toBe(true);
+    });
+
+    it('rejects an incorrect legacy password', () => {
+      expect(verifyPassword('wrong-password', legacyHash)).toBe(false);
+    });
+
+    it('handles errors during PBKDF2 verification gracefully', () => {
+      // Passing undefined password triggers an error in crypto.pbkdf2Sync, hitting the catch block
+      expect(verifyPassword(undefined as unknown as string, legacyHash)).toBe(false);
+    });
+  });
+
+  describe('bcrypt errors', () => {
+    it('handles errors during bcrypt comparison gracefully', () => {
+      // Passing undefined password triggers an error in bcrypt.compareSync, hitting the catch block
+      expect(verifyPassword(undefined as unknown as string, 'not-empty-hash-without-colon')).toBe(false);
+    });
+  });
 });
 
 describe('Access tokens', () => {

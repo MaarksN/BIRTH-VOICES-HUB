@@ -27,6 +27,18 @@ export function hashPassword(password: string): string {
 
 export function verifyPassword(password: string, stored: string): boolean {
   if (!stored) return false;
+
+  // Fallback to PBKDF2 if old style password
+  if (stored.includes(':')) {
+    try {
+      const [salt, hash] = stored.split(':');
+      const checkHash = crypto.pbkdf2Sync(password, salt, 1000, 64, 'sha512').toString('hex');
+      return checkHash === hash;
+    } catch {
+      return false;
+    }
+  }
+
   try {
     return bcrypt.compareSync(password, stored);
   } catch {
