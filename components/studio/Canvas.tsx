@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   ReactFlow,
   MiniMap,
@@ -29,6 +29,7 @@ import { TopBar } from './panels/TopBar';
 import { LayersPanel } from './panels/LayersPanel';
 import { InspectorPanel } from './panels/InspectorPanel';
 import { BottomDrawer } from './panels/BottomDrawer';
+import { TestSimulatorModal } from './panels/TestSimulatorModal';
 
 const nodeTypes = {
   start: StartNode,
@@ -50,6 +51,8 @@ const edgeTypes = {
 };
 
 function CanvasInner() {
+  const [isSimulatorOpen, setIsSimulatorOpen] = useState(false);
+  
   const {
     nodes,
     edges,
@@ -64,7 +67,7 @@ function CanvasInner() {
   } = useStudioStore();
 
   useEffect(() => {
-    loadWorkflowFromServer();
+    // loadWorkflowFromServer();
   }, [loadWorkflowFromServer]);
 
   useEffect(() => {
@@ -131,7 +134,10 @@ function CanvasInner() {
         onZoomIn={() => zoomIn({ duration: 300 })}
         onZoomOut={() => zoomOut({ duration: 300 })}
         onFitView={() => fitView({ duration: 500, padding: 0.2 })}
+        onSimulate={() => setIsSimulatorOpen(true)}
       />
+      
+      {isSimulatorOpen && <TestSimulatorModal onClose={() => setIsSimulatorOpen(false)} />}
       
       <div className="flex-1 flex min-h-0">
         <LayersPanel nodes={nodes} />

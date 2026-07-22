@@ -6,6 +6,12 @@ on:
   pull_request:
     branches: [ main, master ]
 
+<<<<<<< HEAD
+permissions:
+  contents: read
+
+=======
+>>>>>>> 175667d58856090c33c9372cd110a6c2a365a7dc
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true

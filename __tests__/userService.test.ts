@@ -50,7 +50,7 @@ describe('userService.createUserInTenant', () => {
 
   it('creates a user and membership scoped to the caller tenant', async () => {
     mockFindByEmail.mockResolvedValue(null);
-    mockCreateUser.mockResolvedValue({ id: 'new-user', email: 'new@example.com' } as UserRow);
+    mockCreateUser.mockResolvedValue({ id: 'new-user', email: 'new@example.com' } as NonNullable<UserRow>);
 
     const result = await createUserInTenant('tenant-1', { email: 'new@example.com', password: 'x123456', role: 'admin' });
 

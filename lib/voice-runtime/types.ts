@@ -59,6 +59,7 @@ export type MemoryLevel = 'immediate' | 'session' | 'persistent' | 'historical';
 export interface MemoryNode {
   id: string;
   level: MemoryLevel;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   content: any;
   ttl: number | null; // null means infinite
   priority: number; // 0-100
@@ -154,7 +155,9 @@ export interface ConversationSummary {
   oneSentence: string;
   fiveLines: string;
   detailed: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   structured: any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   json: any;
   metadata: {
     objective: string;

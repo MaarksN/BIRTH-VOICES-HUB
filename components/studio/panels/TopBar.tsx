@@ -9,14 +9,19 @@ interface TopBarProps {
   onZoomIn?: () => void;
   onZoomOut?: () => void;
   onFitView?: () => void;
+  onSimulate?: () => void;
 }
 
-export function TopBar({ health, issues, onZoomIn, onZoomOut, onFitView }: TopBarProps) {
+export function TopBar({ health, issues, onZoomIn, onZoomOut, onFitView, onSimulate }: TopBarProps) {
   return (
     <div className="h-14 bg-white border-b border-gray-200 flex items-center justify-between px-4 z-10 shrink-0">
       <div className="flex items-center gap-4">
         <div className="flex items-center gap-3 border-r border-gray-200 pr-4">
-          <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white cursor-pointer hover:bg-indigo-700 shadow-sm">
+          <div 
+            onClick={onSimulate}
+            title="Simular Ligação (Test Call)"
+            className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white cursor-pointer hover:bg-indigo-700 shadow-sm transition-transform hover:scale-105 active:scale-95"
+          >
              <Play className="w-4 h-4 fill-current" />
           </div>
           <div>

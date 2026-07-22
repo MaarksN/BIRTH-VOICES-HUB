@@ -19,7 +19,8 @@ export default defineConfig(() => {
         environment: 'node',
         setupFiles: ['./vitest.setup.ts'],
         globals: true,
-        testTimeout: 15000
+        testTimeout: 15000,
+        exclude: ['**/node_modules/**', '**/dist/**', 'e2e/**', '.claude/**']
       }
     };
 });

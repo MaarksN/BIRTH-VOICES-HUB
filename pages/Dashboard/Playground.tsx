@@ -188,20 +188,15 @@ export default function PlaygroundPage() {
 
         if (enableTTS && data.text) {
           try {
-            const ttsRes = await fetch('/api/tts', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ text: data.text })
-            });
-            if (ttsRes.ok) {
-              const ttsData = await ttsRes.json();
-              if (ttsData.audioBase64) {
-                const audio = new Audio(`data:audio/mp3;base64,${ttsData.audioBase64}`);
-                audio.play();
-              }
+            if ('speechSynthesis' in window) {
+              window.speechSynthesis.cancel(); // Stop any previous speech
+              const utterance = new SpeechSynthesisUtterance(data.text);
+              utterance.lang = 'pt-BR';
+              utterance.rate = 1.0;
+              window.speechSynthesis.speak(utterance);
             }
           } catch (e) {
-            console.error('Falha ao tocar áudio', e);
+            console.error('Falha ao tocar áudio local', e);
           }
         }
       } catch (error: unknown) {

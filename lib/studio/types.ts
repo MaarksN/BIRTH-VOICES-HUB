@@ -19,6 +19,7 @@ export interface StudioNodeData extends Record<string, unknown> {
   category: string;
   icon?: string;
   color?: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   config?: any;
   lifecycleState?: string;
   validation?: {

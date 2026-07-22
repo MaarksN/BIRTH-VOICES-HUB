@@ -1,6 +1,12 @@
 import { Request, Response } from 'express';
-import { addComment, resolveComment, lockNode, unlockNode } from '../services/workflowCollabService.js';
+import { addComment, resolveComment, lockNode, unlockNode, ConflictError } from '../services/workflowCollabService.js';
 import { NotFoundError } from '../services/workflowService.js';
+
+function handleCollabError(err: unknown, res: Response) {
+  if (err instanceof NotFoundError) return res.status(404).json({ error: err.message });
+  if (err instanceof ConflictError) return res.status(409).json({ error: err.message });
+  throw err;
+}
 
 export async function addCommentHandler(req: Request, res: Response) {
   try {
@@ -10,8 +16,7 @@ export async function addCommentHandler(req: Request, res: Response) {
     const workflow = await addComment(req.tenantId!, req.user!.id, nodeId, text);
     res.json({ success: true, workflow });
   } catch (err) {
-    if (err instanceof NotFoundError) return res.status(404).json({ error: err.message });
-    throw err;
+    handleCollabError(err, res);
   }
 }
 
@@ -23,8 +28,7 @@ export async function resolveCommentHandler(req: Request, res: Response) {
     const workflow = await resolveComment(req.tenantId!, req.user!.id, commentId);
     res.json({ success: true, workflow });
   } catch (err) {
-    if (err instanceof NotFoundError) return res.status(404).json({ error: err.message });
-    throw err;
+    handleCollabError(err, res);
   }
 }
 
@@ -35,9 +39,8 @@ export async function lockNodeHandler(req: Request, res: Response) {
 
     const workflow = await lockNode(req.tenantId!, req.user!.id, nodeId);
     res.json({ success: true, workflow });
-  } catch (err: any) {
-    if (err instanceof NotFoundError) return res.status(404).json({ error: err.message });
-    return res.status(409).json({ error: err.message });
+  } catch (err) {
+    handleCollabError(err, res);
   }
 }
 
@@ -49,7 +52,6 @@ export async function unlockNodeHandler(req: Request, res: Response) {
     const workflow = await unlockNode(req.tenantId!, req.user!.id, nodeId);
     res.json({ success: true, workflow });
   } catch (err) {
-    if (err instanceof NotFoundError) return res.status(404).json({ error: err.message });
-    throw err;
+    handleCollabError(err, res);
   }
 }

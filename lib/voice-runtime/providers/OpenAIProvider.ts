@@ -1,4 +1,5 @@
 import { BaseProvider, ProviderResponse } from './BaseProvider';
+import { logger } from '../../../src/lib/logger.js';
 
 export class OpenAIRealtimeProvider extends BaseProvider {
   public id = 'OpenAI';
@@ -6,9 +7,11 @@ export class OpenAIRealtimeProvider extends BaseProvider {
   public type = 'E2E' as const;
   
   public async initialize(_config: Record<string, unknown>): Promise<void> {
-    console.debug(`[${this.name}] Initialized`);
+    logger.debug(`[${this.name}] Initialized`);
   }
 
+   
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   public async process(input: any, context?: any): Promise<ProviderResponse> {
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) {
@@ -57,7 +60,7 @@ export class OpenAIRealtimeProvider extends BaseProvider {
   }
 
   public async destroy(): Promise<void> {
-    console.debug(`[${this.name}] Destroyed`);
+    logger.debug(`[${this.name}] Destroyed`);
   }
 }
 

@@ -7,8 +7,16 @@ on:
       - release/*
   workflow_dispatch:
 
+<<<<<<< HEAD
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-${{ github.workflow }}-${{ github.ref }}
+=======
 concurrency:
   group: deploy-${{ github.ref }}
+>>>>>>> 175667d58856090c33c9372cd110a6c2a365a7dc
   cancel-in-progress: false
 
 env:
@@ -30,6 +38,20 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Verify required secrets are configured
+        run: |
+          missing=()
+          [ -z "${{ secrets.GCP_PROJECT_ID }}" ] && missing+=("GCP_PROJECT_ID")
+          [ -z "${{ secrets.GCP_SA_KEY }}${{ secrets.GCP_CREDENTIALS }}" ] && missing+=("GCP_SA_KEY (or GCP_CREDENTIALS)")
+          [ -z "${{ secrets.PRODUCTION_DATABASE_URL }}" ] && missing+=("PRODUCTION_DATABASE_URL")
+          [ -z "${{ secrets.PRODUCTION_REDIS_URL }}" ] && missing+=("PRODUCTION_REDIS_URL")
+          [ -z "${{ secrets.JWT_SECRET }}" ] && missing+=("JWT_SECRET")
+          [ -z "${{ secrets.REFRESH_TOKEN_SECRET }}" ] && missing+=("REFRESH_TOKEN_SECRET")
+          if [ ${#missing[@]} -ne 0 ]; then
+            echo "::error::Missing required GitHub Actions secrets: ${missing[*]}. Configure them in Settings > Secrets and variables > Actions before this workflow can deploy. See docs/security/secrets-guide.md if present, or the PR/audit report for details."
+            exit 1
+          fi
 
       - id: auth
         name: Authenticate to Google Cloud
@@ -65,7 +87,11 @@ jobs:
             GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
             JWT_SECRET=${{ secrets.JWT_SECRET }}
             REFRESH_TOKEN_SECRET=${{ secrets.REFRESH_TOKEN_SECRET }}
+<<<<<<< HEAD
+            ALLOWED_ORIGINS=${{ secrets.PRODUCTION_ALLOWED_ORIGINS }}
+=======
             ALLOWED_ORIGINS=${{ vars.ALLOWED_ORIGINS }}
+>>>>>>> 175667d58856090c33c9372cd110a6c2a365a7dc
 
       - name: Show deployed service URL
         run: echo "Service URL => ${{ steps.deploy.outputs.url }}"

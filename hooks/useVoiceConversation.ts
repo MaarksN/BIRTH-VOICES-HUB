@@ -68,8 +68,8 @@ export function useVoiceConversation(questions: Question[], speed: number = 1.1)
                 setStatus('listening');
                 try {
                   recognitionRef.current?.start();
-                } catch (e) {
-                  console.log("Recognition already started or error", e);
+                } catch {
+                  // Recognition already started or error
                 }
             } else {
                 setStatus('completed');

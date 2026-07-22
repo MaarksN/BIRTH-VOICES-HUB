@@ -13,6 +13,8 @@ The documentation has been structured to support developers, partners, and integ
 - [Security Guidelines](./SECURITY.md)
 - [Testing Strategy](./TESTING.md)
 - [Troubleshooting](./TROUBLESHOOTING.md)
+- [Production Runbook](./docs/RUNBOOK.md)
+- [Secrets Guide](./docs/secrets-guide.md)
 - [Roadmap](./ROADMAP.md)
 - [Contributing](./CONTRIBUTING.md)
 
@@ -84,3 +86,12 @@ To run the complete application stack (Node.js, PostgreSQL, Redis) locally:
 ```bash
 docker-compose up --build -d
 ```
+
+### Environment Variables
+
+See [.env.example](./.env.example) for the full list. `DATABASE_URL`, `REDIS_URL`,
+`JWT_SECRET`, and `REFRESH_TOKEN_SECRET` are required for the server to start
+serving authenticated requests; `GEMINI_API_KEY`/`OPENAI_API_KEY`/
+`ANTHROPIC_API_KEY`/`ELEVENLABS_API_KEY` are optional and only gate their
+respective AI provider features. For the GitHub Actions secrets required to run
+CI and deploy to Cloud Run, see [DEPLOYMENT.md](./DEPLOYMENT.md#secrets-management).

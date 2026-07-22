@@ -25,6 +25,7 @@ export async function updateAgentConfigHandler(req: Request, res: Response) {
   try {
      const agent = await updateAgentConfig(String(req.params.id), req.tenantId!, req.body);
      res.json({ success: true, agent });
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } catch(err: any) {
      res.status(404).json({ error: err.message });
   }

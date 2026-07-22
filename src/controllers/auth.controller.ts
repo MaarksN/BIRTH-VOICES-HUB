@@ -25,8 +25,9 @@ export async function registerHandler(req: Request, res: Response) {
     setLoggedInCookie(res);
     setCookie(res, 'refresh_token', result.refreshToken);
     res.json(result);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } catch (err: any) {
-    console.error('Register Error:', err);
+    logger.error('Register Error', err);
     if (err.status) {
       return res.status(err.status).json({ error: err.message });
     }
@@ -53,8 +54,9 @@ export async function loginHandler(req: Request, res: Response) {
     setLoggedInCookie(res);
     setCookie(res, 'refresh_token', result.refreshToken);
     res.json(result);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } catch (err: any) {
-    console.error('Login Error:', err);
+    logger.error('Login Error', err);
     if (err.status) {
       return res.status(err.status).json({ error: err.message });
     }
@@ -84,7 +86,7 @@ export async function refreshHandler(req: Request, res: Response) {
     setLoggedInCookie(res);
     res.json(result);
   } catch (err) {
-    console.error('Refresh Token Error:', err);
+    logger.error('Refresh Token Error', err);
     res.status(500).json({ error: 'Erro interno no servidor.' });
   }
 }
