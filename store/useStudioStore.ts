@@ -125,7 +125,7 @@ export const nodeRegistry: Record<string, NodeRegistryItem> = {
     version: '1.0.4',
     compatibilities: ['voice', 'llm', 'prompt'],
     dependencies: ['voice-runtime-v1'],
-    defaultConfig: { channel: 'Telefone', language: 'pt-BR', timezone: 'America/Sao_Paulo', provider: 'Twilio', persona: 'Recepção Médica', model: 'Gemini 3.1 Pro' },
+    defaultConfig: { channel: 'Telefone', language: 'pt-BR', timezone: 'America/Sao_Paulo', provider: 'Twilio', persona: 'Recepção Comercial', model: 'Gemini 3.1 Pro' },
     documentation: {
       goal: 'Initializes the runtime context, phone connection, and starts the customer call session.',
       inputsDesc: [],
@@ -278,7 +278,7 @@ export const nodeRegistry: Record<string, NodeRegistryItem> = {
       inputsDesc: ['User question or prompt keywords.'],
       outputsDesc: ['Text chunks with references containing validated facts.'],
       bestPractices: ['Format source files with clear heading titles.', 'Upload small factual PDF articles instead of generic books.'],
-      examples: ['Queries clinical dental FAQ files on Notion to answer patient queries.']
+      examples: ['Queries commercial FAQ files on Notion to answer lead questions.']
     }
   },
   tool: {
@@ -293,13 +293,13 @@ export const nodeRegistry: Record<string, NodeRegistryItem> = {
     version: '2.0.0',
     compatibilities: ['condition', 'prompt', 'end'],
     dependencies: ['node-fetch-middleware'],
-    defaultConfig: { method: 'POST', endpoint: 'https://api.birthdental.com/v1/appointments', headers: '{"Authorization": "Bearer token_secret"}', bodyPayload: '{"name": "{{customer_name}}", "date": "{{appointment_date}}"}', timeoutMs: 4000, retryLimit: 2 },
+    defaultConfig: { method: 'POST', endpoint: 'https://api.atlasgr.com.br/v1/leads', headers: '{"Authorization": "Bearer token_secret"}', bodyPayload: '{"name": "{{customer_name}}", "date": "{{meeting_date}}"}', timeoutMs: 4000, retryLimit: 2 },
     documentation: {
       goal: 'Fires REST webhooks or fetches enterprise CRM databases in active sessions.',
       inputsDesc: ['Active flow parameters.'],
       outputsDesc: ['API response parsed into global state.'],
       bestPractices: ['Do not send sensitive API keys in public headers.', 'Always check payload schemas prior to publishing.'],
-      examples: ['Book a medical appointment slot by communicating with external backends.']
+      examples: ['Book a commercial meeting slot by communicating with external backends.']
     }
   },
   memory: {

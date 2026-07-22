@@ -222,7 +222,7 @@ export async function generateWorkflowHandler(req: Request, res: Response) {
 Com base no prompt do usuário: "${prompt}", gere um grafo completo de XYFlow estruturado contendo nós (nodes) e conexões (edges) que façam sentido lógico e técnico para o fluxo desejado.
 
 Tipos de nós suportados:
-1. "start": O gatilho de início da chamada. (Ex: Inbound Call Trigger). Config padrão: { channel: "Telefone", language: "pt-BR", timezone: "America/Sao_Paulo", provider: "Twilio", persona: "Recepção Médica", model: "Gemini 3.1 Pro" }
+1. "start": O gatilho de início da chamada. (Ex: Inbound Call Trigger). Config padrão: { channel: "Telefone", language: "pt-BR", timezone: "America/Sao_Paulo", provider: "Twilio", persona: "Recepção Comercial", model: "Gemini 3.1 Pro" }
 2. "voice": Configurações de voz (TTS). (Ex: Voz ElevenLabs). Config padrão: { provider: "ElevenLabs", voiceId: "Rachel_pt_BR", stability: 0.75, clarity: 0.85, speechRate: 1.0 }
 3. "llm": O provedor de modelo de IA. (Ex: Gemini). Config padrão: { provider: "Gemini", model: "gemini-2.5-pro", temperature: 0.2, topP: 0.9, maxTokens: 1024, safetySettings: "Strict" }
 4. "prompt": Prompt de instrução do bot. (Ex: Atendimento Inicial). Config padrão: { promptText: "Instruções do robô de forma simpática.", streaming: "Enabled", thinking: "DeepThinking" }

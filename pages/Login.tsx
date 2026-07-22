@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Mic, ArrowRight } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
+import { AtlasLogo } from '../components/design-system';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -40,8 +41,8 @@ export default function LoginPage() {
       <div className="w-full max-w-md bg-white rounded-2xl shadow-xl overflow-hidden">
         <div className="p-8">
           <div className="flex items-center gap-3 mb-8 justify-center">
-            <div className="p-2 bg-blue-600 rounded-lg">
-              <Mic className="h-6 w-6 text-white" />
+            <div className="p-2 bg-white border border-slate-200 rounded-lg">
+              <AtlasLogo className="h-6 w-6" />
             </div>
             <h1 className="text-2xl font-bold text-slate-900">Birth Voices Hub</h1>
           </div>
@@ -61,7 +62,7 @@ export default function LoginPage() {
                 type="email"
                 value={email}
                 onChange={e => setEmail(e.target.value)}
-                className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand outline-none"
                 required
               />
             </div>
@@ -71,21 +72,21 @@ export default function LoginPage() {
                 type="password"
                 value={password}
                 onChange={e => setPassword(e.target.value)}
-                className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand outline-none"
                 required
               />
             </div>
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+              className="w-full bg-brand hover:opacity-90 text-white font-bold py-3 rounded-lg transition-all flex items-center justify-center gap-2 disabled:opacity-50"
             >
               {loading ? 'Entrando...' : <>Entrar <ArrowRight className="h-4 w-4" /></>}
             </button>
           </form>
 
           <div className="mt-6 text-center text-sm text-slate-500">
-            Não tem uma conta? <Link to="/register" className="text-blue-600 hover:underline">Registre-se</Link>
+            Não tem uma conta? <Link to="/register" className="text-brand hover:underline">Registre-se</Link>
           </div>
         </div>
       </div>

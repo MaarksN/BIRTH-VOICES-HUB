@@ -10,7 +10,7 @@ import {
   LockKeyhole, Server, UserCheck, Sun, Moon, Mic
 } from 'lucide-react';
 import { useTheme } from '../components/design-system/ThemeContext';
-import { Card, Button, Badge, Progress, useToast, ToastContainer } from '../components/design-system';
+import { Card, Button, Badge, Progress, useToast, ToastContainer, AtlasLogo } from '../components/design-system';
 
 export default function LandingPage() {
   const { theme, setTheme } = useTheme();
@@ -235,8 +235,8 @@ export default function LandingPage() {
           
           {/* Logo */}
           <Link to="/" className="flex items-center gap-3 group">
-            <div className="p-2 bg-brand rounded-lg shadow-sm transition-transform group-hover:scale-105">
-              <Mic className="h-5 w-5 text-white animate-pulse" />
+            <div className="p-1.5 bg-white dark:bg-slate-900 rounded-lg shadow-sm border border-slate-100 dark:border-slate-800 transition-transform group-hover:scale-105">
+              <AtlasLogo className="h-6 w-6" />
             </div>
             <div className="text-left">
               <h1 className="text-base font-extrabold leading-none tracking-tight text-slate-950 dark:text-white">Birth Hub 360</h1>
@@ -506,8 +506,8 @@ export default function LandingPage() {
                         exit={{ opacity: 0, y: -10 }}
                         className="space-y-4 flex flex-col h-full text-left"
                       >
-                        <div className="bg-blue-50/50 dark:bg-blue-950/20 p-3.5 rounded-xl border border-blue-100/60 dark:border-blue-900/40">
-                          <h4 className="text-xs font-bold text-blue-800 dark:text-blue-300">Sincronização RAG de Conhecimento Comercial</h4>
+                        <div className="bg-brand-50/50 dark:bg-brand-950/20 p-3.5 rounded-xl border border-brand-100/60 dark:border-brand-900/40">
+                          <h4 className="text-xs font-bold text-brand-800 dark:text-brand-300">Sincronização RAG de Conhecimento Comercial</h4>
                           <p className="text-[10px] text-slate-500 mt-0.5">Insira uma pergunta para simular a pesquisa e resposta comercial inteligente.</p>
                         </div>
 
@@ -578,7 +578,7 @@ export default function LandingPage() {
                         {/* Graphical representation */}
                         <div className="bg-slate-50 dark:bg-slate-950 p-4 rounded-xl border border-slate-200 dark:border-slate-850 space-y-3">
                           <div className="flex justify-between items-center text-xs">
-                            <span className="font-bold text-slate-700 dark:text-slate-200">Volumetria de Chamadas Médicas</span>
+                            <span className="font-bold text-slate-700 dark:text-slate-200">Volumetria de Chamadas Comerciais</span>
                             <span className="font-mono text-slate-400">Tempo real — atualizado há 5s</span>
                           </div>
                           
@@ -1183,7 +1183,7 @@ export default function LandingPage() {
                     <Lock className="h-5 w-5" />
                   </div>
                   <div>
-                    <h4 className="font-bold text-slate-950 dark:text-white text-sm">Escudo de Governança Médica</h4>
+                    <h4 className="font-bold text-slate-950 dark:text-white text-sm">Escudo de Governança e Compliance</h4>
                     <span className="text-[10px] text-emerald-500 font-bold flex items-center gap-1 mt-0.5">
                       <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
                       Auditoria de conformidade ativa
@@ -1512,8 +1512,8 @@ export default function LandingPage() {
           {/* Logo & Info column */}
           <div className="col-span-2 space-y-4">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-brand rounded-lg">
-                <Mic className="h-5 w-5 text-white animate-pulse" />
+              <div className="p-1.5 bg-white rounded-lg">
+                <AtlasLogo className="h-6 w-6" />
               </div>
               <div className="text-left">
                 <h1 className="text-base font-extrabold leading-none tracking-tight text-white">Birth Hub 360</h1>

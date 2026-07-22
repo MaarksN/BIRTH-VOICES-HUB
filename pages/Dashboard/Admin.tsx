@@ -76,7 +76,7 @@ export default function AdminPage() {
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
             <div className="p-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center">
                 <h2 className="font-bold text-slate-800">Sessões Recentes</h2>
-                <button className="text-sm text-blue-600 hover:text-blue-800 font-medium">Ver todas</button>
+                <button className="text-sm text-brand hover:text-brand-700 font-medium">Ver todas</button>
             </div>
 
             {loading ? (
@@ -94,7 +94,7 @@ export default function AdminPage() {
                                 <p className="text-sm text-slate-600">{s.summary}</p>
                             </div>
                             <div className="text-right pl-4">
-                                <button className="text-xs font-medium text-slate-400 hover:text-blue-600">Detalhes &rarr;</button>
+                                <button className="text-xs font-medium text-slate-400 hover:text-brand">Detalhes &rarr;</button>
                             </div>
                         </div>
                     ))}

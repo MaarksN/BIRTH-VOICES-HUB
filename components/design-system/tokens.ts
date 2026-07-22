@@ -4,8 +4,8 @@
 
 export const colors = {
   light: {
-    primary: 'var(--brand-color, #2563eb)',
-    primaryHover: 'var(--brand-color-700, #1d4ed8)',
+    primary: 'var(--brand-color, #ff5618)',
+    primaryHover: 'var(--brand-color-700, #d84914)',
     secondary: '#64748b', // slate-500
     success: '#10b981', // emerald-500
     warning: '#f59e0b', // amber-500
@@ -23,8 +23,8 @@ export const colors = {
     textMuted: '#94a3b8', // slate-400
   },
   dark: {
-    primary: 'var(--brand-color, #3b82f6)',
-    primaryHover: 'var(--brand-color-500, #60a5fa)',
+    primary: 'var(--brand-color, #ff7a45)',
+    primaryHover: 'var(--brand-color-500, #ff9466)',
     secondary: '#94a3b8', // slate-400
     success: '#34d399', // emerald-400
     warning: '#fbbf24', // amber-400

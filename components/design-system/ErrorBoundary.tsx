@@ -77,7 +77,7 @@ export class ErrorBoundary extends React.Component<Props, State> {
               
               <button
                 onClick={this.handleReload}
-                className="flex-1 py-3 bg-blue-600 text-white font-bold rounded-xl text-sm hover:opacity-90 transition-opacity flex items-center justify-center gap-2 shadow-md hover:shadow-lg"
+                className="flex-1 py-3 bg-brand text-white font-bold rounded-xl text-sm hover:opacity-90 transition-opacity flex items-center justify-center gap-2 shadow-md hover:shadow-lg"
               >
                 <RotateCcw className="h-4 w-4" />
                 Recarregar

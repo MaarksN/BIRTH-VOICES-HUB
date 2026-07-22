@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import { auth } from '../lib/auth';
 import { useTheme } from './design-system/ThemeContext';
-import { useToast } from './design-system';
+import { useToast, AtlasLogo } from './design-system';
 
 export function Sidebar() {
   const location = useLocation();
@@ -148,8 +148,8 @@ export function Sidebar() {
       {/* Brand Header */}
       <div className="mb-4 flex items-center justify-between px-2">
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-brand rounded-lg">
-            <Mic className="h-5 w-5 text-white animate-pulse" />
+          <div className="p-1.5 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800">
+            <AtlasLogo className="h-6 w-6" />
           </div>
           <div className="text-left">
             <h1 className="text-base font-bold leading-none tracking-tight">Birth Hub 360</h1>

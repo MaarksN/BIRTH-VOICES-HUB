@@ -89,6 +89,7 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
     { id: 'action-simulate-error', title: 'Simular Erro de Servidor API', subtitle: 'Dispara um alerta de falha de conexão simulada', icon: <Settings className="h-4 w-4" />, category: 'Ações rápidas', action: () => { alert('Erro 500: Conexão interrompida com o gateway SIP Twilio. Tentando reconectar...'); onClose(); } },
     
     // Themes
+    { id: 'theme-brand-atlas', title: 'Cor da Marca: Laranja Atlas', subtitle: 'Definir cor principal para #ff5618', icon: <Settings className="h-4 w-4" />, category: 'Temas', action: () => { useSessionStore.getState().setBrandColor('#ff5618'); onClose(); } },
     { id: 'theme-brand-blue', title: 'Cor da Marca: Azul Royal', subtitle: 'Definir cor principal para #2563eb', icon: <Settings className="h-4 w-4" />, category: 'Temas', action: () => { useSessionStore.getState().setBrandColor('#2563eb'); onClose(); } },
     { id: 'theme-brand-purple', title: 'Cor da Marca: Roxo Imperial', subtitle: 'Definir cor principal para #7c3aed', icon: <Settings className="h-4 w-4" />, category: 'Temas', action: () => { useSessionStore.getState().setBrandColor('#7c3aed'); onClose(); } },
     { id: 'theme-brand-emerald', title: 'Cor da Marca: Verde Esmeralda', subtitle: 'Definir cor principal para #059669', icon: <Settings className="h-4 w-4" />, category: 'Temas', action: () => { useSessionStore.getState().setBrandColor('#059669'); onClose(); } },
