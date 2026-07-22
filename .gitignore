@@ -11,6 +11,7 @@ node_modules
 dist
 dist-ssr
 *.local
+dump.rdb
 
 # Environment variables (use .env.example as the template)
 .env

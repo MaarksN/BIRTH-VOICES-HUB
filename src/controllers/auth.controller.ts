@@ -8,8 +8,7 @@ const tokenSchema = z.object({
 import { register, login, refreshSession, AuthError } from '../services/authService.js';
 import { writeAuditLog } from '../services/audit.js';
 import { createMetric } from '../repositories/metricRepository.js';
-import { setCookie, ACCESS_TOKEN_MAX_AGE_MS, REFRESH_TOKEN_MAX_AGE_MS } from '../lib/cookies.js';
-import { logger } from '../lib/logger.js';
+import { setCookie, setLoggedInCookie } from '../lib/cookies.js';
 
 export async function registerHandler(req: Request, res: Response) {
   const parsed = registerSchema.safeParse(req.body);
@@ -22,8 +21,9 @@ export async function registerHandler(req: Request, res: Response) {
   try {
     const result = await register(email, password, companyName);
     writeAuditLog(result.tenantId, result.user.id, 'USER_REGISTER', {});
-    setCookie(res, 'access_token', result.token, ACCESS_TOKEN_MAX_AGE_MS);
-    setCookie(res, 'refresh_token', result.refreshToken, REFRESH_TOKEN_MAX_AGE_MS);
+    setCookie(res, 'access_token', result.token);
+    setLoggedInCookie(res);
+    setCookie(res, 'refresh_token', result.refreshToken);
     res.json(result);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } catch (err: any) {
@@ -50,8 +50,9 @@ export async function loginHandler(req: Request, res: Response) {
     const result = await login(email, password);
     writeAuditLog(result.tenantId, result.user.id, 'USER_LOGIN', {});
     createMetric(result.tenantId, result.user.id, { name: 'user_login', value: 1, tags: { userId: result.user.id } });
-    setCookie(res, 'access_token', result.token, ACCESS_TOKEN_MAX_AGE_MS);
-    setCookie(res, 'refresh_token', result.refreshToken, REFRESH_TOKEN_MAX_AGE_MS);
+    setCookie(res, 'access_token', result.token);
+    setLoggedInCookie(res);
+    setCookie(res, 'refresh_token', result.refreshToken);
     res.json(result);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } catch (err: any) {
@@ -81,7 +82,8 @@ export async function refreshHandler(req: Request, res: Response) {
       res.clearCookie('refresh_token');
       return res.status(401).json({ error: 'Refresh token inválido.' });
     }
-    setCookie(res, 'access_token', result.token, ACCESS_TOKEN_MAX_AGE_MS);
+    setCookie(res, 'access_token', result.token);
+    setLoggedInCookie(res);
     res.json(result);
   } catch (err) {
     logger.error('Refresh Token Error', err);
@@ -92,6 +94,7 @@ export async function refreshHandler(req: Request, res: Response) {
 export async function logoutHandler(req: Request, res: Response) {
   res.clearCookie('access_token');
   res.clearCookie('refresh_token');
+  res.clearCookie('logged_in');
   res.json({ success: true, message: 'Logout realizado com sucesso' });
 }
 

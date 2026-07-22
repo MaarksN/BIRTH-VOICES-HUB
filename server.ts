@@ -62,10 +62,8 @@ async function startServer() {
     contentSecurityPolicy: {
       directives: {
         defaultSrc: ["'self'"],
-        // 'unsafe-inline' is required by index.html's inline <script>/<style> tags (Tailwind
-        // config, font-face import) — removing it would need extracting those to external
-        // files/nonces, out of scope for a security-hardening pass.
-        scriptSrc: ["'self'", "'unsafe-inline'", "https://cdn.tailwindcss.com"],
+        scriptSrc: ["'self'", "'unsafe-inline'"],
+        // index.css pulls the Inter/JetBrains Mono webfonts from Google Fonts.
         styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
         fontSrc: ["'self'", "https://fonts.gstatic.com"],
         imgSrc: ["'self'", "data:", "blob:", "https:"],
