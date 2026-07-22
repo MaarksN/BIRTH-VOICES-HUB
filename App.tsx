@@ -101,7 +101,7 @@ export default function App() {
         <Router>
           <Suspense fallback={<RouteFallback />}>
           <Routes>
-            <Route path="/" element={<Navigate to="/dashboard" replace />} />
+            <Route path="/" element={<LandingPage />} />
             <Route path="/login" element={<Navigate to="/dashboard" replace />} />
             <Route path="/register" element={<Navigate to="/dashboard" replace />} />
             
