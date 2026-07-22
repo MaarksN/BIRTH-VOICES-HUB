@@ -49,7 +49,7 @@ export default function GovernancePage() {
           
           <div className="flex justify-between items-center p-4 bg-slate-50 dark:bg-slate-900/50 rounded-lg border border-slate-200 dark:border-slate-800">
             <div>
-              <p className="font-bold text-slate-900 dark:text-white">Data Residency (HIPAA)</p>
+              <p className="font-bold text-slate-900 dark:text-white">Data Residency (LGPD)</p>
               <p className="text-slate-500 text-xs mt-0.5">Armazenar dados, gravações e logs exclusivamente na região selecionada.</p>
             </div>
             <div className="text-xs font-mono bg-white dark:bg-slate-950 px-2 py-1 rounded border border-slate-200 dark:border-slate-800">sa-east-1 (SP)</div>
@@ -57,8 +57,8 @@ export default function GovernancePage() {
           
           <div className="flex justify-between items-center p-4 bg-slate-50 dark:bg-slate-900/50 rounded-lg border border-slate-200 dark:border-slate-800">
             <div>
-              <p className="font-bold text-slate-900 dark:text-white">Mascaramento de PII/PHI</p>
-              <p className="text-slate-500 text-xs mt-0.5">Ocultar automaticamente dados de saúde e financeiros nos logs do sistema.</p>
+              <p className="font-bold text-slate-900 dark:text-white">Mascaramento de PII/PCI</p>
+              <p className="text-slate-500 text-xs mt-0.5">Ocultar automaticamente dados sensíveis e financeiros nos logs do sistema.</p>
             </div>
             <Badge variant="success"><CheckCircle className="h-3 w-3 mr-1" /> Ativado</Badge>
           </div>

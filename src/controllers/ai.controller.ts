@@ -19,10 +19,10 @@ export async function chatHandler(req: Request, res: Response) {
 
   let reply = "Olá! Como posso ajudar você hoje?";
 
-  if (lastMsg.includes('dor')) {
-    reply = "Sinto muito que você esteja com dor. Vou priorizar seu caso para nossa equipe de triagem. Qual o nível da sua dor de 1 a 10?";
-  } else if (lastMsg.includes('agendar') || lastMsg.includes('marcar') || lastMsg.includes('consulta')) {
-    reply = "Perfeito, posso te ajudar a agendar uma consulta. Você tem preferência por manhã ou tarde?";
+  if (lastMsg.includes('orçamento') || lastMsg.includes('preço') || lastMsg.includes('valor')) {
+    reply = "Entendo, posso te passar as condições comerciais. Vou priorizar seu caso para nossa equipe de vendas. Qual o tamanho da sua empresa hoje?";
+  } else if (lastMsg.includes('agendar') || lastMsg.includes('marcar') || lastMsg.includes('reunião')) {
+    reply = "Perfeito, posso te ajudar a agendar uma reunião. Você tem preferência por manhã ou tarde?";
   } else if (lastMsg.includes('horário') || lastMsg.includes('tarde') || lastMsg.includes('manhã')) {
     reply = "Certo, temos horários disponíveis nesta quarta-feira. Quer que eu confirme para você?";
   } else if (lastMsg.includes('sim') || lastMsg.includes('confirma') || lastMsg.includes('quero')) {

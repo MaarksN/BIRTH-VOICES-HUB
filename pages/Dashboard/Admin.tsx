@@ -31,8 +31,8 @@ export default function AdminPage() {
         const logs = Array.isArray(data) ? data : [];
         const mapped: Session[] = logs.map((log: CallLogEntry, i: number) => ({
           id: log.id || `sess_${100 + i}`,
-          summary: `Chamada realizada com paciente ${log.patientName || 'Não identificado'}. Duração: ${log.duration || '00:00'}.`,
-          agent: log.agent || 'Catarina Triagem',
+          summary: `Chamada realizada com ${log.patientName || 'contato não identificado'}. Duração: ${log.duration || '00:00'}.`,
+          agent: log.agent || 'Catarina Atendimento',
           status: log.status === 'Concluído' ? 'completed' : 'qualified'
         }));
         setSessions(mapped);

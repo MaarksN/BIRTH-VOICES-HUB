@@ -140,7 +140,7 @@ export default function RebuiltExecutiveOverview() {
       navigate('/dashboard/agents/new');
     } else if (type === 'org') {
       updateChecklist('orgCreated', true);
-      showToast(`Organização "${actionInput || 'Birth Clinica Premium'}" configurada!`, 'success');
+      showToast(`Organização "${actionInput || 'ATLASGR Enterprise'}" configurada!`, 'success');
     } else if (type === 'telephony') {
       updateChecklist('telephonyConnected', true);
       showToast(`Número de telefone conectado ao Twilio Trunk!`, 'success');
@@ -159,7 +159,7 @@ export default function RebuiltExecutiveOverview() {
             patientName: 'Fernanda Lima (Simulado)',
             duration: '02:45',
             status: 'Concluído',
-            agent: 'Catarina Triagem'
+            agent: 'Catarina Atendimento'
           })
         });
         fetchCalls();
@@ -211,7 +211,7 @@ export default function RebuiltExecutiveOverview() {
             Birth Hub 360 Executive
           </h1>
           <p className="text-slate-500 dark:text-slate-400 mt-2 text-sm max-w-xl">
-            Plataforma omnicanal de IA de voz médica. Monitore latência, SLAs de telefonia, CSAT e engajamento em tempo real.
+            Plataforma omnicanal de IA de voz para prospecção e atendimento. Monitore latência, SLAs de telefonia, CSAT e engajamento em tempo real.
           </p>
         </div>
 
@@ -258,7 +258,7 @@ export default function RebuiltExecutiveOverview() {
           <div className="p-2 bg-brand/10 text-brand rounded-lg"><Users className="h-5 w-5" /></div>
           <div className="text-left">
             <h4 className="font-bold text-slate-900 dark:text-white text-sm">Criar Agente</h4>
-            <p className="text-xs text-slate-500">Configurar IA médica</p>
+            <p className="text-xs text-slate-500">Configurar novo agente</p>
           </div>
         </Card>
         <Card className="p-4 hover:border-brand cursor-pointer transition-colors flex items-center gap-3" onClick={() => navigate('/dashboard/analytics')}>
@@ -314,7 +314,7 @@ export default function RebuiltExecutiveOverview() {
                   <Sparkles className="h-4 w-4 text-amber-500" />
                 </h3>
                 <p className="text-xs text-slate-500 dark:text-slate-450 leading-relaxed">
-                  Siga o nosso assistente passo a passo para configurar e testar sua atendente virtual com inteligência médica avançada.
+                  Siga o nosso assistente passo a passo para configurar e testar sua atendente virtual com inteligência avançada.
                 </p>
               </div>
 
@@ -363,7 +363,7 @@ export default function RebuiltExecutiveOverview() {
                   <>
                     <h4 className="text-sm font-bold text-slate-800 dark:text-slate-100">1. Criar e Configurar Organização</h4>
                     <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-                      Defina as cores corporativas, faça upload do logotipo do hospital e gerencie os administradores do sistema.
+                      Defina as cores corporativas, faça upload do logotipo da empresa e gerencie os administradores do sistema.
                     </p>
                     <div className="flex gap-2 pt-1">
                       <Button size="sm" variant="primary" onClick={() => navigate('/dashboard/organization')}>
@@ -379,7 +379,7 @@ export default function RebuiltExecutiveOverview() {
                   <>
                     <h4 className="text-sm font-bold text-slate-800 dark:text-slate-100">2. Criar seu Primeiro Agente de Voz</h4>
                     <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-                      Configure os prompts médicos da Catarina (assistente virtual), ajuste o tom de voz e defina as diretrizes do atendimento pré-natal.
+                      Configure os prompts comerciais da Catarina (assistente virtual), ajuste o tom de voz e defina as diretrizes de qualificação de leads.
                     </p>
                     <div className="flex gap-2 pt-1">
                       <Button size="sm" variant="primary" onClick={() => navigate('/dashboard/agents/new')}>
@@ -395,7 +395,7 @@ export default function RebuiltExecutiveOverview() {
                   <>
                     <h4 className="text-sm font-bold text-slate-800 dark:text-slate-100">3. Conectar Telefonia e SIP Trunk</h4>
                     <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-                      Conecte seu número de telefone virtual ou operadora local via protocolo SIP para receber chamadas de triagem.
+                      Conecte seu número de telefone virtual ou operadora local via protocolo SIP para receber chamadas de leads.
                     </p>
                     <div className="flex gap-2 pt-1">
                       <Button size="sm" variant="primary" onClick={() => navigate('/dashboard/telephony')}>
@@ -411,7 +411,7 @@ export default function RebuiltExecutiveOverview() {
                   <>
                     <h4 className="text-sm font-bold text-slate-800 dark:text-slate-100">4. Executar Primeiro Teste Real de Chamada</h4>
                     <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-                      Abra o playground reativo de áudio e simule uma chamada de voz para verificar a latência, o tom e as transcrições médicas do agente.
+                      Abra o playground reativo de áudio e simule uma chamada de voz para verificar a latência, o tom e as transcrições do agente.
                     </p>
                     <div className="flex gap-2 pt-1">
                       <Button size="sm" variant="primary" onClick={() => navigate('/dashboard/playground')}>
@@ -499,7 +499,7 @@ export default function RebuiltExecutiveOverview() {
               value="8 / 10"
               percentage="80% capacidade"
               isPositive={true}
-              tooltip="Total de instâncias Catarina de IA médica rodando no cluster"
+              tooltip="Total de instâncias Catarina de IA rodando no cluster"
               sparkline={sparklines.agents}
               color="text-brand"
             />
@@ -517,7 +517,7 @@ export default function RebuiltExecutiveOverview() {
               value="04:12"
               percentage="-12s vs anterior"
               isPositive={true}
-              tooltip="Duração média de cada ligação de triagem"
+              tooltip="Duração média de cada ligação de qualificação"
               sparkline={sparklines.duration}
               color="text-amber-500"
             />
@@ -556,7 +556,7 @@ export default function RebuiltExecutiveOverview() {
               value="94.6%"
               percentage="+1.2% este mês"
               isPositive={true}
-              tooltip="Pesquisa de satisfação automatizada ao final da triagem"
+              tooltip="Pesquisa de satisfação automatizada ao final do atendimento"
               sparkline={sparklines.csat}
               color="text-indigo-500"
             />
@@ -675,7 +675,7 @@ export default function RebuiltExecutiveOverview() {
                       <thead>
                         <tr className="border-b border-slate-100 dark:border-slate-800 font-bold text-slate-400 uppercase tracking-wider text-[10px]">
                           <th className="py-2">ID</th>
-                          <th className="py-2">Paciente</th>
+                          <th className="py-2">Contato</th>
                           <th className="py-2">Duração</th>
                           <th className="py-2">Agente</th>
                           <th className="py-2">Status</th>
@@ -713,8 +713,8 @@ export default function RebuiltExecutiveOverview() {
                 </div>
                 <div className="space-y-4">
                   {[
-                    { action: 'Agente criado', entity: 'Catarina Triagem', time: 'Há 10 minutos', icon: <Users className="h-4 w-4" />, color: 'text-brand', bg: 'bg-brand/10' },
-                    { action: 'Arquivo de conhecimento carregado', entity: 'Protocolo_Emergencia.pdf', time: 'Há 2 horas', icon: <FileText className="h-4 w-4" />, color: 'text-amber-500', bg: 'bg-amber-500/10' },
+                    { action: 'Agente criado', entity: 'Catarina Atendimento', time: 'Há 10 minutos', icon: <Users className="h-4 w-4" />, color: 'text-brand', bg: 'bg-brand/10' },
+                    { action: 'Arquivo de conhecimento carregado', entity: 'Tabela_Precos_2026.pdf', time: 'Há 2 horas', icon: <FileText className="h-4 w-4" />, color: 'text-amber-500', bg: 'bg-amber-500/10' },
                     { action: 'Configuração atualizada', entity: 'Organização Birth Hub', time: 'Ontem', icon: <Settings className="h-4 w-4" />, color: 'text-slate-500', bg: 'bg-slate-500/10' },
                     { action: 'Agente publicado', entity: 'SDR Qualificador B2B', time: 'Há 2 dias', icon: <Play className="h-4 w-4" />, color: 'text-emerald-500', bg: 'bg-emerald-500/10' },
                     { action: 'Conexão SIP criada', entity: 'Twilio Trunk SP', time: 'Há 3 dias', icon: <Phone className="h-4 w-4" />, color: 'text-indigo-500', bg: 'bg-indigo-500/10' },
@@ -811,7 +811,7 @@ export default function RebuiltExecutiveOverview() {
                         Vincular
                       </button>
                     </div>
-                    <p className="text-[10px] text-slate-500 mt-1">Conecte um número de voz SIP para receber ligações de pacientes.</p>
+                    <p className="text-[10px] text-slate-500 mt-1">Conecte um número de voz SIP para receber ligações de leads.</p>
                   </div>
 
                   <div className="p-3 bg-amber-50/60 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-900/30 rounded-lg text-left">
@@ -824,7 +824,7 @@ export default function RebuiltExecutiveOverview() {
                         Sincronizar
                       </button>
                     </div>
-                    <p className="text-[10px] text-slate-500 mt-1">A base do Ministério da Saúde não é sincronizada há 30 dias.</p>
+                    <p className="text-[10px] text-slate-500 mt-1">A tabela de preços não é sincronizada há 30 dias.</p>
                   </div>
                 </div>
               </Card>
@@ -839,14 +839,14 @@ export default function RebuiltExecutiveOverview() {
                   <div className="flex items-start gap-2.5">
                     <div className="h-2 w-2 rounded-full bg-brand mt-1.5 shrink-0" />
                     <div>
-                      <p className="text-slate-800 dark:text-slate-200">Re-treinamento da Triagem Médica</p>
+                      <p className="text-slate-800 dark:text-slate-200">Re-treinamento da Qualificação de Leads</p>
                       <span className="text-[10px] text-slate-400">Agendado para hoje às 23:00</span>
                     </div>
                   </div>
                   <div className="flex items-start gap-2.5 border-t border-slate-100 dark:border-slate-850 pt-2.5">
                     <div className="h-2 w-2 rounded-full bg-slate-350 mt-1.5 shrink-0" />
                     <div>
-                      <p className="text-slate-600 dark:text-slate-400">Auditoria Mensal de Segurança HIPAA</p>
+                      <p className="text-slate-600 dark:text-slate-400">Auditoria Mensal de Segurança (LGPD)</p>
                       <span className="text-[10px] text-slate-400">Agendado para 15 de Julho</span>
                     </div>
                   </div>
@@ -938,10 +938,10 @@ export default function RebuiltExecutiveOverview() {
 
               <div className="space-y-4">
                 <FunnelStep label="1. Conta Registrada" value="100%" desc="Usuário registrou-se na plataforma" />
-                <FunnelStep label="2. Organização Configurada" value="92.4%" desc="Cadastrou branding e logo médico" />
+                <FunnelStep label="2. Organização Configurada" value="92.4%" desc="Cadastrou branding e logo da empresa" />
                 <FunnelStep label="3. Agente de IA Ativo" value="76.1%" desc="Definiu prompt e modelo Gemini" />
                 <FunnelStep label="4. Telefonia Conectada" value="48.5%" desc="Vínculo SIP concluído" />
-                <FunnelStep label="5. Primeiro Atendimento Ativado" value="34.2%" desc="Liga de triagem médica real operada" />
+                <FunnelStep label="5. Primeiro Atendimento Ativado" value="34.2%" desc="Liga de qualificação de leads real operada" />
               </div>
             </Card>
 
@@ -975,7 +975,7 @@ export default function RebuiltExecutiveOverview() {
                   <span className="font-bold text-xs uppercase tracking-wider">Heatmap & Zonas de Fricção</span>
                 </div>
                 <p className="text-[11px] text-slate-500 leading-relaxed">
-                  Os sensores de UX de nossa plataforma detectaram que 22% dos usuários ignoram as diretrizes de prompt médico por complexidade de formulário. Solução: Adicionamos templates pré-prontos de triagem.
+                  Os sensores de UX de nossa plataforma detectaram que 22% dos usuários ignoram as diretrizes de prompt comercial por complexidade de formulário. Solução: Adicionamos templates pré-prontos de qualificação.
                 </p>
               </Card>
             </div>
@@ -1015,17 +1015,17 @@ export default function RebuiltExecutiveOverview() {
           
           {activeActionModal === 'agent' && (
             <div className="space-y-4">
-              <label className="text-xs font-bold text-slate-500 uppercase">Nome do Agente Médico</label>
-              <input 
-                type="text" 
-                placeholder="Ex: Catarina Pós-Parto" 
+              <label className="text-xs font-bold text-slate-500 uppercase">Nome do Agente</label>
+              <input
+                type="text"
+                placeholder="Ex: Catarina Prospecção"
                 value={actionInput}
                 onChange={(e) => setActionInput(e.target.value)}
                 className="w-full px-3.5 py-2.5 border rounded-lg text-sm bg-white text-slate-900 border-slate-300 focus:outline-none focus:ring-2 focus:ring-brand dark:bg-slate-800 dark:text-slate-100 dark:border-slate-700"
               />
               <label className="text-xs font-bold text-slate-500 uppercase block mt-2">Modelo Principal</label>
               <select className="w-full px-3.5 py-2.5 border rounded-lg text-sm bg-white dark:bg-slate-800 dark:text-slate-100 dark:border-slate-700 border-slate-300">
-                <option>Gemini 2.5 Pro (Recomendado para Medicina)</option>
+                <option>Gemini 2.5 Pro (Recomendado para Precisão)</option>
                 <option>Gemini 2.5 Flash (Foco em velocidade)</option>
               </select>
             </div>
@@ -1033,10 +1033,10 @@ export default function RebuiltExecutiveOverview() {
 
           {activeActionModal === 'org' && (
             <div className="space-y-4">
-              <label className="text-xs font-bold text-slate-500 uppercase">Nome da Clinica / Hospital</label>
-              <input 
-                type="text" 
-                placeholder="Ex: Hospital e Maternidade São Luiz" 
+              <label className="text-xs font-bold text-slate-500 uppercase">Nome da Empresa</label>
+              <input
+                type="text"
+                placeholder="Ex: ATLASGR"
                 value={actionInput}
                 onChange={(e) => setActionInput(e.target.value)}
                 className="w-full px-3.5 py-2.5 border rounded-lg text-sm bg-white text-slate-900 border-slate-300 focus:outline-none focus:ring-2 focus:ring-brand dark:bg-slate-800 dark:text-slate-100 dark:border-slate-700"
@@ -1063,7 +1063,7 @@ export default function RebuiltExecutiveOverview() {
               <label className="text-xs font-bold text-slate-500 uppercase">Nome do Documento ou URL</label>
               <input 
                 type="text" 
-                placeholder="Ex: Diretrizes Pré-Natal 2026.pdf" 
+                placeholder="Ex: Tabela de Preços 2026.pdf"
                 value={actionInput}
                 onChange={(e) => setActionInput(e.target.value)}
                 className="w-full px-3.5 py-2.5 border rounded-lg text-sm bg-white text-slate-900 border-slate-300 focus:outline-none focus:ring-2 focus:ring-brand dark:bg-slate-800 dark:text-slate-100 dark:border-slate-700"
@@ -1078,7 +1078,7 @@ export default function RebuiltExecutiveOverview() {
                 <span className="text-xs font-bold text-slate-700 dark:text-slate-200">Pronto para iniciar chamada virtual...</span>
               </div>
               <p className="text-[11px] text-slate-400 mt-2">
-                Isto simulará o recebimento de uma chamada telefônica em nosso servidor. Transcrições de voz e respostas da IA médica serão processadas no Playground em tempo real.
+                Isto simulará o recebimento de uma chamada telefônica em nosso servidor. Transcrições de voz e respostas da IA serão processadas no Playground em tempo real.
               </p>
             </div>
           )}

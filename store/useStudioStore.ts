@@ -172,7 +172,7 @@ export const nodeRegistry: Record<string, NodeRegistryItem> = {
       goal: 'Binds model logic and generation parameters to the runtime prompt.',
       inputsDesc: ['System properties.'],
       outputsDesc: ['A model session instance bound to execution.'],
-      bestPractices: ['Keep temperature low (0.1 - 0.3) for structured or factual tasks like medical or clinic booking.', 'Enable high safety parameters for child-facing bots.'],
+      bestPractices: ['Keep temperature low (0.1 - 0.3) for structured or factual tasks like appointment booking or lead qualification.', 'Enable high safety parameters for child-facing bots.'],
       examples: ['Sets Gemini 2.5 Pro with temperature 0.2 and 1024 max tokens.']
     }
   },
@@ -188,13 +188,13 @@ export const nodeRegistry: Record<string, NodeRegistryItem> = {
     version: '1.2.0',
     compatibilities: ['condition', 'switch', 'question', 'human_handoff', 'end'],
     dependencies: ['gemini-api'],
-    defaultConfig: { promptText: 'Você é um assistente virtual acolhedor da clínica Birth Dental. Agende consultas e tire dúvidas dos pacientes de forma simpática.', streaming: 'Enabled', thinking: 'DeepThinking (v2)', fallbackText: 'Desculpe, tive um problema técnico. Pode repetir?' },
+    defaultConfig: { promptText: 'Você é um assistente virtual acolhedor da Birth Voices Hub. Agende compromissos e tire dúvidas dos contatos de forma simpática.', streaming: 'Enabled', thinking: 'DeepThinking (v2)', fallbackText: 'Desculpe, tive um problema técnico. Pode repetir?' },
     documentation: {
       goal: 'Injects contextual prompts and compiles model system prompts with reactive variables.',
       inputsDesc: ['Incoming customer intent, voice settings, and model configs.'],
       outputsDesc: ['A generated audio/text string response.'],
       bestPractices: ['Structure prompts in Markdown for readability.', 'Always include a fallback text block to prevent silence.'],
-      examples: ['Prompt instructing assistants to answer medical FAQs strictly based on standard clinic rules.']
+      examples: ['Prompt instructing assistants to answer FAQs strictly based on the company knowledge base.']
     }
   },
   question: {
@@ -545,7 +545,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
   templates: [
     {
       id: 'temp-1',
-      name: 'Recepção Dental Padrão',
+      name: 'Recepção e Qualificação Padrão',
       nodes: initialNodes.slice(0, 5),
       edges: initialEdges.slice(0, 4)
     }

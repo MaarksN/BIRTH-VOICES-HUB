@@ -19,9 +19,9 @@ export default function KnowledgeManager() {
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {[
-          { title: 'Protocolos de Triagem', docs: 45, status: 'synced', size: '12MB', updated: '2h atrás' },
+          { title: 'Protocolos de Qualificação', docs: 45, status: 'synced', size: '12MB', updated: '2h atrás' },
           { title: 'Manuais de Faturamento', docs: 12, status: 'syncing', size: '4MB', updated: 'Agora' },
-          { title: 'FAQ Clínico', docs: 120, status: 'synced', size: '2MB', updated: '1d atrás' }
+          { title: 'FAQ Comercial', docs: 120, status: 'synced', size: '2MB', updated: '1d atrás' }
         ].map((kb, i) => (
           <Card key={i} className="p-5 flex flex-col hover:border-brand transition-colors cursor-pointer group">
             <div className="flex justify-between items-start mb-4">

@@ -496,7 +496,7 @@ export function BottomDrawer() {
                 <form onSubmit={handleAiGenerate} className="flex-1 flex flex-col min-h-0 justify-between">
                   <div className="flex-1 min-h-0 bg-white border border-indigo-100 rounded-lg p-2 flex flex-col">
                     <textarea 
-                      placeholder="Ex: Crie um fluxo completo para recepção de uma clínica odontológica com confirmação de CPF via voz e busca de FAQs..."
+                      placeholder="Ex: Crie um fluxo completo para qualificação de leads com confirmação de CPF via voz e busca de FAQs..."
                       value={aiPrompt}
                       onChange={e => setAiPrompt(e.target.value)}
                       disabled={isAiLoading}
@@ -506,11 +506,11 @@ export function BottomDrawer() {
 
                   <div className="flex items-center justify-between mt-3">
                     <div className="flex gap-1.5">
-                      <span 
-                        onClick={() => setAiPrompt('Crie um assistente para confirmar consultas médicas.')}
+                      <span
+                        onClick={() => setAiPrompt('Crie um assistente para qualificar leads e agendar reuniões comerciais.')}
                         className="text-[10px] text-indigo-600 bg-indigo-50 hover:bg-indigo-100 px-2 py-1 rounded cursor-pointer font-medium"
                       >
-                        Mapear consultas
+                        Qualificar leads
                       </span>
                       <span 
                         onClick={() => setAiPrompt('Gere um fluxo de suporte técnico para provedor de internet.')}

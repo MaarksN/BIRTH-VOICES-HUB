@@ -43,7 +43,7 @@ function agent(overrides: Partial<NonNullable<Agent>> = {}): NonNullable<Agent> 
     id: 'agent-1',
     tenantId: 'tenant-1',
     userId: null,
-    name: 'Catarina Triagem',
+    name: 'Catarina Atendimento',
     model: 'gemini',
     configuration: {},
     phoneNumber: '+15551234567',
@@ -142,10 +142,10 @@ describe('telephonyService.handleTurn', () => {
       fromFallback: false,
     });
 
-    const result = await handleTurn({ sessionId: 'sess-1', speechResult: 'Estou com dúvidas sobre o pré-natal' });
+    const result = await handleTurn({ sessionId: 'sess-1', speechResult: 'Estou com dúvidas sobre o orçamento' });
 
     expect(result).toEqual({ found: true, reply: 'Claro, posso ajudar.' });
-    expect(mockProcessRequest).toHaveBeenCalledWith('Estou com dúvidas sobre o pré-natal', 'GoogleGemini', 'Seja breve.');
+    expect(mockProcessRequest).toHaveBeenCalledWith('Estou com dúvidas sobre o orçamento', 'GoogleGemini', 'Seja breve.');
 
     const persistedMetadata = mockUpdateSession.mock.calls[0][1].metadata as { turns: Array<{ role: string; content: string }> };
     expect(persistedMetadata.turns.map((t) => t.role)).toEqual(['user', 'assistant']);
@@ -163,7 +163,7 @@ describe('telephonyService.endCall', () => {
 
   it('marks the session completed and writes a CallLog with a real duration and agent name', async () => {
     mockFindActiveByCallSid.mockResolvedValue(session());
-    mockFindById.mockResolvedValue(agent({ name: 'Catarina Triagem' }));
+    mockFindById.mockResolvedValue(agent({ name: 'Catarina Atendimento' }));
 
     await endCall({ callSid: 'CA123', status: 'completed', durationSeconds: 135 });
 
@@ -171,7 +171,7 @@ describe('telephonyService.endCall', () => {
     expect(mockCreateCallLog).toHaveBeenCalledWith('tenant-1', null, expect.objectContaining({
       duration: '02:15',
       status: 'Concluído',
-      agent: 'Catarina Triagem',
+      agent: 'Catarina Atendimento',
     }));
   });
 });
