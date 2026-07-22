@@ -20,7 +20,7 @@ export function GlobalHelpCenter() {
   // Chat state
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState<Message[]>([
-    { id: '1', sender: 'catarina', text: 'Olá! Sou a Catarina, sua assistente de IA para saúde e triagem por voz. Como posso ajudar você no setup hoje?' }
+    { id: '1', sender: 'catarina', text: 'Olá! Sou a Catarina, sua assistente de IA para prospecção e qualificação por voz. Como posso ajudar você no setup hoje?' }
   ]);
   const [isTyping, setIsTyping] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -38,7 +38,7 @@ export function GlobalHelpCenter() {
     if (path.includes('agents')) {
       return {
         title: 'Criando sua Catarina',
-        tip: 'Mantenha os prompts da IA curtos e divididos por tópicos (Ex: Saudações, Identificação de Dor). Agentes com prompts curtos respondem com latência menor (<250ms).'
+        tip: 'Mantenha os prompts da IA curtos e divididos por tópicos (Ex: Saudações, Qualificação de Orçamento). Agentes com prompts curtos respondem com latência menor (<250ms).'
       };
     }
     if (path.includes('telephony')) {
@@ -62,7 +62,7 @@ export function GlobalHelpCenter() {
     if (path.includes('billing')) {
       return {
         title: 'Faturamento Inteligente',
-        tip: 'Ative a recarga automática de créditos de IA de voz para que sua assistente Catarina nunca fique offline durante picos de triagem.'
+        tip: 'Ative a recarga automática de créditos de IA de voz para que sua assistente Catarina nunca fique offline durante picos de prospecção.'
       };
     }
     return {
@@ -85,8 +85,8 @@ export function GlobalHelpCenter() {
 
     try {
       // Direct integration with our real server-side Express API route!
-      const prompt = `Você é a Catarina, assistente virtual inteligente da plataforma Birth Hub 360. 
-      Seu foco é ajudar desenvolvedores e gestores de saúde a configurar agentes de voz com inteligência artificial para gestantes e maternidades. 
+      const prompt = `Você é a Catarina, assistente virtual inteligente da plataforma Birth Hub 360.
+      Seu foco é ajudar desenvolvedores e gestores comerciais a configurar agentes de voz com inteligência artificial para prospecção de leads.
       Responda de forma curta, prestativa e técnica no idioma Português (Brasil).`;
 
       const response = await fetch('/api/chat', {
@@ -262,12 +262,12 @@ export function GlobalHelpCenter() {
                   <p className="mt-1 text-slate-500 leading-relaxed text-[11px]">Navegue até o "Playground", certifique-se de que o webhook esteja sincronizado, clique em "Testar Voz" e use o formulário de diálogo reativo.</p>
                 </div>
                 <div className="p-2.5 bg-slate-50 dark:bg-slate-900/35 rounded-lg border border-slate-200 dark:border-slate-800">
-                  <p className="font-bold text-slate-900 dark:text-white">Como habilitar White-label médico?</p>
-                  <p className="mt-1 text-slate-500 leading-relaxed text-[11px]">Em "Organização", insira o subdomínio da clínica, as cores da sua marca e faça o upload da logo corporativa.</p>
+                  <p className="font-bold text-slate-900 dark:text-white">Como habilitar White-label?</p>
+                  <p className="mt-1 text-slate-500 leading-relaxed text-[11px]">Em "Organização", insira o subdomínio da sua empresa, as cores da sua marca e faça o upload da logo corporativa.</p>
                 </div>
                 <div className="p-2.5 bg-slate-50 dark:bg-slate-900/35 rounded-lg border border-slate-200 dark:border-slate-800">
-                  <p className="font-bold text-slate-900 dark:text-white">Qual a precisão do diagnóstico?</p>
-                  <p className="mt-1 text-slate-500 leading-relaxed text-[11px]">A Catarina realiza triagem e classificação de risco, nunca diagnósticos clínicos diretos. Ela segue rigorosamente as diretrizes da OMS e do SUS.</p>
+                  <p className="font-bold text-slate-900 dark:text-white">Qual a precisão da qualificação de leads?</p>
+                  <p className="mt-1 text-slate-500 leading-relaxed text-[11px]">A Catarina realiza qualificação e classificação de prioridade, sempre com revisão humana disponível. Ela segue rigorosamente as diretrizes de compliance definidas pela sua empresa.</p>
                 </div>
               </div>
 

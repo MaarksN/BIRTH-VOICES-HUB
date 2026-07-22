@@ -35,7 +35,7 @@ export const useSessionStore = create<SessionState>((set) => ({
   activeCalls: 0,
   increment: () => set((state) => ({ activeCalls: state.activeCalls + 1 })),
   decrement: () => set((state) => ({ activeCalls: Math.max(0, state.activeCalls - 1) })),
-  brandColor: '#2563eb',
+  brandColor: '#ff5618',
   setBrandColor: (color: string) => {
     fetch('/api/brand-color', {
       method: 'POST',

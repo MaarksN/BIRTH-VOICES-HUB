@@ -11,11 +11,11 @@ export function createCallLog(tenantId: string, userId: string | null, data: {
     data: {
       tenantId,
       userId: userId ?? undefined,
-      patientName: data.patientName || 'Paciente Anônimo',
+      patientName: data.patientName || 'Contato Anônimo',
       duration: data.duration || '02:15',
       status: data.status || 'Concluído',
       time: 'Agora mesmo',
-      agent: data.agent || 'Catarina Triagem',
+      agent: data.agent || 'Catarina Atendimento',
     },
   });
 }

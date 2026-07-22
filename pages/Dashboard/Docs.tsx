@@ -169,9 +169,9 @@ export default function DesignSystemDocs() {
               <div className="space-y-3">
                 <p className="text-xs font-bold text-slate-400 uppercase">Avatares de Usuários / Workspace</p>
                 <div className="flex items-center gap-4">
-                  <Avatar name="Catarina Triagem" size="sm" />
-                  <Avatar name="Catarina Triagem" size="md" />
-                  <Avatar name="Catarina Triagem" size="lg" />
+                  <Avatar name="Catarina Vendas" size="sm" />
+                  <Avatar name="Catarina Vendas" size="md" />
+                  <Avatar name="Catarina Vendas" size="lg" />
                   <div>
                     <p className="text-sm font-bold text-slate-800 dark:text-slate-200">Iniciais Geradas Automaticamente</p>
                     <p className="text-xs text-slate-400">Padrão com cores sólidas da marca</p>

@@ -15,7 +15,7 @@ export default function AgentMarketplace() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
         {[
           { title: 'SDR Qualificador B2B', category: 'Vendas', author: 'Birth Hub', rating: '4.9', downloads: '1.2k' },
-          { title: 'Triagem Clínica v2', category: 'Saúde', author: 'HealthAI', rating: '5.0', downloads: '8.4k' },
+          { title: 'Triagem de Candidatos RH', category: 'RH', author: 'Birth Hub', rating: '5.0', downloads: '8.4k' },
           { title: 'Cobrança Humanizada', category: 'Financeiro', author: 'Birth Hub', rating: '4.8', downloads: '3.1k' },
           { title: 'Suporte L1 T.I.', category: 'Suporte', author: 'TechAgents', rating: '4.6', downloads: '5.5k' },
           { title: 'Concierge Hotelaria', category: 'Hospitalidade', author: 'Birth Hub', rating: '4.9', downloads: '900' }
