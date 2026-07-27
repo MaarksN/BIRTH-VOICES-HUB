@@ -10,7 +10,7 @@ import {
   LockKeyhole, Server, UserCheck, Sun, Moon, Mic
 } from 'lucide-react';
 import { useTheme } from '../components/design-system/ThemeContext';
-import { Card, Button, Badge, Progress, useToast, ToastContainer } from '../components/design-system';
+import { Card, Button, Badge, Progress, useToast, ToastContainer, AtlasLogo } from '../components/design-system';
 
 export default function LandingPage() {
   const { theme, setTheme } = useTheme();
@@ -38,7 +38,7 @@ export default function LandingPage() {
   // Interactive Live Chat Simulator within RAG / Hero
   const [chatInput, setChatInput] = useState('');
   const [chatMessages, setChatMessages] = useState([
-    { role: 'assistant', text: 'Olá! Sou a Catarina Pro, treinada com protocolos assistenciais de saúde. Qual sintoma ou dúvida de pré-natal deseja triar?' }
+    { role: 'assistant', text: 'Olá! Sou a Catarina Pro, treinada para prospecção e qualificação de leads. Qual empresa ou oportunidade você gostaria de qualificar hoje?' }
   ]);
   const [isTyping, setIsTyping] = useState(false);
 
@@ -80,13 +80,13 @@ export default function LandingPage() {
   // Transcription stream simulator for the Voice tab
   const transcriptionPhrases = [
     "[Sistema] Canal SIP conectado em 182ms. Latência atual: 45ms.",
-    "[Paciente] Boa tarde, estou grávida de 32 semanas e sinto uma dor de cabeça constante.",
-    "[IA Catarina] Entendo. Sinto muito que esteja com essa dor. É muito importante avaliarmos isso.",
-    "[IA Catarina] Você está apresentando outros sintomas, como visão embaçada ou inchaço súbito nas mãos e pernas?",
-    "[Paciente] Sim, minhas pernas estão bem inchadas desde ontem de manhã...",
-    "[Sistema] Alerta crítico de Pré-Eclâmpsia gerado automaticamente.",
-    "[IA Catarina] Por segurança, recomendo que você vá à maternidade mais próxima para medir sua pressão arterial imediatamente.",
-    "[Sistema] Transcrição concluída. Sincronizando dados com o Prontuário Eletrônico do Hospital via Webhook..."
+    "[Lead] Boa tarde, vi o anúncio de vocês e queria entender melhor a solução.",
+    "[IA Catarina] Entendo. Fico feliz em ajudar. Pode me contar rapidamente sobre sua empresa?",
+    "[IA Catarina] Vocês já possuem orçamento previsto para esse tipo de solução este trimestre?",
+    "[Lead] Sim, estamos avaliando fornecedores agora e o orçamento já foi aprovado...",
+    "[Sistema] Alerta de Lead Quente gerado automaticamente.",
+    "[IA Catarina] Perfeito, vou agendar uma conversa com nosso time comercial ainda esta semana.",
+    "[Sistema] Transcrição concluída. Sincronizando dados com o CRM via Webhook..."
   ];
 
   const startVoiceSimulation = () => {
@@ -114,7 +114,7 @@ export default function LandingPage() {
   const faqData = [
     {
       q: "O que é o Birth Hub 360?",
-      a: "O Birth Hub 360 é a plataforma Enterprise definitiva para a criação, orquestração e monitoramento de Agentes de Inteligência Artificial autônomos. Ele oferece canais de voz integrados, mecanismos de RAG (Busca de Conhecimento Baseada em Vetores), lógica de decisão de fluxos de trabalho médicos/empresariais, segurança sob conformidade LGPD/HIPAA e integrações completas com CRMs, bancos de dados e sistemas legados de saúde."
+      a: "O Birth Hub 360 é a plataforma Enterprise definitiva para a criação, orquestração e monitoramento de Agentes de Inteligência Artificial autônomos. Ele oferece canais de voz integrados, mecanismos de RAG (Busca de Conhecimento Baseada em Vetores), lógica de decisão de fluxos de trabalho comerciais/empresariais, segurança sob conformidade LGPD e integrações completas com CRMs, bancos de dados e sistemas legados."
     },
     {
       q: "A plataforma faz apenas atendimento por voz?",
@@ -125,16 +125,16 @@ export default function LandingPage() {
       a: "Utilizamos um pipeline integrado de ultra-alta velocidade que combina transcrição instantânea (Deepgram), processamento do LLM (Gemini 2.5) e síntese de áudio adaptativa (ElevenLabs/Vapi). O resultado é uma latência média ponta-a-ponta inferior a 340ms, com respostas fluidas, entonação humana e interrupções inteligentes em tempo real."
     },
     {
-      q: "A plataforma está em conformidade com a LGPD e o padrão HIPAA?",
-      a: "Sim, segurança é o nosso pilar central. A infraestrutura possui criptografia em trânsito (TLS 1.3) e em repouso (AES-256), auditorias de logs permanentes, controle de acesso baseado em funções (RBAC), e acordos de proteção de dados que garantem a segurança de informações pessoais de saúde (PHI)."
+      q: "A plataforma está em conformidade com a LGPD?",
+      a: "Sim, segurança é o nosso pilar central. A infraestrutura possui criptografia em trânsito (TLS 1.3) e em repouso (AES-256), auditorias de logs permanentes, controle de acesso baseado em funções (RBAC), e acordos de proteção de dados que garantem a segurança das informações pessoais dos seus contatos e leads."
     },
     {
       q: "O que é o RAG (Retrieval-Augmented Generation) integrado?",
-      a: "É a nossa central de conhecimento que permite alimentar seus agentes com documentos PDF, manuais, diretrizes clínicas do Ministério da Saúde ou FAQs corporativos. O agente consulta esses documentos em milissegundos antes de responder, garantindo que as informações fornecidas sejam 100% precisas, seguras e livres de alucinações."
+      a: "É a nossa central de conhecimento que permite alimentar seus agentes com documentos PDF, manuais de produto, tabelas de preços ou FAQs corporativos. O agente consulta esses documentos em milissegundos antes de responder, garantindo que as informações fornecidas sejam 100% precisas, seguras e livres de alucinações."
     },
     {
       q: "Como o Birth Hub 360 integra com nossos sistemas atuais?",
-      a: "Oferecemos uma robusta API de desenvolvedores e suporte a Webhooks bidirecionais. Ao final de cada atendimento, o agente consolida um resumo estruturado da chamada em JSON e envia diretamente para o seu CRM (HubSpot, Salesforce, Pipedrive), Prontuário Eletrônico (Tasy, MV) ou banco de dados relacional."
+      a: "Oferecemos uma robusta API de desenvolvedores e suporte a Webhooks bidirecionais. Ao final de cada atendimento, o agente consolida um resumo estruturado da chamada em JSON e envia diretamente para o seu CRM (HubSpot, Salesforce, Pipedrive), ERP ou banco de dados relacional."
     },
     {
       q: "Podemos testar o agente antes de colocar em produção?",
@@ -142,15 +142,15 @@ export default function LandingPage() {
     },
     {
       q: "Existe suporte a multi-inquilinato (multi-tenant) e organizações?",
-      a: "Sim. A plataforma foi desenhada para grandes corporações de saúde e cooperativas médicas. É possível gerenciar múltiplas sub-organizações, configurar marcas white-label com subdomínios, cores e logos individuais, e segmentar faturamentos e limites de uso por departamento."
+      a: "Sim. A plataforma foi desenhada para grandes corporações, redes e franquias com múltiplas unidades de negócio. É possível gerenciar múltiplas sub-organizações, configurar marcas white-label com subdomínios, cores e logos individuais, e segmentar faturamentos e limites de uso por departamento."
     },
     {
       q: "Quais modelos de Inteligência Artificial são suportados?",
-      a: "Suportamos modelos líderes de mercado através do pipeline otimizado do Birth Hub. Por padrão, nossos agentes rodam utilizando Gemini 2.5 Pro e Gemini 2.5 Flash, que oferecem o melhor equilíbrio entre conhecimento médico estruturado, velocidade de processamento e custo por token."
+      a: "Suportamos modelos líderes de mercado através do pipeline otimizado do Birth Hub. Por padrão, nossos agentes rodam utilizando Gemini 2.5 Pro e Gemini 2.5 Flash, que oferecem o melhor equilíbrio entre conhecimento comercial estruturado, velocidade de processamento e custo por token."
     },
     {
       q: "O que é a funcionalidade de detecção de interrupção?",
-      a: "É um mecanismo de voz natural avançado. Se o paciente começar a falar enquanto o agente de IA estiver emitindo uma resposta, o agente silencia imediatamente de forma humana, escuta a nova instrução e reformula sua fala a partir do novo contexto."
+      a: "É um mecanismo de voz natural avançado. Se o contato começar a falar enquanto o agente de IA estiver emitindo uma resposta, o agente silencia imediatamente de forma humana, escuta a nova instrução e reformula sua fala a partir do novo contexto."
     },
     {
       q: "Como funciona o modelo de faturamento e billing?",
@@ -158,31 +158,31 @@ export default function LandingPage() {
     },
     {
       q: "Vocês oferecem consultoria de design para os prompts?",
-      a: "Sim. Nossos clientes corporativos do plano Enterprise recebem suporte dedicado de nossos arquitetos de IA para projetar prompts estruturados, diretrizes de comportamento assistencial e conectores de webhook complexos, garantindo 100% de sucesso na ativação."
+      a: "Sim. Nossos clientes corporativos do plano Enterprise recebem suporte dedicado de nossos arquitetos de IA para projetar prompts estruturados, diretrizes de qualificação de leads e conectores de webhook complexos, garantindo 100% de sucesso na ativação."
     },
     {
       q: "Qual é o SLA de disponibilidade garantido?",
       a: "Nossa infraestrutura distribuída na nuvem (Cloud Run clusters e SIP Trunks redundantes) oferece um SLA de disponibilidade de 99.98% em nossos servidores e canais de áudio, monitorados continuamente."
     },
     {
-      q: "O agente pode realizar ações externas, como agendar exames?",
-      a: "Sim. Através de integrações de Workflows e APIs, o agente pode coletar as preferências do paciente em tempo real, verificar horários livres em sua API e disparar uma requisição para realizar o agendamento imediatamente durante a chamada telefônica."
+      q: "O agente pode realizar ações externas, como agendar reuniões?",
+      a: "Sim. Através de integrações de Workflows e APIs, o agente pode coletar as preferências do lead em tempo real, verificar horários livres em sua agenda e disparar uma requisição para realizar o agendamento com o time comercial imediatamente durante a chamada telefônica."
     },
     {
       q: "Existe controle de sentimento integrado?",
-      a: "Sim. Nossos modelos de UX Analytics analisam a entonação da voz e o léxico do paciente durante a conversa, classificando a ligação em tempo real com scores de sentimento (Positivo, Neutro, Irritado, Crítico) para alertar imediatamente um supervisor humano."
+      a: "Sim. Nossos modelos de UX Analytics analisam a entonação da voz e o léxico do contato durante a conversa, classificando a ligação em tempo real com scores de sentimento (Positivo, Neutro, Irritado, Crítico) para alertar imediatamente um supervisor humano."
     },
     {
       q: "É possível migrar números de telefone existentes para a plataforma?",
-      a: "Perfeitamente. Configuramos conexões SIP Trunking e BYOC (Bring Your Own Carrier) para que você possa rotear suas linhas de telefone atuais diretamente para o motor do Birth Hub 360 sem alterar os números de contato do seu hospital."
+      a: "Perfeitamente. Configuramos conexões SIP Trunking e BYOC (Bring Your Own Carrier) para que você possa rotear suas linhas de telefone atuais diretamente para o motor do Birth Hub 360 sem alterar os números de contato da sua empresa."
     },
     {
-      q: "Como o agente lida com situações de extrema emergência?",
-      a: "Os agentes do Birth Hub são programados com barreiras clínicas rígidas. Se detectado um sintoma de perigo crítico extremo (como parada respiratória ou hemorragia ativa), o agente interrompe o protocolo padrão e instrui o paciente de forma assertiva a ligar para o SAMU (192) ou transferir instantaneamente a chamada para um médico humano de plantão."
+      q: "Como o agente lida com situações de escalonamento crítico?",
+      a: "Os agentes do Birth Hub são programados com barreiras de segurança rígidas. Se detectado um sinal de urgência extrema (como uma reclamação grave ou risco de perda do cliente), o agente interrompe o protocolo padrão e transfere instantaneamente a chamada para um atendente humano de plantão."
     },
     {
       q: "Os agentes de IA podem falar outros idiomas além do português?",
-      a: "Sim. Nossos modelos suportam conversas de alta fluidez em Português, Inglês e Espanhol, ajustando sotaques, dialetos regionais e jargões locais dependendo do número de telefone de origem do paciente."
+      a: "Sim. Nossos modelos suportam conversas de alta fluidez em Português, Inglês e Espanhol, ajustando sotaques, dialetos regionais e jargões locais dependendo do número de telefone de origem do contato."
     },
     {
       q: "Onde os dados de gravação de chamadas são armazenados?",
@@ -205,14 +205,14 @@ export default function LandingPage() {
     setIsTyping(true);
 
     setTimeout(() => {
-      let botResponse = "Interessante. Compreendo sua dúvida. Nossos agentes consultam as bases corporativas em milissegundos para responder com precisão baseada em diretrizes clínicas.";
-      
+      let botResponse = "Interessante. Compreendo sua dúvida. Nossos agentes consultam as bases corporativas em milissegundos para responder com precisão baseada nas diretrizes comerciais da sua empresa.";
+
       const textLower = userText.toLowerCase();
-      if (textLower.includes('dor') || textLower.includes('cabeça')) {
-        botResponse = "Dor de cabeça constante (cefaleia) no terceiro trimestre pode ser um sinal de alerta para picos de pressão (pré-eclâmpsia). Por favor, verifique se sente visão embaçada ou inchaço nas pernas e consulte um médico.";
+      if (textLower.includes('preço') || textLower.includes('orçamento')) {
+        botResponse = "Nossos planos se ajustam ao volume de chamadas e leads qualificados por mês. Posso te conectar com um especialista comercial para montar uma proposta sob medida.";
       } else if (textLower.includes('latência') || textLower.includes('tempo')) {
         botResponse = "Nossa latência de áudio é de aproximadamente 320ms, permitindo diálogos dinâmicos que simulam perfeitamente a fala humana natural, sem interrupções desajeitadas.";
-      } else if (textLower.includes('seguro') || textLower.includes('lgpd') || textLower.includes('hipaa')) {
+      } else if (textLower.includes('seguro') || textLower.includes('lgpd')) {
         botResponse = "Totalmente seguro! Todos os logs e transcrições de áudio passam por rotinas automáticas de anonimização e criptografia em trânsito e em repouso.";
       }
 
@@ -235,8 +235,8 @@ export default function LandingPage() {
           
           {/* Logo */}
           <Link to="/" className="flex items-center gap-3 group">
-            <div className="p-2 bg-brand rounded-lg shadow-sm transition-transform group-hover:scale-105">
-              <Mic className="h-5 w-5 text-white animate-pulse" />
+            <div className="p-1.5 bg-white dark:bg-slate-900 rounded-lg shadow-sm border border-slate-100 dark:border-slate-800 transition-transform group-hover:scale-105">
+              <AtlasLogo className="h-6 w-6" />
             </div>
             <div className="text-left">
               <h1 className="text-base font-extrabold leading-none tracking-tight text-slate-950 dark:text-white">Birth Hub 360</h1>
@@ -327,12 +327,12 @@ export default function LandingPage() {
 
               {/* Trust bar statistics */}
               <div className="pt-6 border-t border-slate-200 dark:border-slate-800 space-y-3.5">
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Aprovado por líderes de tecnologia na saúde</p>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Aprovado por líderes de tecnologia e vendas</p>
                 <div className="flex flex-wrap items-center gap-x-6 gap-y-4 text-xs font-extrabold text-slate-400 dark:text-slate-500">
-                  <span className="flex items-center gap-1"><Server className="h-4 w-4" /> SANTA HELENA</span>
-                  <span className="flex items-center gap-1"><Layers className="h-4 w-4" /> DASA HEALTH</span>
-                  <span className="flex items-center gap-1"><KeyRound className="h-4 w-4" /> PROGENY HOSPITALS</span>
-                  <span className="flex items-center gap-1"><LockKeyhole className="h-4 w-4" /> HCOR PREM</span>
+                  <span className="flex items-center gap-1"><Server className="h-4 w-4" /> ATLASGR</span>
+                  <span className="flex items-center gap-1"><Layers className="h-4 w-4" /> NEXUS GROUP</span>
+                  <span className="flex items-center gap-1"><KeyRound className="h-4 w-4" /> VELOX CORP</span>
+                  <span className="flex items-center gap-1"><LockKeyhole className="h-4 w-4" /> ORBIT SALES</span>
                 </div>
                 <div className="flex items-center gap-2 pt-1 text-xs">
                   <div className="h-2 w-2 rounded-full bg-emerald-500 animate-ping" />
@@ -404,7 +404,7 @@ export default function LandingPage() {
                         <div className="flex items-center justify-between">
                           <div>
                             <Badge variant="primary">Atendente Virtual</Badge>
-                            <h3 className="text-base font-bold text-slate-900 dark:text-white mt-1">Catarina Triagem Médica</h3>
+                            <h3 className="text-base font-bold text-slate-900 dark:text-white mt-1">Catarina Prospecção de Leads</h3>
                           </div>
                           <div className="flex items-center gap-1.5 text-emerald-500 text-xs font-semibold">
                             <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
@@ -417,8 +417,8 @@ export default function LandingPage() {
                           <div>
                             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">PROMPT DE PERSONALIDADE DA IA</span>
                             <div className="text-[11px] font-mono leading-relaxed text-slate-650 dark:text-slate-350 bg-white dark:bg-slate-900 p-3 rounded-lg border border-slate-200 dark:border-slate-800">
-                              <span className="text-brand"># CONTEXTO:</span> Você é a Catarina, enfermeira virtual especialista em triagem médica gestacional do hospital. Seu foco é identificar sinais de risco obstétrico (ex: pré-eclâmpsia, contrações prematuras) de forma acolhedora e rápida.<br/>
-                              <span className="text-brand"># REGRAS:</span> Colete sintomas chave, meça a frequência cardíaca subjetiva se descrita, nunca faça diagnóstico direto. Se sintoma grave for relatado, ordene imediatamente a ida ao hospital.
+                              <span className="text-brand"># CONTEXTO:</span> Você é a Catarina, especialista virtual em prospecção e qualificação de leads da ATLASGR. Seu foco é identificar sinais de fit comercial (ex: orçamento disponível, autoridade de decisão) de forma consultiva e rápida.<br/>
+                              <span className="text-brand"># REGRAS:</span> Colete dados-chave do lead, registre o nível de interesse subjetivo se descrito, nunca prometa condições que não foram aprovadas. Se um lead quente for identificado, encaminhe imediatamente para o time comercial.
                             </div>
                           </div>
 
@@ -432,14 +432,14 @@ export default function LandingPage() {
                             <div>
                               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">MODELO GENERATIVO</span>
                               <div className="p-2.5 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 text-xs font-bold text-slate-700 dark:text-slate-200">
-                                Gemini 2.5 Pro (Medical Context)
+                                Gemini 2.5 Pro (Sales Context)
                               </div>
                             </div>
                           </div>
                         </div>
 
                         <div className="flex items-center justify-between border-t border-slate-150 dark:border-slate-850 pt-4">
-                          <span className="text-xs text-slate-400 font-semibold">Última modificação efetuada por Dr. Alexandre há 2 horas</span>
+                          <span className="text-xs text-slate-400 font-semibold">Última modificação efetuada por Alexandre (Head de Vendas) há 2 horas</span>
                           <Button size="sm" variant="outline" onClick={() => setHeroTab('voice')}>Ver Pipeline em Ação →</Button>
                         </div>
                       </motion.div>
@@ -488,7 +488,7 @@ export default function LandingPage() {
                           ) : (
                             simulatedTranscription.map((log, i) => (
                               <div key={i} className="text-slate-300">
-                                {log.startsWith('[Paciente]') && <span className="text-blue-400 font-bold">{log}</span>}
+                                {log.startsWith('[Lead]') && <span className="text-blue-400 font-bold">{log}</span>}
                                 {log.startsWith('[IA Catarina]') && <span className="text-green-400 font-bold">{log}</span>}
                                 {log.startsWith('[Sistema]') && <span className="text-amber-400 font-bold">{log}</span>}
                               </div>
@@ -506,9 +506,9 @@ export default function LandingPage() {
                         exit={{ opacity: 0, y: -10 }}
                         className="space-y-4 flex flex-col h-full text-left"
                       >
-                        <div className="bg-blue-50/50 dark:bg-blue-950/20 p-3.5 rounded-xl border border-blue-100/60 dark:border-blue-900/40">
-                          <h4 className="text-xs font-bold text-blue-800 dark:text-blue-300">Sincronização RAG de Conhecimento Médico</h4>
-                          <p className="text-[10px] text-slate-500 mt-0.5">Insira uma pergunta para simular a pesquisa e resposta assistencial inteligente.</p>
+                        <div className="bg-brand-50/50 dark:bg-brand-950/20 p-3.5 rounded-xl border border-brand-100/60 dark:border-brand-900/40">
+                          <h4 className="text-xs font-bold text-brand-800 dark:text-brand-300">Sincronização RAG de Conhecimento Comercial</h4>
+                          <p className="text-[10px] text-slate-500 mt-0.5">Insira uma pergunta para simular a pesquisa e resposta comercial inteligente.</p>
                         </div>
 
                         {/* Interactive chat window */}
@@ -524,7 +524,7 @@ export default function LandingPage() {
                             <div className="flex justify-start">
                               <div className="p-2.5 rounded-xl bg-white dark:bg-slate-900 text-slate-400 text-[10px] flex items-center gap-1.5 border border-slate-200 dark:border-slate-800 font-bold">
                                 <span className="h-1.5 w-1.5 rounded-full bg-slate-400 animate-bounce" />
-                                Pesquisando em 42 diretrizes médicas...
+                                Pesquisando em 42 diretrizes comerciais...
                               </div>
                             </div>
                           )}
@@ -534,7 +534,7 @@ export default function LandingPage() {
                         <form onSubmit={handleSimulatedChatSubmit} className="flex gap-2">
                           <input 
                             type="text" 
-                            placeholder="Ex: Qual o sinal de pré-eclâmpsia? ou O que fazer com contrações?" 
+                            placeholder="Ex: Qual o prazo de implantação? ou Como funciona o preço?"
                             value={chatInput}
                             onChange={(e) => setChatInput(e.target.value)}
                             className="flex-1 px-3.5 py-2 border rounded-xl text-xs bg-white text-slate-900 border-slate-300 focus:outline-none focus:ring-2 focus:ring-brand dark:bg-slate-950 dark:text-slate-100 dark:border-slate-800"
@@ -578,7 +578,7 @@ export default function LandingPage() {
                         {/* Graphical representation */}
                         <div className="bg-slate-50 dark:bg-slate-950 p-4 rounded-xl border border-slate-200 dark:border-slate-850 space-y-3">
                           <div className="flex justify-between items-center text-xs">
-                            <span className="font-bold text-slate-700 dark:text-slate-200">Volumetria de Chamadas Médicas</span>
+                            <span className="font-bold text-slate-700 dark:text-slate-200">Volumetria de Chamadas Comerciais</span>
                             <span className="font-mono text-slate-400">Tempo real — atualizado há 5s</span>
                           </div>
                           
@@ -640,7 +640,7 @@ export default function LandingPage() {
               Engenharia de precisão para operações críticas.
             </h3>
             <p className="text-base text-slate-500 dark:text-slate-400 leading-relaxed font-semibold">
-              Cada milissegundo de latência reduzido, cada regra clínica respeitada. Projetado com tecnologia que supera as barreiras do atendimento legado.
+              Cada milissegundo de latência reduzido, cada regra comercial respeitada. Projetado com tecnologia que supera as barreiras do atendimento legado.
             </p>
           </div>
 
@@ -664,7 +664,7 @@ export default function LandingPage() {
               </div>
               <h4 className="text-lg font-bold text-slate-900 dark:text-white">Memória Inteligente e Contexto</h4>
               <p className="text-xs text-slate-550 dark:text-slate-400 leading-relaxed font-medium">
-                O agente se lembra de contatos anteriores do paciente, suas preferências declaradas e dados de histórico clínico, garantindo diálogos contínuos e inteligentes.
+                O agente se lembra de contatos anteriores do lead, suas preferências declaradas e histórico de interações, garantindo diálogos contínuos e inteligentes.
               </p>
             </Card>
 
@@ -686,7 +686,7 @@ export default function LandingPage() {
               </div>
               <h4 className="text-lg font-bold text-slate-900 dark:text-white">Conectores e Workflows de API</h4>
               <p className="text-xs text-slate-550 dark:text-slate-400 leading-relaxed font-medium">
-                Integre sistemas legados. O agente pode disparar requisições, agendar consultas no prontuário, atualizar dados de CRM e enviar alertas via webhooks.
+                Integre sistemas legados. O agente pode disparar requisições, agendar reuniões na agenda comercial, atualizar dados de CRM e enviar alertas via webhooks.
               </p>
             </Card>
 
@@ -706,7 +706,7 @@ export default function LandingPage() {
               <div className="p-3 bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 rounded-xl w-fit group-hover:scale-105 transition-transform">
                 <ShieldCheck className="h-5 w-5" />
               </div>
-              <h4 className="text-lg font-bold text-slate-900 dark:text-white">Segurança Rígida HIPAA e LGPD</h4>
+              <h4 className="text-lg font-bold text-slate-900 dark:text-white">Segurança Rígida e Conformidade LGPD</h4>
               <p className="text-xs text-slate-550 dark:text-slate-400 leading-relaxed font-medium">
                 Soberania total de dados. Auditorias de segurança completas, mascaramento automático de dados sensíveis e conformidade certificada.
               </p>
@@ -738,7 +738,7 @@ export default function LandingPage() {
               <Sliders className="h-6 w-6 text-brand mb-4 group-hover:scale-110 transition-transform" />
               <h4 className="font-bold text-sm text-slate-900 dark:text-white">Agent Builder</h4>
               <p className="text-[11px] text-slate-450 dark:text-slate-450 mt-1.5 leading-relaxed">
-                Editor visual para gerenciar o prompt da Catarina, ajustar as orientações obstétricas e definir regras comportamentais.
+                Editor visual para gerenciar o prompt da Catarina, ajustar os critérios de qualificação de leads e definir regras comportamentais.
               </p>
             </div>
 
@@ -756,7 +756,7 @@ export default function LandingPage() {
               <Database className="h-6 w-6 text-brand mb-4 group-hover:scale-110 transition-transform" />
               <h4 className="font-bold text-sm text-slate-900 dark:text-white">Knowledge Hub</h4>
               <p className="text-[11px] text-slate-450 dark:text-slate-450 mt-1.5 leading-relaxed">
-                Motor de RAG semântico para alimentar a inteligência com protocolos do Ministério da Saúde, evitando alucinações.
+                Motor de RAG semântico para alimentar a inteligência com tabelas de preços, catálogos e materiais comerciais, evitando alucinações.
               </p>
             </div>
 
@@ -774,7 +774,7 @@ export default function LandingPage() {
               <BarChart3 className="h-6 w-6 text-brand mb-4 group-hover:scale-110 transition-transform" />
               <h4 className="font-bold text-sm text-slate-900 dark:text-white">Deep Analytics</h4>
               <p className="text-[11px] text-slate-450 dark:text-slate-450 mt-1.5 leading-relaxed">
-                Métricas em tempo real de latência, CSAT, chamadas simultâneas, sentimentos do paciente e logs de voz detalhados.
+                Métricas em tempo real de latência, CSAT, chamadas simultâneas, sentimentos do lead e logs de voz detalhados.
               </p>
             </div>
 
@@ -801,7 +801,7 @@ export default function LandingPage() {
               <Code2 className="h-6 w-6 text-brand mb-4 group-hover:scale-110 transition-transform" />
               <h4 className="font-bold text-sm text-slate-900 dark:text-white">Developer API</h4>
               <p className="text-[11px] text-slate-450 dark:text-slate-450 mt-1.5 leading-relaxed">
-                APIs robustas e webhooks em formato padronizado para sincronização transparente de prontuários eletrônicos legados.
+                APIs robustas e webhooks em formato padronizado para sincronização transparente com sistemas legados de CRM e ERP.
               </p>
             </div>
 
@@ -845,7 +845,7 @@ export default function LandingPage() {
                 <span className="text-[10px] font-bold text-brand uppercase">Passo 02</span>
                 <h4 className="font-bold text-slate-900 dark:text-white text-base mt-0.5">Definir Personalidade e Instruções</h4>
                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-2xl">
-                  Personalize o tom de voz da Catarina, forneça regras claras de triagem médica e barreiras éticas para garantir a excelência.
+                  Personalize o tom de voz da Catarina, forneça regras claras de qualificação de leads e barreiras éticas para garantir a excelência.
                 </p>
               </div>
             </div>
@@ -857,7 +857,7 @@ export default function LandingPage() {
                 <span className="text-[10px] font-bold text-brand uppercase">Passo 03</span>
                 <h4 className="font-bold text-slate-900 dark:text-white text-base mt-0.5">Importar Base de Conhecimento (RAG)</h4>
                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-2xl">
-                  Faça o upload das diretrizes do Ministério da Saúde ou manuais internos do hospital para alimentar o motor semântico da IA.
+                  Faça o upload de tabelas de preços, manuais de produto ou políticas internas da empresa para alimentar o motor semântico da IA.
                 </p>
               </div>
             </div>
@@ -922,8 +922,8 @@ export default function LandingPage() {
             {/* Left Col: Menu */}
             <div className="lg:col-span-4 space-y-2">
               {[
-                { title: "Triagem e Recepção Clínica", desc: "Coleta de sintomas obstétricos, classificação de risco e encaminhamento.", icon: <Heart className="h-4.5 w-4.5" /> },
                 { title: "SDR e Qualificação de Leads", desc: "Qualificação ágil de contatos por voz natural e preenchimento de CRM.", icon: <UserCheck className="h-4.5 w-4.5" /> },
+                { title: "Recepção e Concierge Corporativo", desc: "Triagem de solicitações, coleta de dados e encaminhamento ao setor certo.", icon: <Heart className="h-4.5 w-4.5" /> },
                 { title: "Suporte e Atendimento ao Cliente", desc: "Resolução de dúvidas frequentes consultando manuais semânticos (RAG).", icon: <MessageSquare className="h-4.5 w-4.5" /> },
                 { title: "Cobrança e Faturamento", desc: "Negociação de pendências de boletos, faturas e links de transação.", icon: <CreditCard className="h-4.5 w-4.5" /> },
                 { title: "Pesquisas de Satisfação e NPS", desc: "Entrevistas qualitativas por voz e classificação analítica de sentimentos.", icon: <BarChart3 className="h-4.5 w-4.5" /> }
@@ -955,39 +955,12 @@ export default function LandingPage() {
                 {activeUseCase === 0 && (
                   <div className="space-y-4 animate-fade-in">
                     <div className="flex items-center gap-2">
-                      <Badge variant="success">Triagem Obstetriz</Badge>
-                      <span className="text-xs text-slate-450 font-bold">Redução de tempo de fila em 48%</span>
-                    </div>
-                    <h4 className="text-xl font-extrabold text-slate-950 dark:text-white">Recepção de Urgência Gestacional</h4>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed font-semibold">
-                      O agente atende pacientes que ligam na maternidade com dores ou dúvidas. Ele consolida os sintomas, cruza os relatos com a base de conhecimento médico (RAG) e envia um alerta direto com classificação de risco no painel de controle do hospital em menos de 10 segundos.
-                    </p>
-                    <div className="bg-slate-50 dark:bg-slate-950 p-4 rounded-xl border border-slate-200 dark:border-slate-850 space-y-3 text-xs">
-                      <p className="font-bold text-slate-400 text-[10px] uppercase">Payload Estruturado Enviado ao Hospital:</p>
-                      <pre className="font-mono text-[10px] text-slate-650 dark:text-slate-350 bg-white dark:bg-slate-900 p-3 rounded border border-slate-200 dark:border-slate-800 overflow-x-auto leading-relaxed">
-{`{
-  "atendimento_id": "call_ob_9482",
-  "paciente": "Juliana Pinheiro",
-  "idade_gestacional": "34 semanas",
-  "classificacao_risco": "ALTO (Vermelho)",
-  "sintomas": ["Cefaleia frontal constante", "Visão turva", "Inchaço bilateral"],
-  "rag_medical_match": "Diretrizes Pré-Natal 2026 - Cap. 4 (Pré-Eclâmpsia)",
-  "webhook_disparado_maternidade": true
-}`}
-                      </pre>
-                    </div>
-                  </div>
-                )}
-
-                {activeUseCase === 1 && (
-                  <div className="space-y-4 animate-fade-in">
-                    <div className="flex items-center gap-2">
                       <Badge variant="primary">SDR Inteligente</Badge>
                       <span className="text-xs text-slate-450 font-bold">Contato instantâneo de lead em 5 segundos</span>
                     </div>
                     <h4 className="text-xl font-extrabold text-slate-950 dark:text-white">Qualificação Imediata de Leads Comerciais</h4>
                     <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed font-semibold">
-                      O agente de voz liga imediatamente para contatos que preencheram o formulário do site da sua clínica ou empresa. Ele conduz um diálogo natural para entender a necessidade do cliente, qualifica o lead com base nas suas metas comerciais e agenda a reunião diretamente com o executivo de vendas.
+                      O agente de voz liga imediatamente para contatos que preencheram o formulário do site da sua empresa. Ele conduz um diálogo natural para entender a necessidade do cliente, qualifica o lead com base nas suas metas comerciais e agenda a reunião diretamente com o executivo de vendas.
                     </p>
                     <div className="bg-slate-50 dark:bg-slate-950 p-4 rounded-xl border border-slate-200 dark:border-slate-850 space-y-3 text-xs">
                       <p className="font-bold text-slate-400 text-[10px] uppercase">Resultados Sincronizados com HubSpot:</p>
@@ -1005,6 +978,33 @@ export default function LandingPage() {
                   </div>
                 )}
 
+                {activeUseCase === 1 && (
+                  <div className="space-y-4 animate-fade-in">
+                    <div className="flex items-center gap-2">
+                      <Badge variant="success">Concierge Corporativo</Badge>
+                      <span className="text-xs text-slate-450 font-bold">Redução de tempo de fila em 48%</span>
+                    </div>
+                    <h4 className="text-xl font-extrabold text-slate-950 dark:text-white">Recepção e Triagem de Solicitações</h4>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed font-semibold">
+                      O agente atende contatos que ligam para a central da empresa com dúvidas ou solicitações. Ele identifica a necessidade, cruza os relatos com a base de conhecimento (RAG) e envia um alerta direto com a prioridade e o setor responsável no painel de controle em menos de 10 segundos.
+                    </p>
+                    <div className="bg-slate-50 dark:bg-slate-950 p-4 rounded-xl border border-slate-200 dark:border-slate-850 space-y-3 text-xs">
+                      <p className="font-bold text-slate-400 text-[10px] uppercase">Payload Estruturado Enviado ao Sistema:</p>
+                      <pre className="font-mono text-[10px] text-slate-650 dark:text-slate-350 bg-white dark:bg-slate-900 p-3 rounded border border-slate-200 dark:border-slate-800 overflow-x-auto leading-relaxed">
+{`{
+  "atendimento_id": "call_rc_9482",
+  "contato": "Juliana Pinheiro",
+  "setor_destino": "Financeiro",
+  "prioridade": "ALTA",
+  "motivo": ["Segunda via de fatura", "Alteração cadastral"],
+  "rag_match": "Base de Conhecimento - Cap. 4 (Faturamento)",
+  "webhook_disparado": true
+}`}
+                      </pre>
+                    </div>
+                  </div>
+                )}
+
                 {activeUseCase === 2 && (
                   <div className="space-y-4 animate-fade-in">
                     <div className="flex items-center gap-2">
@@ -1013,7 +1013,7 @@ export default function LandingPage() {
                     </div>
                     <h4 className="text-xl font-extrabold text-slate-950 dark:text-white">Atendimento Omnichannel de Clientes</h4>
                     <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed font-semibold">
-                      Responda dúvidas complexas de faturamento, agendamentos, preparo de exames laboratoriais ou cobertura de planos de saúde instantaneamente. Alimentado pelo Knowledge Hub, o agente resolve as solicitações de forma precisa, sem que o cliente precise esperar na linha.
+                      Responda dúvidas complexas de faturamento, agendamentos, especificações de produto ou condições contratuais instantaneamente. Alimentado pelo Knowledge Hub, o agente resolve as solicitações de forma precisa, sem que o cliente precise esperar na linha.
                     </p>
                     <div className="p-3 bg-indigo-50/50 dark:bg-slate-950 border border-indigo-100 rounded-xl text-xs flex items-start gap-2.5">
                       <HelpCircle className="h-4.5 w-4.5 text-brand mt-0.5" />
@@ -1049,7 +1049,7 @@ export default function LandingPage() {
                     </div>
                     <h4 className="text-xl font-extrabold text-slate-950 dark:text-white">Pesquisas Qualitativas Automatizadas</h4>
                     <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed font-semibold">
-                      Ligue para clientes logo após a conclusão de uma consulta ou compra para entender a experiência. O agente capta os tons de voz, as notas qualitativas, transcreve e classifica o feedback nos mínimos detalhes para subsidiar relatórios de melhorias de processos.
+                      Ligue para clientes logo após a conclusão de uma compra ou atendimento para entender a experiência. O agente capta os tons de voz, as notas qualitativas, transcreve e classifica o feedback nos mínimos detalhes para subsidiar relatórios de melhorias de processos.
                     </p>
                   </div>
                 )}
@@ -1072,7 +1072,7 @@ export default function LandingPage() {
               Projetado para superar limites.
             </h3>
             <p className="text-base text-slate-500 dark:text-slate-400 leading-relaxed font-semibold">
-              Veja por que grandes corporações preferem a estabilidade, a segurança e a precisão assistencial do Birth Hub 360 contra soluções legadas e estrangeiras.
+              Veja por que grandes corporações preferem a estabilidade, a segurança e a precisão comercial do Birth Hub 360 contra soluções legadas e estrangeiras.
             </p>
           </div>
 
@@ -1091,7 +1091,7 @@ export default function LandingPage() {
                   { name: "Latência Total de Voz", birth: "Média <320ms (Ultra-Velocidade)", legacy: "De 1.5s a 3.0s (Inviável)", opensource: "Irregular (Depende de servidores)" },
                   { name: "Motor RAG com Busca Semântica", birth: "Sim (Vector DB Integrado)", legacy: "Não suportado nativamente", opensource: "Requer implementação complexa" },
                   { name: "SLA de Disponibilidade SIP", birth: "99.98% Garantido em Contrato", legacy: "99.0% sem redundância", opensource: "Sem garantias de uptime" },
-                  { name: "Conformidade LGPD e HIPAA", birth: "Criptografia e Termos Dedicados", legacy: "Apenas conformidades básicas US", opensource: "Totalmente sob responsabilidade do dev" },
+                  { name: "Conformidade LGPD e SOC 2", birth: "Criptografia e Termos Dedicados", legacy: "Apenas conformidades básicas US", opensource: "Totalmente sob responsabilidade do dev" },
                   { name: "Orquestrador de Webhooks", birth: "Sim, reativo e depurável", legacy: "Conexões rígidas proprietárias", opensource: "Código customizado manual" },
                   { name: "Painel de Configuração White-Label", birth: "Completo (Domínios e Cores)", legacy: "Apenas logo da plataforma", opensource: "Inexistente" },
                   { name: "Suporte Técnico Dedicado 24/7", birth: "Sim, Gerente de Conta Dedicado", legacy: "Apenas tickets de suporte em inglês", opensource: "Comunidade Discord/GitHub" },
@@ -1153,8 +1153,8 @@ export default function LandingPage() {
                 { name: "Stripe", desc: "Billing & Pagamentos" },
                 { name: "WhatsApp", desc: "Omnichannel Chat" },
                 { name: "Webhooks", desc: "APIs Customizadas" },
-                { name: "Tasy", desc: "Prontuário Médico" },
-                { name: "MV Hospital", desc: "Sistemas Clínicos" },
+                { name: "Pipedrive", desc: "CRM de Vendas" },
+                { name: "n8n", desc: "Automação de Workflows" },
                 { name: "Google Drive", desc: "Bases do RAG" }
               ].map((item, i) => (
                 <div key={i} className="p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-850 rounded-xl flex flex-col items-center justify-center text-center transition-all hover:scale-105 hover:border-brand shadow-xs">
@@ -1169,7 +1169,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* SEÇÃO 8: GOVERNANÇA E SEGURANÇA HIPAA */}
+      {/* SEÇÃO 8: GOVERNANÇA E SEGURANÇA */}
       <section id="seguranca" className="py-20 bg-white dark:bg-slate-900 border-b border-slate-250 dark:border-slate-850 text-left relative">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           
@@ -1183,7 +1183,7 @@ export default function LandingPage() {
                     <Lock className="h-5 w-5" />
                   </div>
                   <div>
-                    <h4 className="font-bold text-slate-950 dark:text-white text-sm">Escudo de Governança Médica</h4>
+                    <h4 className="font-bold text-slate-950 dark:text-white text-sm">Escudo de Governança e Compliance</h4>
                     <span className="text-[10px] text-emerald-500 font-bold flex items-center gap-1 mt-0.5">
                       <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
                       Auditoria de conformidade ativa
@@ -1195,8 +1195,8 @@ export default function LandingPage() {
                   <div className="flex items-start gap-2.5">
                     <CheckCircle className="h-4.5 w-4.5 text-emerald-500 shrink-0 mt-0.5" />
                     <div>
-                      <p className="text-slate-900 dark:text-white text-sm font-bold">Conformidade Rígida com LGPD e HIPAA</p>
-                      <p className="text-[11px] text-slate-500 mt-1">Garantimos a privacidade absoluta de dados pessoais de saúde por meio de termos de proteção específicos e controle estrito de dados sensíveis.</p>
+                      <p className="text-slate-900 dark:text-white text-sm font-bold">Conformidade Rígida com LGPD e SOC 2</p>
+                      <p className="text-[11px] text-slate-500 mt-1">Garantimos a privacidade absoluta de dados pessoais dos seus contatos e leads por meio de termos de proteção específicos e controle estrito de dados sensíveis.</p>
                     </div>
                   </div>
                   <hr className="border-slate-100 dark:border-slate-850" />
@@ -1225,7 +1225,7 @@ export default function LandingPage() {
                 Governança, conformidade e auditoria de logs.
               </h3>
               <p className="text-base text-slate-500 dark:text-slate-400 leading-relaxed font-semibold">
-                Sua operação clínica e corporativa protegida com criptografia ponta-a-ponta. Oferecemos controle absoluto para auditorias internas e governos.
+                Sua operação comercial e corporativa protegida com criptografia ponta-a-ponta. Oferecemos controle absoluto para auditorias internas e governos.
               </p>
               <div className="grid grid-cols-2 gap-4 text-xs font-bold font-mono text-slate-600 dark:text-slate-400">
                 <div className="p-3.5 bg-slate-50 dark:bg-slate-950 rounded-xl border border-slate-200 dark:border-slate-850">
@@ -1235,7 +1235,7 @@ export default function LandingPage() {
                 </div>
                 <div className="p-3.5 bg-slate-50 dark:bg-slate-950 rounded-xl border border-slate-200 dark:border-slate-850">
                   <ShieldCheck className="h-4.5 w-4.5 text-brand mb-2" />
-                  <p className="text-slate-900 dark:text-white">Auditorias HIPAA</p>
+                  <p className="text-slate-900 dark:text-white">Auditorias SOC 2</p>
                   <p className="text-[10px] text-slate-400 mt-1">Históricos de modificação permanentes</p>
                 </div>
               </div>
@@ -1258,7 +1258,7 @@ export default function LandingPage() {
                 Decisões guiadas por dados qualitativos.
               </h3>
               <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed font-semibold">
-                Monitore funis de atendimento em tempo real, identifique em qual frase do script ocorre gargalo na interação do paciente e classifique as notas qualitativas do CSAT em gráficos interativos.
+                Monitore funis de atendimento em tempo real, identifique em qual frase do script ocorre gargalo na interação do lead e classifique as notas qualitativas do CSAT em gráficos interativos.
               </p>
               <div className="pt-4 flex flex-col gap-2 font-semibold text-xs text-slate-650 dark:text-slate-300">
                 <div className="flex items-center gap-2"><Check className="h-4 w-4 text-emerald-500" /> Detecção analítica de interrupções de áudio</div>
@@ -1326,7 +1326,7 @@ export default function LandingPage() {
               O que dizem os líderes de inovação.
             </h3>
             <p className="text-base text-slate-500 dark:text-slate-400 leading-relaxed font-semibold">
-              Resultados reais obtidos por equipes médicas e gestores que escalaram seus atendimentos com o Birth Hub 360.
+              Resultados reais obtidos por times comerciais e gestores que escalaram sua prospecção com o Birth Hub 360.
             </p>
           </div>
 
@@ -1343,7 +1343,7 @@ export default function LandingPage() {
                   <Star className="h-4 w-4 fill-amber-500" />
                 </div>
                 <p className="text-xs text-slate-650 dark:text-slate-350 italic leading-relaxed font-medium">
-                  "A integração do Birth Hub com o nosso prontuário MV foi impecável. A IA Catarina tria pacientes com alta segurança e eliminou as filas telefônicas de recepção. Conseguimos classificar os riscos de pré-eclâmpsia com precisão incrível."
+                  "A integração do Birth Hub com o nosso CRM foi impecável. A IA Catarina qualifica leads com alta precisão e eliminou as filas telefônicas do time comercial. Conseguimos priorizar os leads mais quentes com uma velocidade incrível."
                 </p>
               </div>
               <div className="flex items-center gap-3 pt-4 border-t border-slate-100 dark:border-slate-850">
@@ -1351,8 +1351,8 @@ export default function LandingPage() {
                   ML
                 </div>
                 <div className="text-xs">
-                  <p className="font-bold text-slate-900 dark:text-white">Dra. Mariana Lima</p>
-                  <p className="text-[10px] text-slate-450 uppercase font-bold">Diretora Obstétrica — Santa Maternidade</p>
+                  <p className="font-bold text-slate-900 dark:text-white">Mariana Lima</p>
+                  <p className="text-[10px] text-slate-450 uppercase font-bold">Diretora Comercial — ATLASGR</p>
                 </div>
               </div>
             </Card>
@@ -1368,7 +1368,7 @@ export default function LandingPage() {
                   <Star className="h-4 w-4 fill-amber-500" />
                 </div>
                 <p className="text-xs text-slate-650 dark:text-slate-350 italic leading-relaxed font-medium">
-                  "Reduzimos em 42% o tempo médio de atendimento de primeiro nível. Nossos atendentes humanos agora se concentram apenas nas urgências. O pipeline de áudio tem latência excelente."
+                  "Reduzimos em 42% o tempo médio de primeiro contato com novos leads. Nossos vendedores humanos agora se concentram apenas nas negociações mais avançadas. O pipeline de áudio tem latência excelente."
                 </p>
               </div>
               <div className="flex items-center gap-3 pt-4 border-t border-slate-100 dark:border-slate-850">
@@ -1377,7 +1377,7 @@ export default function LandingPage() {
                 </div>
                 <div className="text-xs">
                   <p className="font-bold text-slate-900 dark:text-white">Ricardo Costa</p>
-                  <p className="text-[10px] text-slate-450 uppercase font-bold">Gerente de Tecnologia — Hospital Premier</p>
+                  <p className="text-[10px] text-slate-450 uppercase font-bold">Gerente de Tecnologia — Nexus Group</p>
                 </div>
               </div>
             </Card>
@@ -1402,7 +1402,7 @@ export default function LandingPage() {
                 </div>
                 <div className="text-xs">
                   <p className="font-bold text-slate-900 dark:text-white">Alexandre Silveira</p>
-                  <p className="text-[10px] text-slate-450 uppercase font-bold">Diretor de UX — Dasa Cooperativas</p>
+                  <p className="text-[10px] text-slate-450 uppercase font-bold">Diretor de UX — Velox Corp</p>
                 </div>
               </div>
             </Card>
@@ -1512,8 +1512,8 @@ export default function LandingPage() {
           {/* Logo & Info column */}
           <div className="col-span-2 space-y-4">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-brand rounded-lg">
-                <Mic className="h-5 w-5 text-white animate-pulse" />
+              <div className="p-1.5 bg-white rounded-lg">
+                <AtlasLogo className="h-6 w-6" />
               </div>
               <div className="text-left">
                 <h1 className="text-base font-extrabold leading-none tracking-tight text-white">Birth Hub 360</h1>
@@ -1521,7 +1521,7 @@ export default function LandingPage() {
               </div>
             </div>
             <p className="text-xs text-slate-400 leading-relaxed max-w-sm font-medium">
-              A solução completa para orquestração de Agentes de Inteligência Artificial. Entregamos voz natural, conformidade clínica rígida e conexões SIP redundantes para operações de alto volume.
+              A solução completa para orquestração de Agentes de Inteligência Artificial. Entregamos voz natural, conformidade rígida e conexões SIP redundantes para operações de alto volume.
             </p>
             <div className="flex items-center gap-3.5 text-slate-500 pt-2 text-xs font-semibold">
               <a href="#" className="hover:text-white">Twitter/X</a>
@@ -1546,7 +1546,7 @@ export default function LandingPage() {
           <div className="space-y-3.5">
             <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Segurança & API</h4>
             <ul className="space-y-2.5 text-xs text-slate-500 font-semibold">
-              <li><a href="#seguranca" className="hover:text-white transition-colors">Conformidade HIPAA</a></li>
+              <li><a href="#seguranca" className="hover:text-white transition-colors">Conformidade SOC 2</a></li>
               <li><a href="#seguranca" className="hover:text-white transition-colors">Privacidade LGPD</a></li>
               <li><Link to="/login" className="hover:text-white transition-colors">Chaves de API</Link></li>
               <li><Link to="/login" className="hover:text-white transition-colors">Webhooks Logs</Link></li>
@@ -1564,7 +1564,7 @@ export default function LandingPage() {
               </li>
               <li><a href="#" className="hover:text-white transition-colors">Termos de Serviço</a></li>
               <li><a href="#" className="hover:text-white transition-colors">Políticas de Privacidade</a></li>
-              <li><a href="#" className="hover:text-white transition-colors">Configuração HIPAA</a></li>
+              <li><a href="#" className="hover:text-white transition-colors">Configuração SOC 2</a></li>
               <li><a href="#" className="hover:text-white transition-colors">Changelog v3.6</a></li>
             </ul>
           </div>
@@ -1573,7 +1573,7 @@ export default function LandingPage() {
 
         {/* Bottom copyright banner */}
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 mt-12 border-t border-slate-900 flex flex-col sm:flex-row justify-between items-center gap-4 text-xs font-semibold text-slate-500">
-          <p>© 2026 Birth Hub 360 Enterprise. Todos os direitos reservados. Projetado para saúde de alta performance.</p>
+          <p>© 2026 Birth Hub 360 Enterprise. Todos os direitos reservados. Projetado para vendas de alta performance.</p>
           <div className="flex gap-4">
             <a href="#" className="hover:text-white">Termos</a>
             <a href="#" className="hover:text-white">Privacidade</a>

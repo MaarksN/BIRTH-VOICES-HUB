@@ -38,7 +38,7 @@ class LLMProviderGateway {
   public async processRequest(
     prompt: string, 
     preferredProvider: 'GoogleGemini' | 'OpenAI' | 'Claude' = 'GoogleGemini',
-    systemInstruction: string = "Você é um assistente atencioso de triagem por voz médica."
+    systemInstruction: string = "Você é um assistente atencioso de atendimento e qualificação por voz."
   ): Promise<GatewayResponse> {
     const spanId = otelCollector.startLocalSpan('LLMProviderGateway.processRequest', 'system', {
       preferredProvider,

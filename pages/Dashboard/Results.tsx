@@ -60,7 +60,7 @@ const filteredSessions = sessions.filter(s =>
 
   const handleExportCSV = () => {
     // Excel-safe standard headers
-    const headers = ["ID da Sessão", "Canal/Agente", "Caller/Contato", "Data e Hora", "Duração", "Sentimento da Chamada", "Resumo Clínico/Operacional", "Transcrição Integral"];
+    const headers = ["ID da Sessão", "Canal/Agente", "Caller/Contato", "Data e Hora", "Duração", "Sentimento da Chamada", "Resumo Comercial/Operacional", "Transcrição Integral"];
     
     // Format sessions to CSV list with quotes escaping
     const csvContent = [
@@ -213,7 +213,7 @@ const filteredSessions = sessions.filter(s =>
               <div className="bg-slate-50 p-4 rounded-lg border border-slate-250">
                 <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
                   <FileText className="h-4 w-4 text-slate-400" />
-                  Resumo Clínico / Operacional
+                  Resumo Comercial / Operacional
                 </h4>
                 <p className="text-sm text-slate-700 mt-2.5 font-medium leading-relaxed">{selectedSession.summary}</p>
               </div>
@@ -256,7 +256,7 @@ const filteredSessions = sessions.filter(s =>
                     const cleanLine = line.replace('Agente:', '').replace('Usuário:', '').trim();
                     return (
                       <div key={idx} className={`flex flex-col ${isAgent ? 'items-start' : 'items-end'}`}>
-                        <span className="text-[10px] text-slate-400 mb-0.5">{isAgent ? "Agente de Voz" : "Usuário / Paciente"}</span>
+                        <span className="text-[10px] text-slate-400 mb-0.5">{isAgent ? "Agente de Voz" : "Usuário / Contato"}</span>
                         <div className={`p-3 rounded-xl text-xs max-w-[85%] leading-relaxed ${
                           isAgent 
                             ? 'bg-white text-slate-850 hover:border-slate-200 border border-slate-100 rounded-tl-none font-medium' 

@@ -358,7 +358,7 @@ export function AgentForm() {
                 <p className="text-center text-slate-500 py-8">Nenhum agente salvo ainda.</p>
               ) : (
                 savedConfigs.map((agent, idx) => (
-                  <div key={idx} className="flex items-center justify-between p-3 border border-slate-200 rounded-lg hover:border-blue-300 hover:bg-blue-50 transition-colors group">
+                  <div key={idx} className="flex items-center justify-between p-3 border border-slate-200 rounded-lg hover:border-brand/40 hover:bg-brand-50 transition-colors group">
                     <div className="flex-1 cursor-pointer" onClick={() => loadAgent(agent)}>
                       <div className="font-bold text-slate-800">{agent.name}</div>
                       <div className="text-xs text-slate-500">{agent.template} • {agent.tone.join(', ')}</div>
@@ -398,7 +398,7 @@ export function AgentForm() {
         </div>
         <button
           onClick={() => setShowLoadModal(true)}
-          className="text-sm font-medium text-blue-600 hover:text-blue-800 flex items-center gap-1 px-3 py-1 rounded-lg hover:bg-blue-50 transition-colors"
+          className="text-sm font-medium text-brand hover:text-brand-700 flex items-center gap-1 px-3 py-1 rounded-lg hover:bg-brand-50 transition-colors"
         >
           <Database className="h-4 w-4" />
           Meus Agentes
@@ -425,7 +425,7 @@ export function AgentForm() {
                 type="text"
                 value={config.name}
                 onChange={(e) => updateConfig('name', e.target.value)}
-                className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand outline-none"
               />
             </div>
 
@@ -434,7 +434,7 @@ export function AgentForm() {
               <textarea
                 value={config.description}
                 onChange={(e) => updateConfig('description', e.target.value)}
-                className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none h-24"
+                className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand outline-none h-24"
               />
             </div>
 
@@ -465,7 +465,7 @@ export function AgentForm() {
                       }}
                       className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
                         config.tone.includes(t)
-                          ? 'bg-blue-100 text-blue-700 border-blue-200'
+                          ? 'bg-brand-100 text-brand-700 border-brand-200'
                           : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
                       }`}
                     >
@@ -526,7 +526,7 @@ export function AgentForm() {
 
         {activeTab === 'script' && (
           <div className="space-y-6">
-            <div className="bg-blue-50 p-4 rounded-lg border border-blue-100 text-sm text-blue-800 mb-6">
+            <div className="bg-brand-50 p-4 rounded-lg border border-brand-100 text-sm text-brand-800 mb-6">
               Defina o fluxo da conversa.
             </div>
 
@@ -542,7 +542,7 @@ export function AgentForm() {
                       value={q.text}
                       onChange={(e) => updateQuestion(q.id, 'text', e.target.value)}
                       placeholder="Digite a pergunta ou fala do agente..."
-                      className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                      className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand outline-none"
                     />
                     <div className="flex gap-4">
                       <select
@@ -562,7 +562,7 @@ export function AgentForm() {
               ))}
             </div>
 
-            <button onClick={addQuestion} className="flex items-center gap-2 text-blue-600 font-medium hover:text-blue-700">
+            <button onClick={addQuestion} className="flex items-center gap-2 text-brand font-medium hover:text-brand-700">
               <Plus className="h-5 w-5" />
               Adicionar Novo Bloco
             </button>
@@ -586,7 +586,7 @@ export function AgentForm() {
         <button
           onClick={handleSave}
           disabled={isSaving}
-          className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg transition-colors flex items-center gap-2 disabled:opacity-50"
+          className="px-6 py-2 bg-brand hover:opacity-90 text-white font-bold rounded-lg transition-colors flex items-center gap-2 disabled:opacity-50"
         >
           {isSaving ? 'Salvando...' : (
             <>
@@ -613,7 +613,7 @@ function TabButton({ active, onClick, icon: Icon, label }: TabButtonProps) {
       onClick={onClick}
       className={`flex-1 flex items-center justify-center gap-2 py-4 text-sm font-medium border-b-2 transition-colors ${
         active
-          ? 'border-blue-600 text-blue-600 bg-blue-50/50'
+          ? 'border-brand text-brand bg-brand-50/50'
           : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-50'
       }`}
     >
@@ -633,7 +633,7 @@ function TemplateButton({ active, onClick, label }: TemplateButtonProps) {
     return (
         <button
           onClick={onClick}
-          className={`py-2 px-3 rounded-lg border text-sm font-medium transition-all ${active ? 'bg-blue-600 text-white border-blue-600 shadow-sm' : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50'}`}
+          className={`py-2 px-3 rounded-lg border text-sm font-medium transition-all ${active ? 'bg-brand text-white border-brand shadow-sm' : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50'}`}
         >
           {label}
         </button>

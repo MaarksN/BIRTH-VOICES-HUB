@@ -7,7 +7,7 @@ import { logger } from '../lib/logger.js';
 
 const DEFAULT_GREETING = 'Olá! Aqui é a assistente virtual do Birth Voices Hub. Como posso ajudar você hoje?';
 const DEFAULT_SYSTEM_PROMPT =
-  'Você é uma assistente de voz do Birth Voices Hub, especializada em apoio e triagem pré-natal. ' +
+  'Você é uma assistente de voz do Birth Voices Hub, especializada em atendimento e qualificação de contatos. ' +
   'Seja acolhedora, clara e objetiva nas respostas, adequadas para serem faladas em voz alta.';
 const REPROMPT_MESSAGE = 'Desculpe, não consegui ouvir. Pode repetir, por favor?';
 const GOODBYE_MESSAGE = 'Não foi possível captar sua resposta. Vamos encerrar por aqui, tente novamente em instantes.';

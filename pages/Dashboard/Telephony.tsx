@@ -43,7 +43,7 @@ export default function TelephonyPage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
              <div className="col-span-2 bg-white rounded-xl border border-slate-200 p-6">
                  <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2">
-                     <Phone className="h-4 w-4 text-blue-600" />
+                     <Phone className="h-4 w-4 text-brand" />
                      Comprar Número (DID)
                  </h3>
                  <div className="flex gap-4">
@@ -52,12 +52,12 @@ export default function TelephonyPage() {
                          <option>United States (+1)</option>
                      </select>
                      <input type="text" placeholder="DDD / Área (ex: 11)" className="p-2 border border-slate-300 rounded-lg w-32" />
-                     <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium flex items-center gap-2">
+                     <button className="px-4 py-2 bg-brand text-white rounded-lg hover:opacity-90 font-medium flex items-center gap-2">
                          <Search className="h-4 w-4" /> Buscar
                      </button>
                  </div>
                  <div className="mt-6 space-y-2">
-                     <div className="p-3 border border-slate-200 rounded-lg flex justify-between items-center hover:border-blue-300 hover:bg-blue-50 cursor-pointer transition-colors">
+                     <div className="p-3 border border-slate-200 rounded-lg flex justify-between items-center hover:border-brand/40 hover:bg-brand-50 cursor-pointer transition-colors">
                          <div className="font-mono text-lg text-slate-700">+55 11 4004-9999</div>
                          <div className="text-sm font-bold text-green-600">R$ 15,00/mês</div>
                      </div>

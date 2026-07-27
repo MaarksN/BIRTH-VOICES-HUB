@@ -25,7 +25,7 @@ export default function BillingPage() {
         )}
 
         <div className="grid grid-cols-3 gap-6 mb-8">
-             <div className="bg-gradient-to-br from-blue-600 to-blue-800 rounded-xl p-6 text-white shadow-lg relative overflow-hidden">
+             <div className="bg-gradient-to-br from-brand to-brand-800 rounded-xl p-6 text-white shadow-lg relative overflow-hidden">
                  <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-8 -mt-8 blur-2xl"></div>
                  <div className="flex items-center gap-2 mb-2 opacity-80">
                      <CreditCard className="h-5 w-5" />

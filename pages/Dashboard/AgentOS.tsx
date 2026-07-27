@@ -13,7 +13,7 @@ export default function AgentOS() {
   const [builderTab, setBuilderTab] = useState('geral');
 
   // Placeholder for agent data
-  const agentName = "Catarina Triagem";
+  const agentName = "Catarina Prospecção";
 
   return (
     <div className="flex flex-col h-[calc(100vh-4rem)] -m-8"> {/* Negative margin to fill DashboardLayout padding */}
@@ -108,7 +108,7 @@ export default function AgentOS() {
                       </div>
                       <div>
                         <label className="block text-sm font-medium mb-1">Descrição</label>
-                        <textarea rows={3} defaultValue="Triagem obstétrica e emergencial." className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg text-sm focus:outline-none focus:border-brand" />
+                        <textarea rows={3} defaultValue="Prospecção e qualificação de leads." className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg text-sm focus:outline-none focus:border-brand" />
                       </div>
                       <div className="grid grid-cols-2 gap-4">
                         <div>
@@ -122,7 +122,7 @@ export default function AgentOS() {
                         <div>
                           <label className="block text-sm font-medium mb-1">Categoria</label>
                           <select className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg text-sm focus:outline-none focus:border-brand">
-                            <option>Saúde</option>
+                            <option>Vendas</option>
                             <option>Financeiro</option>
                           </select>
                         </div>
@@ -148,17 +148,17 @@ export default function AgentOS() {
                       <textarea 
                         className="flex-1 w-full bg-white dark:bg-slate-900 p-4 text-sm font-mono focus:outline-none text-slate-800 dark:text-slate-200 resize-none"
                         defaultValue={`# CONTEXTO
-Você é a Catarina, enfermeira virtual especialista em triagem médica gestacional do hospital. 
-Seu foco é identificar sinais de risco obstétrico (ex: pré-eclâmpsia, contrações prematuras) de forma acolhedora e rápida.
+Você é a Catarina, especialista virtual em prospecção e qualificação de leads da ATLASGR.
+Seu foco é identificar sinais de fit comercial (ex: orçamento disponível, autoridade de decisão) de forma consultiva e rápida.
 
 # REGRAS
-1. Colete sintomas chave.
-2. Meça a frequência cardíaca subjetiva se descrita.
-3. Nunca faça diagnóstico direto. 
-4. Se sintoma grave for relatado, ordene imediatamente a ida ao hospital.
+1. Colete dados-chave do lead.
+2. Registre o nível de interesse subjetivo se descrito.
+3. Nunca prometa condições comerciais que não foram aprovadas.
+4. Se um lead quente for identificado, encaminhe imediatamente para o time comercial.
 
 # TOM DE VOZ
-Acolhedor, profissional, calmo e seguro.`}
+Consultivo, profissional, calmo e seguro.`}
                       />
                     </div>
                   </div>
@@ -184,7 +184,7 @@ Acolhedor, profissional, calmo e seguro.`}
                           <span className="text-sm font-mono text-brand">0.3</span>
                         </div>
                         <input type="range" min="0" max="1" step="0.1" defaultValue="0.3" className="w-full accent-brand" />
-                        <p className="text-xs text-slate-500">Controla a criatividade. Valores menores geram respostas mais precisas e determinísticas (ideal para saúde).</p>
+                        <p className="text-xs text-slate-500">Controla a criatividade. Valores menores geram respostas mais precisas e determinísticas (ideal para coleta de dados estruturados).</p>
                       </div>
                     </div>
                   </Card>
@@ -215,7 +215,7 @@ Acolhedor, profissional, calmo e seguro.`}
               <Card className="p-0 overflow-hidden">
                 <div className="divide-y divide-slate-100 dark:divide-slate-800">
                   {[
-                    { version: 'v1.2.4', date: 'Hoje, 14:30', author: 'Marcelin Mark', desc: 'Ajuste de prompt: adição de regras de pré-eclâmpsia.', status: 'current' },
+                    { version: 'v1.2.4', date: 'Hoje, 14:30', author: 'Marcelin Mark', desc: 'Ajuste de prompt: adição de regras de qualificação de orçamento.', status: 'current' },
                     { version: 'v1.2.3', date: 'Ontem, 09:15', author: 'Sistema', desc: 'Auto-rollback devido a latência alta (>800ms).', status: 'rollback' },
                     { version: 'v1.2.2', date: 'Há 3 dias', author: 'João Silva', desc: 'Atualização do modelo para Gemini 2.5 Pro.', status: 'stable' },
                   ].map((v, i) => (
@@ -260,7 +260,7 @@ Acolhedor, profissional, calmo e seguro.`}
                 <div className="flex-1 overflow-y-auto space-y-4 pr-2">
                   <div className="flex items-end justify-end">
                     <div className="bg-brand text-white px-4 py-2 rounded-2xl rounded-tr-sm text-sm max-w-[80%]">
-                      Estou com dores de cabeça fortes e visão embaçada. Estou de 32 semanas.
+                      Vi o anúncio de vocês e queria entender melhor a solução. Já temos orçamento aprovado para esse trimestre.
                     </div>
                   </div>
                   <div className="flex items-end gap-2">
@@ -268,7 +268,7 @@ Acolhedor, profissional, calmo e seguro.`}
                       <Brain className="h-4 w-4" />
                     </div>
                     <div className="bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 px-4 py-2 rounded-2xl rounded-tl-sm text-sm max-w-[80%] relative group">
-                      Entendo. Estes sintomas podem indicar um quadro que requer avaliação médica rápida, como a pré-eclâmpsia. Por favor, dirija-se imediatamente à emergência do hospital. Posso avisar a equipe que você está a caminho?
+                      Perfeito! Isso indica um lead com alto potencial de fechamento. Posso agendar uma conversa com nosso time comercial ainda esta semana?
                       <div className="absolute -bottom-5 left-2 text-[9px] text-slate-400 font-mono opacity-0 group-hover:opacity-100 transition-opacity">
                         Latência: 320ms • Tokens: 84 • Modelo: Gemini 2.5 Pro
                       </div>
@@ -293,22 +293,22 @@ Acolhedor, profissional, calmo e seguro.`}
                     <span>14:32:01.102</span>
                     <span>USER_INPUT</span>
                   </div>
-                  <p className="text-slate-800 dark:text-slate-300 truncate">Estou com dores de cab...</p>
+                  <p className="text-slate-800 dark:text-slate-300 truncate">Vi o anúncio de vocês...</p>
                 </div>
                 <div className="p-3 bg-brand/5 border border-brand/20 rounded-lg text-xs font-mono">
                   <div className="flex justify-between text-brand mb-2">
                     <span>14:32:01.205</span>
                     <span>TOOL_CALL</span>
                   </div>
-                  <p className="text-slate-800 dark:text-slate-300">check_risk_factors()</p>
-                  <p className="text-emerald-600 mt-1">Status: High Risk Detected</p>
+                  <p className="text-slate-800 dark:text-slate-300">check_lead_score()</p>
+                  <p className="text-emerald-600 mt-1">Status: Hot Lead Detected</p>
                 </div>
                 <div className="p-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg text-xs font-mono">
                   <div className="flex justify-between text-slate-400 mb-2">
                     <span>14:32:01.422</span>
                     <span>MODEL_RESPONSE</span>
                   </div>
-                  <p className="text-slate-800 dark:text-slate-300">Entendo. Estes sintom...</p>
+                  <p className="text-slate-800 dark:text-slate-300">Perfeito! Isso indica...</p>
                 </div>
               </div>
             </div>
@@ -347,7 +347,7 @@ Acolhedor, profissional, calmo e seguro.`}
                     <Zap className="h-5 w-5 shrink-0 mt-0.5" />
                     <div>
                       <p className="font-bold">Otimização de Custos</p>
-                      <p className="mt-1">O histórico de triagem não requer janela de contexto longa (8k tokens estão sendo usados). Reduzir max_tokens para 2k pode economizar 40% dos custos sem perda de qualidade.</p>
+                      <p className="mt-1">O histórico de qualificação não requer janela de contexto longa (8k tokens estão sendo usados). Reduzir max_tokens para 2k pode economizar 40% dos custos sem perda de qualidade.</p>
                       <Button variant="outline" size="sm" className="mt-3">Aplicar Recomendação</Button>
                     </div>
                   </div>

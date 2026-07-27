@@ -3,6 +3,19 @@ import { motion, AnimatePresence } from 'motion/react';
 import { AlertTriangle, AlertCircle, Info, CheckCircle, X, ChevronDown, RefreshCw, ChevronRight } from 'lucide-react';
 
 // ============================================================================
+// 0. ATLAS BRAND MARK
+// ============================================================================
+
+export function AtlasLogo({ className = 'h-5 w-5' }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <path d="M23 82 L48 82 L82 18 L57 18 Z" fill="var(--brand-color, #ff5618)" />
+      <path d="M57 82 L82 82 L69.5 55 Z" fill="var(--color-brand-500, #ffc500)" />
+    </svg>
+  );
+}
+
+// ============================================================================
 // 1. BUTTON COMPONENT
 // ============================================================================
 
@@ -263,7 +276,7 @@ interface BadgeProps {
 
 export function Badge({ children, variant = 'primary', className = '' }: BadgeProps) {
   const styles = {
-    primary: "bg-brand-50 text-brand border-brand-100 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-900/40",
+    primary: "bg-brand-50 text-brand border-brand-100 dark:bg-brand-900/40 dark:text-brand-200 dark:border-brand-800/40",
     secondary: "bg-slate-100 text-slate-750 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700",
     success: "bg-green-50 text-green-700 border-green-200 dark:bg-green-950/40 dark:text-green-300 dark:border-green-900/40",
     warning: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-900/40",

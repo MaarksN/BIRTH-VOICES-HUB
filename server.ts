@@ -41,10 +41,10 @@ async function startServer() {
     const ses1 = "sess-12345";
     const ses2 = "sess-67890";
 
-    const s1 = otelCollector.startLocalSpan("EmotionEngine.analyzeTurn", ses1, { text: "Estou preocupada com o meu pré-natal" });
+    const s1 = otelCollector.startLocalSpan("EmotionEngine.analyzeTurn", ses1, { text: "Estou preocupada com o orçamento aprovado" });
     otelCollector.endLocalSpan(s1, { detectedEmotions: ["Ansiedade"], intensity: 85 });
 
-    const s2 = otelCollector.startLocalSpan("IntentEngine.analyzeIntent", ses1, { context: "Triagem inicial" });
+    const s2 = otelCollector.startLocalSpan("IntentEngine.analyzeIntent", ses1, { context: "Qualificação inicial" });
     otelCollector.endLocalSpan(s2, { primaryIntent: "Agendar consulta", confidence: 95 });
 
     const s3 = otelCollector.startLocalSpan("StrategyEngine.adaptStrategy", ses1);
@@ -160,22 +160,22 @@ async function startServer() {
         intent = { primary: 'Identificação & Saudação (Live Stream)', confidence: 96 };
       } else if (callDuration < 30) {
         emotions = { empathy: 87, confidence: 93, frustration: 10 };
-        intent = { primary: 'Coleta de CPF do Paciente (Live Stream)', confidence: 99 };
+        intent = { primary: 'Coleta de CNPJ do Lead (Live Stream)', confidence: 99 };
         if (callDuration >= 15) {
-          alerts.push({ id: 'a-1', level: 'info', message: 'CPF recebido e validado com sucesso no CRM via WebSocket.', timestamp: Date.now() });
+          alerts.push({ id: 'a-1', level: 'info', message: 'CNPJ recebido e validado com sucesso no CRM via WebSocket.', timestamp: Date.now() });
         }
       } else if (callDuration < 55) {
         emotions = { empathy: 90, confidence: 95, frustration: 18 };
-        intent = { primary: 'Triagem de Sintomas / Urgência (Live Stream)', confidence: 92 };
+        intent = { primary: 'Qualificação de Necessidade / Objeções (Live Stream)', confidence: 92 };
         if (callDuration >= 35) {
-          alerts.push({ id: 'a-2', level: 'warning', message: 'Paciente relata dor de dente aguda e persistente (WebSocket Stream).', timestamp: Date.now() });
-          objections.push('Solicitou encaixe de urgência no mesmo dia');
+          alerts.push({ id: 'a-2', level: 'warning', message: 'Lead relata objeção de preço em relação ao concorrente (WebSocket Stream).', timestamp: Date.now() });
+          objections.push('Solicitou desconto para fechamento no mesmo dia');
         }
       } else {
         emotions = { empathy: 96, confidence: 98, frustration: 4 };
         intent = { primary: 'Agendamento e Finalização (Live Stream)', confidence: 98 };
         if (callDuration >= 58) {
-          alerts.push({ id: 'a-3', level: 'critical', message: 'Agendamento de urgência confirmado para amanhã às 14:00 via Socket.io.', timestamp: Date.now() });
+          alerts.push({ id: 'a-3', level: 'critical', message: 'Reunião comercial confirmada para amanhã às 14:00 via Socket.io.', timestamp: Date.now() });
         }
       }
 

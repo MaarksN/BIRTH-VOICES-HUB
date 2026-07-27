@@ -9,7 +9,7 @@
       "duration": "03:42",
       "status": "Concluído",
       "time": "Há 5 min",
-      "agent": "Catarina Triagem",
+      "agent": "Catarina Vendas",
       "timestamp": "2026-07-12T17:58:56.557Z"
     },
     {
@@ -19,7 +19,7 @@
       "duration": "05:15",
       "status": "Concluído",
       "time": "Há 18 min",
-      "agent": "Catarina Pré-Natal",
+      "agent": "Catarina Atendimento",
       "timestamp": "2026-07-12T17:58:56.557Z"
     },
     {
@@ -29,7 +29,7 @@
       "duration": "01:10",
       "status": "Falhou",
       "time": "Há 45 min",
-      "agent": "Catarina Emergência",
+      "agent": "Catarina Suporte",
       "timestamp": "2026-07-12T17:58:56.557Z"
     },
     {
@@ -39,7 +39,7 @@
       "duration": "04:56",
       "status": "Concluído",
       "time": "Há 1 hora",
-      "agent": "Catarina Triagem",
+      "agent": "Catarina Vendas",
       "timestamp": "2026-07-12T17:58:56.557Z"
     }
   ],

@@ -26,7 +26,7 @@ export class ActionExtractionEngine {
         actions.push({
           id: crypto.randomUUID(),
           description: 'Atualizar agenda com nova consulta',
-          responsible: 'Sistema Médico',
+          responsible: 'Sistema Comercial',
           priority: 'medium',
           category: 'Agendamento',
           origin: turn.id,

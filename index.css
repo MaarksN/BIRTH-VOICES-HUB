@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap');
 @import "tailwindcss";
 
 /* Class-based dark mode: ThemeContext toggles a `dark` class on <html>
@@ -6,20 +6,20 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
-  --color-brand-50: var(--brand-color-50, #eff6ff);
-  --color-brand-100: var(--brand-color-100, #dbeafe);
-  --color-brand-200: var(--brand-color-200, #bfdbfe);
-  --color-brand-500: var(--brand-color-500, #3b82f6);
-  --color-brand-600: var(--brand-color-600, #2563eb);
-  --color-brand-700: var(--brand-color-700, #1d4ed8);
-  --color-brand-800: var(--brand-color-800, #1e40af);
-  --color-brand-900: var(--brand-color-900, #1e3a8a);
-  --color-brand: var(--brand-color, #2563eb);
+  --color-brand-50: var(--brand-color-50, #fff3ec);
+  --color-brand-100: var(--brand-color-100, #ffe1d0);
+  --color-brand-200: var(--brand-color-200, #ffc2a1);
+  --color-brand-500: var(--brand-color-500, #ff7a45);
+  --color-brand-600: var(--brand-color-600, #ff5618);
+  --color-brand-700: var(--brand-color-700, #d84914);
+  --color-brand-800: var(--brand-color-800, #b23c10);
+  --color-brand-900: var(--brand-color-900, #8c2f0d);
+  --color-brand: var(--brand-color, #ff5618);
 }
 
 /* Dynamic Theme Colors mapping to custom styles */
 :root {
-  --brand-color: #2563eb;
+  --brand-color: #ff5618;
   --bg-primary: #f1f5f9;
   --bg-surface: #ffffff;
   --text-primary: #0f172a;
@@ -36,7 +36,7 @@ html.dark {
 }
 
 body {
-  font-family: 'Inter', sans-serif;
+  font-family: 'Montserrat', sans-serif;
   background-color: var(--bg-primary);
   color: var(--text-primary);
   transition: background-color 0.2s ease, color 0.2s ease;
@@ -59,8 +59,8 @@ body {
 }
 
 @keyframes pulseBorder {
-  0%, 100% { border-color: rgba(37, 99, 235, 0.4); }
-  50% { border-color: rgba(37, 99, 235, 0.9); }
+  0%, 100% { border-color: rgba(255, 86, 24, 0.4); }
+  50% { border-color: rgba(255, 86, 24, 0.9); }
 }
 
 .animate-fade-in {
