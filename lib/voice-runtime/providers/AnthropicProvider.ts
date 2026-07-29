@@ -1,49 +1,49 @@
 import { BaseProvider, ProviderResponse } from './BaseProvider';
 import { logger } from '../../../src/lib/logger.js';
 
-export class OpenAIRealtimeProvider extends BaseProvider {
-  public id = 'OpenAI';
-  public name = 'OpenAI Realtime API';
+export class AnthropicProvider extends BaseProvider {
+  public id = 'Anthropic';
+  public name = 'Anthropic Claude API';
   public type = 'LLM' as const;
   
   public async initialize(_config: Record<string, unknown>): Promise<void> {
     logger.debug(`[${this.name}] Initialized`);
   }
 
-   
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   public async process(input: any, context?: any): Promise<ProviderResponse> {
-    const apiKey = process.env.OPENAI_API_KEY;
+    const apiKey = process.env.ANTHROPIC_API_KEY;
     if (!apiKey) {
-      return { text: 'Chave da OpenAI não configurada.', latencyMs: 0 };
+      return { text: 'Chave da Anthropic não configurada.', latencyMs: 0 };
     }
 
     const start = Date.now();
     const systemMessage = context ? JSON.stringify(context) : "Você é um assistente de voz.";
 
     try {
-      const res = await fetch('https://api.openai.com/v1/chat/completions', {
+      const res = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01'
         },
         body: JSON.stringify({
-          model: 'gpt-4o-mini',
+          model: 'claude-3-5-sonnet-20241022',
+          system: systemMessage,
           messages: [
-            { role: 'system', content: systemMessage },
             { role: 'user', content: String(input) }
           ],
-          temperature: 0.7
+          max_tokens: 1024
         })
       });
 
       if (!res.ok) {
-        throw new Error(`OpenAI API Error: ${res.statusText}`);
+        throw new Error(`Anthropic API Error: ${res.statusText}`);
       }
 
       const data = await res.json();
-      const text = data.choices?.[0]?.message?.content || 'Sem resposta.';
+      const text = data.content?.[0]?.text || 'Sem resposta.';
 
       return {
         text,
@@ -57,7 +57,7 @@ export class OpenAIRealtimeProvider extends BaseProvider {
   }
 
   public async checkHealth(): Promise<boolean> {
-    return !!process.env.OPENAI_API_KEY;
+    return !!process.env.ANTHROPIC_API_KEY;
   }
 
   public async destroy(): Promise<void> {
@@ -65,4 +65,4 @@ export class OpenAIRealtimeProvider extends BaseProvider {
   }
 }
 
-export const openaiProvider = new OpenAIRealtimeProvider();
+export const anthropicProvider = new AnthropicProvider();

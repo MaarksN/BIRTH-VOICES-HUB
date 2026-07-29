@@ -21,6 +21,7 @@ import apiRoutes from "./src/routes/index.js";
 import telephonyRoutes from "./src/routes/telephony.routes.js";
 import { otelCollector } from "./lib/voice-runtime/otel.js";
 import { logger } from "./src/lib/logger.js";
+import { startWebhookWorker } from "./src/services/webhook.worker.js";
 
 async function startServer() {
   const app = express();
@@ -223,6 +224,7 @@ async function startServer() {
   }
 
   if (process.env.NODE_ENV !== 'test') {
+    startWebhookWorker();
     server.listen(PORT, "0.0.0.0", () => {
       logger.info(`Server running on http://localhost:${PORT}`);
     });

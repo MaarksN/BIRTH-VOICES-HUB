@@ -7,6 +7,7 @@ import { audioPipeline } from './AudioPipeline';
 import { failoverEngine } from './FailoverEngine';
 import { liveSupervisorEngine } from './intelligence/LiveSupervisorEngine';
 import { conversationOrchestrator } from './intelligence/ConversationOrchestrator';
+import { webhookService } from '../../src/services/webhook.service.js';
 
 export class SessionManager {
   private sessions: Map<string, VoiceSession> = new Map();
@@ -129,9 +130,9 @@ export class SessionManager {
         const ttsResponse = await failoverEngine.executeWithFailover(
           sessionId,
           'TextToSpeech',
-          'ElevenLabs',
+          'Voicebox',
           'TTS',
-          ['Deepgram', 'Azure'],
+          ['ElevenLabs', 'Deepgram'],
           async (provider) => {
             return await provider.process(response.text);
           }
@@ -154,6 +155,7 @@ export class SessionManager {
   }
 
   public endSession(sessionId: string) {
+    const session = this.sessions.get(sessionId);
     this.updateState(sessionId, 'Finished');
     streamingEngine.cleanup(sessionId);
     
@@ -163,6 +165,17 @@ export class SessionManager {
     intelligencePipeline.evaluateSessionEnd(sessionId);
 
     observability.logEvent(sessionId, 'SESSION_ENDED');
+
+    if (session) {
+      webhookService.dispatch(session.organizationId, 'call.completed', { 
+        sessionId, 
+        durationMs: session.durationMs,
+        agentId: session.agentId,
+        history: session.history
+      }).catch((err) => {
+        observability.logEvent(sessionId, 'WEBHOOK_DISPATCH_ERROR', { error: String(err) });
+      });
+    }
   }
 
   public getSession(sessionId: string) {

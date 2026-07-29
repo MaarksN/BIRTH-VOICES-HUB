@@ -8,7 +8,7 @@ x-common-env: &common-env
   REFRESH_TOKEN_SECRET: ${REFRESH_TOKEN_SECRET:?REFRESH_TOKEN_SECRET must be set}
   # For local testing. Overwrite in production.
   GEMINI_API_KEY: ${GEMINI_API_KEY:-""}
-
+  VOICEBOX_API_URL: ${VOICEBOX_API_URL:-"http://host.docker.internal:11434"}
 services:
   app:
     build:
