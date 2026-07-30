@@ -22,6 +22,9 @@ import telephonyRoutes from "./src/routes/telephony.routes.js";
 import { otelCollector } from "./lib/voice-runtime/otel.js";
 import { logger } from "./src/lib/logger.js";
 import { startWebhookWorker } from "./src/services/webhook.worker.js";
+import fs from "fs";
+import swaggerUi from "swagger-ui-express";
+import yaml from "yaml";
 
 async function startServer() {
   const app = express();
@@ -126,6 +129,14 @@ async function startServer() {
   app.use('/api', healthRouter);
   app.use('/api', apiRoutes);
 
+  // OpenAPI / Swagger Documentation
+  try {
+    const file = fs.readFileSync(path.join(process.cwd(), 'docs', 'api', 'openapi.yaml'), 'utf8');
+    const swaggerDocument = yaml.parse(file);
+    app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
+  } catch (err) {
+    logger.error('Failed to load openapi.yaml for Swagger UI', err);
+  }
   // Socket.io WebSocket Event Streaming Integration (authenticated)
   io.use((socket, next) => {
     const cookieHeader = socket.handshake.headers.cookie || '';

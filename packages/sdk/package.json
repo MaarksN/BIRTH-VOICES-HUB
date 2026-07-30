@@ -1,0 +1,21 @@
+{
+  "name": "@birth-voices/sdk",
+  "version": "1.0.0",
+  "description": "Official TypeScript SDK for Birth Voices Hub",
+  "main": "dist/Api.js",
+  "types": "dist/Api.d.ts",
+  "type": "commonjs",
+  "scripts": {
+    "generate": "swagger-typescript-api generate -p ../../docs/api/openapi.yaml -o ./src -n Api.ts --module-name-index 1 --module-name-first-tag",
+    "build": "tsc",
+    "prebuild": "npm run generate",
+    "clean": "rm -rf dist src"
+  },
+  "devDependencies": {
+    "swagger-typescript-api": "^13.0.3",
+    "typescript": "^5.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
