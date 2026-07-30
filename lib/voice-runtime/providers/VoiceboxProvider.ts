@@ -10,7 +10,7 @@ export class VoiceboxProvider extends BaseProvider {
 
   constructor() {
     super();
-    this.apiUrl = process.env.VOICEBOX_API_URL || 'http://localhost:11434';
+    this.apiUrl = process.env.VOICEBOX_API_URL || 'http://127.0.0.1:17493';
   }
 
   public async initialize(_config: Record<string, unknown>): Promise<void> {
@@ -26,7 +26,7 @@ export class VoiceboxProvider extends BaseProvider {
     const start = Date.now();
 
     try {
-      const response = await fetch(`${this.apiUrl}/v1/synthesize`, {
+      const response = await fetch(`${this.apiUrl}/generate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text: input, voice: voiceId })
@@ -64,7 +64,7 @@ export class VoiceboxProvider extends BaseProvider {
   public async checkHealth(): Promise<boolean> {
     if (!this.isAvailable) return false;
     try {
-      const res = await fetch(`${this.apiUrl}/health`, { method: 'GET' });
+      const res = await fetch(`${this.apiUrl}/docs`, { method: 'GET' });
       return res.ok;
     } catch {
       return false;

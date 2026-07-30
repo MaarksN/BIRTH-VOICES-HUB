@@ -127,7 +127,7 @@ function CanvasInner() {
   );
 
   return (
-    <div className="flex flex-col flex-1 min-h-0 bg-white">
+    <div className="flex flex-col flex-1 min-h-0 bg-[#0B0D14]">
       <TopBar 
         health={health} 
         issues={issues} 
@@ -139,10 +139,10 @@ function CanvasInner() {
       
       {isSimulatorOpen && <TestSimulatorModal onClose={() => setIsSimulatorOpen(false)} />}
       
-      <div className="flex-1 flex min-h-0">
+      <div className="flex-1 flex min-h-0 relative">
         <LayersPanel nodes={nodes} />
         
-        <div className="flex-1 relative bg-[#FAFAFA]">
+        <div className="flex-1 relative bg-[#0B0D14] overflow-hidden">
           <ReactFlow
             nodes={renderedNodes}
             edges={edges}
@@ -163,12 +163,13 @@ function CanvasInner() {
             panOnDrag={[1, 2]} // Space + drag also works by default
             selectionOnDrag={true}
           >
-            <Background variant={BackgroundVariant.Dots} gap={24} size={1} color="#cbd5e1" />
-            <Controls className="bg-white border-gray-200 shadow-sm rounded-lg overflow-hidden" />
+            <Background variant={BackgroundVariant.Dots} gap={24} size={1} color="rgba(255, 255, 255, 0.08)" />
+            <Controls className="!bg-[#1A1D2D]/80 !border-white/10 !shadow-lg rounded-lg overflow-hidden backdrop-blur-xl [&_button]:!bg-transparent [&_button]:!border-white/5 [&_button]:!text-gray-300 hover:[&_button]:!bg-white/10" />
             <MiniMap 
-              className="bg-white border border-gray-200 shadow-sm rounded-lg" 
-              maskColor="rgba(248, 250, 252, 0.7)" 
-              nodeColor="#c7d2fe" 
+              className="!bg-[#1A1D2D]/80 !border-white/10 !shadow-lg rounded-lg overflow-hidden backdrop-blur-xl" 
+              maskColor="rgba(11, 13, 20, 0.8)" 
+              nodeColor="#6366f1" 
+              style={{ backgroundColor: 'transparent' }}
             />
           </ReactFlow>
         </div>

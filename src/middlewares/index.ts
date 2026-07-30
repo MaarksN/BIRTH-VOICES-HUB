@@ -76,6 +76,31 @@ export const attachAuthIfPresent = async (req: express.Request, res: express.Res
   if (session) {
     req.user = session;
     req.tenantId = session.tenantId;
+
+    // Auto-upsert User and Tenant in Dev environment so old JWT cookies don't break fresh databases
+    if (process.env.NODE_ENV !== 'production' && session.tenantId) {
+      try {
+        const { prisma } = await import('../lib/prisma.js');
+        await prisma.tenant.upsert({
+          where: { id: session.tenantId },
+          update: {},
+          create: { id: session.tenantId, name: 'Local Dev Tenant' }
+        });
+        await prisma.user.upsert({
+          where: { id: session.id },
+          update: {},
+          create: {
+            id: session.id,
+            tenantId: session.tenantId,
+            email: session.email || 'dev@local.com',
+            companyName: 'Local Dev Corp',
+            passwordHash: 'dummy'
+          }
+        });
+      } catch (err) {
+        console.error('Failed to auto-upsert dev tenant/user:', err);
+      }
+    }
   }
   next();
 };
