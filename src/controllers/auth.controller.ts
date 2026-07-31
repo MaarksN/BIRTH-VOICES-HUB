@@ -1,3 +1,4 @@
+import { logger } from "../lib/logger.js";
 import { Request, Response } from 'express';
 import { loginSchema, registerSchema } from '../validators/index.js';
 import { z } from 'zod';
