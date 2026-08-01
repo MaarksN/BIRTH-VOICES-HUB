@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Button, Badge } from '../../components/design-system';
-import { Search, Filter, Plus, Copy, Trash2, Activity, Settings, User, Bot, Clock, ChevronRight } from 'lucide-react';
+import { Search, Filter, Plus, Trash2, User, Bot, Clock, ChevronRight } from 'lucide-react';
+import { AgentConfig } from '../../types';
 
 interface AgentRecord {
   id: string;
   name: string;
   model: string;
-  configuration: any;
+  configuration: Partial<AgentConfig>;
   phoneNumber?: string;
   updatedAt: string;
 }

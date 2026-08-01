@@ -22,9 +22,9 @@ export async function upsertSetting(tenantId: string | null, userId: string | nu
         isGlobal: !tenantId && !userId,
       },
     });
-  } catch (error: any) {
+  } catch (error) {
     // If a race condition occurred and the unique constraint failed, update the existing record
-    if (error.code === 'P2002') {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
       const raceExisting = await prisma.setting.findFirst({ where: { tenantId, userId, key } });
       if (raceExisting) {
         return prisma.setting.update({

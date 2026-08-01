@@ -4,7 +4,7 @@ export type Question = {
   type: 'open' | 'closed';
 };
 
-export type AgentTemplate = 'hr' | 'sales' | 'onboarding' | 'support' | 'research';
+export type AgentTemplate = 'hr' | 'sales' | 'onboarding' | 'support' | 'research' | 'custom';
 
 export type AgentConfig = {
   name: string;

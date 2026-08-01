@@ -12,9 +12,11 @@ import { Server as SocketIOServer } from "socket.io";
 import cookieParser from "cookie-parser";
 import helmet from "helmet";
 import cors from "cors";
+import { randomUUID } from "crypto";
 import { Redis } from "ioredis";
 import { verifyToken } from "./src/lib/auth-tokens.js";
 import { getRedisUrl } from "./src/lib/env.js";
+import { runWithRequestId } from "./src/lib/requestContext.js";
 import { csrfProtection } from "./src/middlewares/index.js";
 import { createHealthRouter } from "./src/routes/health.routes.js";
 import apiRoutes from "./src/routes/index.js";
@@ -61,6 +63,14 @@ async function startServer() {
     otelCollector.recordLocalMetric('intent_confidence', 95, { primaryIntent: 'Agendar consulta', sessionId: ses1 });
     otelCollector.recordLocalMetric('emotion_intensity', 90, { emotion: 'Satisfação', sessionId: ses2 });
   }
+
+  // Correlation ID: every request gets a UUID (or reuses an upstream-supplied one), echoed back
+  // in the response and threaded through every log line emitted while handling the request.
+  app.use((req, res, next) => {
+    const requestId = (req.headers['x-request-id'] as string | undefined) || randomUUID();
+    res.setHeader('X-Request-Id', requestId);
+    runWithRequestId(requestId, next);
+  });
 
   app.use(helmet({
     contentSecurityPolicy: {

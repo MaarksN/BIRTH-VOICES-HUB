@@ -1,6 +1,5 @@
 import { Queue } from 'bullmq';
-import { Redis } from 'ioredis';
-import { getRedisUrl } from '../lib/env.js';
+import { getRedisConnectionOptions } from '../lib/env.js';
 import { logger } from '../lib/logger.js';
 
 export interface WebhookPayload {
@@ -14,8 +13,9 @@ export class WebhookService {
   private webhookQueue: Queue;
 
   constructor() {
-    const connection = new Redis(getRedisUrl(), { maxRetriesPerRequest: null });
-    this.webhookQueue = new Queue('webhooks', { connection });
+    this.webhookQueue = new Queue('webhooks', {
+      connection: { ...getRedisConnectionOptions(), maxRetriesPerRequest: null },
+    });
   }
 
   public async dispatch(tenantId: string, event: string, data: Record<string, unknown>): Promise<void> {

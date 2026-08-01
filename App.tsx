@@ -42,8 +42,7 @@ const RouteFallback = () => (
 );
 
 const DashboardLayout = () => {
-  // Auth check bypassed for MVP simulation
-  const isAuthenticated = true;
+  const isAuthenticated = !!auth.getToken();
 
   const [isPaletteOpen, setIsPaletteOpen] = useState(false);
 
@@ -71,6 +70,10 @@ const DashboardLayout = () => {
 
   const location = useLocation();
   const isFullWidth = location.pathname.includes('/studio') || location.pathname.includes('/playground') || location.pathname.includes('/supervision');
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
 
   return (
     <div className="flex h-screen bg-slate-50 dark:bg-slate-900 overflow-hidden transition-colors duration-200">
@@ -102,8 +105,8 @@ export default function App() {
           <Suspense fallback={<RouteFallback />}>
           <Routes>
             <Route path="/" element={<LandingPage />} />
-            <Route path="/login" element={<Navigate to="/dashboard" replace />} />
-            <Route path="/register" element={<Navigate to="/dashboard" replace />} />
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/register" element={<RegisterPage />} />
             
             <Route path="/dashboard" element={<DashboardLayout />}>
               <Route index element={<Overview />} />

@@ -1,11 +1,10 @@
 import { Worker, Job } from 'bullmq';
-import { Redis } from 'ioredis';
-import { getRedisUrl } from '../lib/env.js';
+import { getRedisConnectionOptions } from '../lib/env.js';
 import { logger } from '../lib/logger.js';
 import { WebhookPayload } from './webhook.service.js';
 
 export function startWebhookWorker() {
-  const connection = new Redis(getRedisUrl(), { maxRetriesPerRequest: null });
+  const connection = { ...getRedisConnectionOptions(), maxRetriesPerRequest: null };
 
   const worker = new Worker(
     'webhooks',

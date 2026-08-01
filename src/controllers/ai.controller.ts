@@ -1,6 +1,5 @@
 import { Request, Response } from 'express';
 import { GoogleGenAI, GenerateVideosOperation } from '@google/genai';
-import { llmProviderGateway } from '../../lib/voice-runtime/providers/LLMGateway.js';
 import { logger } from '../lib/logger.js';
 
 function getGeminiClient(): GoogleGenAI | null {

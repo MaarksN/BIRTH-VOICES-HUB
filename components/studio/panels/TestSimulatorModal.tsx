@@ -9,7 +9,7 @@ export function TestSimulatorModal({ onClose }: TestSimulatorModalProps) {
   const [messages, setMessages] = useState<{role: 'user'|'agent', text: string}[]>([]);
   const [isListening, setIsListening] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [transcript, setTranscript] = useState('');
+  const [, setTranscript] = useState('');
   
   const recognitionRef = useRef<any>(null);
   

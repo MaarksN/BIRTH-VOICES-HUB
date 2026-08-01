@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Bot, Save, Wand2, X, ChevronRight, Mic, Layout, Sparkles } from 'lucide-react';
-import { AgentConfig } from '../types';
+import { Bot, Wand2, X, ChevronRight, Mic, Layout, Sparkles } from 'lucide-react';
+import { AgentConfig, AgentTemplate } from '../types';
 
 const INITIAL_CONFIG: AgentConfig = {
   name: 'Novo Agente Virtual',
@@ -46,13 +46,13 @@ export function AgentForm() {
       
       // Navigate to the OS editor
       navigate(`/dashboard/agents/${data.agent.id}`);
-    } catch (error: any) {
-      setErrorMsg(error.message);
+    } catch (error: unknown) {
+      setErrorMsg(error instanceof Error ? error.message : 'Erro desconhecido ao criar o agente.');
       setIsSaving(false);
     }
   };
 
-  const handleTemplateSelection = (template: string, name: string, desc: string) => {
+  const handleTemplateSelection = (template: AgentTemplate, name: string, desc: string) => {
     setConfig({
       ...config,
       template,
@@ -196,7 +196,15 @@ export function AgentForm() {
   );
 }
 
-function TemplateCard({ active, onClick, icon, title, color }: any) {
+interface TemplateCardProps {
+  active: boolean;
+  onClick: () => void;
+  icon: React.ReactNode;
+  title: string;
+  color: string;
+}
+
+function TemplateCard({ active, onClick, icon, title, color }: TemplateCardProps) {
   return (
     <div 
       onClick={onClick}

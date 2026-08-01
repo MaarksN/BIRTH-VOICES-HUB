@@ -1,10 +1,14 @@
+import { getRequestId } from './requestContext.js';
+
 type LogMeta = Record<string, unknown> | unknown;
 
 function format(level: string, message: string, meta?: LogMeta) {
   const timestamp = new Date().toISOString();
+  const requestId = getRequestId();
+  const prefix = requestId ? `[${timestamp}] [${level}] [${requestId}]` : `[${timestamp}] [${level}]`;
   return meta !== undefined
-    ? [`[${timestamp}] [${level}] ${message}`, meta] as const
-    : [`[${timestamp}] [${level}] ${message}`] as const;
+    ? [`${prefix} ${message}`, meta] as const
+    : [`${prefix} ${message}`] as const;
 }
 
 export const logger = {
