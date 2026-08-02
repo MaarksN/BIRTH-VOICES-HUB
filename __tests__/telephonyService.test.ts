@@ -16,6 +16,12 @@ vi.mock('../src/services/callLogService.js', () => ({
   createCallLog: vi.fn(),
 }));
 
+// Not just spying: the real module builds a BullMQ Queue at import time, which would try to reach
+// Redis from a unit test.
+vi.mock('../src/services/webhook.service.js', () => ({
+  webhookService: { dispatch: vi.fn() },
+}));
+
 vi.mock('../lib/voice-runtime/providers/LLMGateway.js', () => ({
   llmProviderGateway: { processRequest: vi.fn() },
 }));
@@ -23,8 +29,9 @@ vi.mock('../lib/voice-runtime/providers/LLMGateway.js', () => ({
 import { findAgentByPhoneNumber, findAgentById } from '../src/repositories/agentRepository.js';
 import { createPhoneSession, findSessionById, updateSession, findActivePhoneSessionByCallSid } from '../src/repositories/sessionRepository.js';
 import { createCallLog } from '../src/services/callLogService.js';
+import { webhookService } from '../src/services/webhook.service.js';
 import { llmProviderGateway } from '../lib/voice-runtime/providers/LLMGateway.js';
-import { resolveAgent, startCall, handleTurn, endCall } from '../src/services/telephonyService.js';
+import { resolveAgent, startCall, handleTurn, endCall, startOutboundCall } from '../src/services/telephonyService.js';
 
 const mockFindByPhone = vi.mocked(findAgentByPhoneNumber);
 const mockFindById = vi.mocked(findAgentById);
@@ -33,6 +40,7 @@ const mockFindSessionById = vi.mocked(findSessionById);
 const mockUpdateSession = vi.mocked(updateSession);
 const mockFindActiveByCallSid = vi.mocked(findActivePhoneSessionByCallSid);
 const mockCreateCallLog = vi.mocked(createCallLog);
+const mockDispatch = vi.mocked(webhookService.dispatch);
 const mockProcessRequest = vi.mocked(llmProviderGateway.processRequest);
 
 type Agent = Awaited<ReturnType<typeof findAgentById>>;
@@ -153,12 +161,61 @@ describe('telephonyService.handleTurn', () => {
   });
 });
 
+describe('telephonyService.startOutboundCall', () => {
+  it('returns not-found when the pre-created session is gone', async () => {
+    mockFindSessionById.mockResolvedValue(null);
+    const result = await startOutboundCall({ sessionId: 'missing', callSid: 'CA9' });
+    expect(result).toEqual({ found: false });
+    expect(mockUpdateSession).not.toHaveBeenCalled();
+  });
+
+  it('personalises the greeting from the call context', async () => {
+    mockFindSessionById.mockResolvedValue(
+      session({ metadata: { direction: 'outbound', callSid: null, from: '+1000', to: '+2000', context: { name: 'João' }, turns: [] } }),
+    );
+    mockFindById.mockResolvedValue(agent({ configuration: { outboundGreeting: 'Olá {{name}}, tem um minuto?' } }));
+
+    const result = await startOutboundCall({ sessionId: 'sess-1', callSid: 'CA9' });
+
+    expect(result).toEqual({ found: true, greeting: 'Olá João, tem um minuto?' });
+  });
+
+  it('drops unknown placeholders instead of speaking them aloud', async () => {
+    mockFindSessionById.mockResolvedValue(
+      session({ metadata: { direction: 'outbound', callSid: null, from: '+1000', to: '+2000', context: {}, turns: [] } }),
+    );
+    mockFindById.mockResolvedValue(agent({ configuration: { outboundGreeting: 'Olá {{name}}, tudo bem?' } }));
+
+    const result = await startOutboundCall({ sessionId: 'sess-1', callSid: 'CA9' });
+
+    expect(result).toEqual({ found: true, greeting: 'Olá , tudo bem?' });
+  });
+
+  it('records the greeting as the first transcript turn and backfills the CallSid', async () => {
+    mockFindSessionById.mockResolvedValue(
+      session({ metadata: { direction: 'outbound', callSid: null, from: '+1000', to: '+2000', context: {}, turns: [] } }),
+    );
+    mockFindById.mockResolvedValue(agent({ configuration: { outboundGreeting: 'Bom dia!' } }));
+
+    await startOutboundCall({ sessionId: 'sess-1', callSid: 'CA9' });
+
+    const persisted = mockUpdateSession.mock.calls[0][1].metadata as unknown as {
+      callSid: string;
+      turns: Array<{ role: string; content: string }>;
+    };
+    expect(persisted.callSid).toBe('CA9');
+    expect(persisted.turns).toHaveLength(1);
+    expect(persisted.turns[0]).toMatchObject({ role: 'assistant', content: 'Bom dia!' });
+  });
+});
+
 describe('telephonyService.endCall', () => {
   it('does nothing when no active session matches the CallSid', async () => {
     mockFindActiveByCallSid.mockResolvedValue(null);
     const result = await endCall({ callSid: 'CA-missing', status: 'completed', durationSeconds: 42 });
     expect(result).toEqual({ found: false });
     expect(mockCreateCallLog).not.toHaveBeenCalled();
+    expect(mockDispatch).not.toHaveBeenCalled();
   });
 
   it('marks the session completed and writes a CallLog with a real duration and agent name', async () => {
@@ -173,5 +230,58 @@ describe('telephonyService.endCall', () => {
       status: 'Concluído',
       agent: 'Catarina Atendimento',
     }));
+  });
+
+  it('dispatches agent.call.ended to the callback URL the call was placed with', async () => {
+    mockFindActiveByCallSid.mockResolvedValue(
+      session({
+        metadata: {
+          direction: 'outbound',
+          callSid: 'CA123',
+          from: '+1000',
+          to: '+2000',
+          callbackUrl: 'https://crm.example.com/hook',
+          context: { leadId: 'lead-9' },
+          turns: [{ role: 'assistant', content: 'Bom dia!', timestamp: 1 }],
+        },
+      }),
+    );
+    mockFindById.mockResolvedValue(agent({ name: 'Catarina SDR' }));
+
+    await endCall({ callSid: 'CA123', status: 'completed', durationSeconds: 60 });
+
+    expect(mockDispatch).toHaveBeenCalledWith(
+      'tenant-1',
+      'agent.call.ended',
+      expect.objectContaining({
+        sessionId: 'sess-1',
+        direction: 'outbound',
+        outcome: 'Concluído',
+        context: { leadId: 'lead-9' },
+        transcript: [{ role: 'assistant', content: 'Bom dia!', timestamp: 1 }],
+      }),
+      'https://crm.example.com/hook',
+    );
+  });
+
+  // The outcome an autonomous dialer most needs to record, and the one that never reaches the
+  // TwiML webhook — it exists only because the CallSid is stored at dial time.
+  it('still reports an unanswered call, with an empty transcript', async () => {
+    mockFindActiveByCallSid.mockResolvedValue(
+      session({
+        metadata: { direction: 'outbound', callSid: 'CA123', from: '+1000', to: '+2000', context: {}, turns: [] },
+      }),
+    );
+    mockFindById.mockResolvedValue(agent());
+
+    await endCall({ callSid: 'CA123', status: 'no-answer', durationSeconds: 0 });
+
+    expect(mockUpdateSession).toHaveBeenCalledWith('sess-1', { status: 'failed' });
+    expect(mockDispatch).toHaveBeenCalledWith(
+      'tenant-1',
+      'agent.call.ended',
+      expect.objectContaining({ status: 'no-answer', outcome: 'Não atendida', durationSeconds: 0, transcript: [] }),
+      undefined,
+    );
   });
 });

@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { X, Mic, MicOff, PhoneOff, User, Bot, Loader2 } from 'lucide-react';
+import { logger } from '../../../lib/logger';
 
 interface TestSimulatorModalProps {
   onClose: () => void;
@@ -95,7 +96,7 @@ export function TestSimulatorModal({ onClose }: TestSimulatorModalProps) {
       
       requestAnimationFrame(drawWaveform);
     } catch (err) {
-      console.error('Error fetching stream:', err);
+      logger.error('Error fetching stream', { err });
     }
   };
 
@@ -138,7 +139,7 @@ export function TestSimulatorModal({ onClose }: TestSimulatorModalProps) {
         window.speechSynthesis.speak(utterance);
       }
     } catch (err) {
-      console.error(err);
+      logger.error('Error sending message in test simulator', { err });
       setMessages(prev => [...prev, { role: 'agent', text: 'Erro de comunicação.' }]);
     } finally {
       setIsLoading(false);

@@ -26,5 +26,11 @@
     },
     "allowImportingTsExtensions": true,
     "noEmit": true
-  }
+  },
+  // A PoC de SIP é um workspace isolado, com dependências próprias (LiveKit) que de propósito não
+  // são instaladas na raiz. Sem esta exclusão, `npm run typecheck` — e portanto o CI — quebra em
+  // imports não resolvidos de um pacote que nem entra no build da aplicação.
+  "exclude": [
+    "packages/sip-agent"
+  ]
 }

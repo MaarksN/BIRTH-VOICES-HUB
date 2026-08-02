@@ -1,4 +1,5 @@
 import * as agentRepository from '../repositories/agentRepository.js';
+import { AgentConfiguration } from '../types/agent.js';
 
 export function listAgents(tenantId: string) {
   return agentRepository.listAgentsForTenant(tenantId);
@@ -12,14 +13,12 @@ export function createAgent(tenantId: string, userId: string, data: { name: stri
   return agentRepository.createAgent(tenantId, userId, data);
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export async function updateAgentConfig(id: string, tenantId: string, configData: any) {
+export async function updateAgentConfig(id: string, tenantId: string, configData: Partial<AgentConfiguration>) {
   const existing = await agentRepository.getAgent(id, tenantId);
   if (!existing) throw new Error('Agente não encontrado.');
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const currentConfig = (existing.configuration as any) || {};
-  const mergedConfig = { ...currentConfig, ...configData };
+  const currentConfig = (existing.configuration as unknown as AgentConfiguration) || {};
+  const mergedConfig: AgentConfiguration = { ...currentConfig, ...configData };
 
   await agentRepository.updateAgent(id, tenantId, { configuration: mergedConfig });
   return agentRepository.getAgent(id, tenantId);

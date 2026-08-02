@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Play, Mic, MicOff, Save, RotateCcw } from 'lucide-react';
+import { logger } from '../../lib/logger';
 
 interface SpeechRecognitionResultLike {
   0: { transcript: string };
@@ -125,7 +126,7 @@ export default function PlaygroundPage() {
         drawWaveform();
       });
     } catch (err) {
-      console.error('Error fetching stream for waveform:', err);
+      logger.error('Error fetching stream for waveform', { err });
     }
   };
 
@@ -196,11 +197,11 @@ export default function PlaygroundPage() {
               window.speechSynthesis.speak(utterance);
             }
           } catch (e) {
-            console.error('Falha ao tocar áudio local', e);
+            logger.error('Falha ao tocar áudio local', { e });
           }
         }
       } catch (error: unknown) {
-        console.error(error);
+        logger.error('Error sending message in playground', { error });
         const message = error instanceof Error ? error.message : String(error);
         setMessages(prev => [...prev, { role: 'agent', text: `[Erro]: ${message}` }]);
       } finally {
@@ -247,7 +248,7 @@ export default function PlaygroundPage() {
     };
 
     recognition.onerror = (event: SpeechRecognitionErrorEventLike) => {
-      console.error('Erro de reconhecimento de voz', event.error);
+      logger.error('Erro de reconhecimento de voz', { error: event.error });
       setIsListening(false);
       stopAudioWave();
     };

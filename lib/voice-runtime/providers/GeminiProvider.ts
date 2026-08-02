@@ -1,4 +1,4 @@
-import { BaseProvider, ProviderResponse } from './BaseProvider';
+import { BaseProvider, ProviderResponse, ProviderInput, ProviderContext } from './BaseProvider';
 import { logger } from '../../../src/lib/logger.js';
 
 export class GeminiLiveProvider extends BaseProvider {
@@ -6,14 +6,12 @@ export class GeminiLiveProvider extends BaseProvider {
   public name = 'Google Gemini 2.0 Flash Realtime';
   public type = 'E2E' as const;
   private ws?: WebSocket;
-  
+
   public async initialize(_config: Record<string, unknown>): Promise<void> {
     logger.debug(`[${this.name}] Initialized`);
   }
 
-   
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  public async process(input: any, context?: any): Promise<ProviderResponse> {
+  public async process(input: ProviderInput, context?: ProviderContext): Promise<ProviderResponse> {
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
       return { text: 'Chave do Gemini não configurada.', latencyMs: 0 };
@@ -42,10 +40,10 @@ export class GeminiLiveProvider extends BaseProvider {
           text: response.text || 'Desculpe, não consegui gerar uma resposta.',
           latencyMs: Date.now() - start
         };
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } catch(err: any) {
+    } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
         return {
-          text: `Erro: ${err.message}`,
+          text: `Erro: ${msg}`,
           latencyMs: Date.now() - start
         };
     }

@@ -15,12 +15,47 @@ export default defineConfig(() => {
           '@': path.resolve(__dirname, '.'),
         }
       },
+      build: {
+        rollupOptions: {
+          output: {
+            manualChunks(id: string) {
+              if (
+                id.includes('node_modules/@xyflow/react') ||
+                /node_modules\/d3-/.test(id)
+              ) {
+                return 'xyflow-vendor';
+              }
+              return undefined;
+            }
+          }
+        }
+      },
       test: {
         environment: 'node',
         setupFiles: ['./vitest.setup.ts'],
         globals: true,
         testTimeout: 15000,
-        exclude: ['**/node_modules/**', '**/dist/**', 'e2e/**', '.claude/**']
+        exclude: ['**/node_modules/**', '**/dist/**', 'e2e/**', '.claude/**'],
+        coverage: {
+          provider: 'v8',
+          reporter: ['text', 'html', 'lcov'],
+          exclude: [
+            '**/node_modules/**',
+            '**/dist/**',
+            'e2e/**',
+            '.claude/**',
+            '**/*.config.ts',
+            '**/*.d.ts',
+            'prisma/**',
+            '__tests__/**'
+          ],
+          thresholds: {
+            lines: 52,
+            statements: 50,
+            functions: 50,
+            branches: 42
+          }
+        }
       }
     };
 });

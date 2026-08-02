@@ -41,6 +41,38 @@ export async function incomingCallHandler(req: Request, res: Response) {
   sendTwiml(res, twiml);
 }
 
+/**
+ * TwiML for a call we placed ourselves. Twilio requests this once the prospect picks up; the
+ * session was created before dialing, so its id travels in the query string (the same trick the
+ * gather flow uses) instead of being looked up by CallSid.
+ */
+export async function outboundCallHandler(req: Request, res: Response) {
+  const sessionId = String(req.query.sessionId || '');
+  const callSid = String(req.body.CallSid || '');
+  const twiml = new VoiceResponse();
+
+  const result = await telephonyService.startOutboundCall({ sessionId, callSid });
+
+  if (!result.found) {
+    logger.warn('Outbound TwiML requested for an unknown session', { sessionId, callSid });
+    twiml.hangup();
+    return sendTwiml(res, twiml);
+  }
+
+  const gather = twiml.gather({
+    input: ['speech'],
+    action: gatherActionUrl(sessionId),
+    method: 'POST',
+    language: 'pt-BR',
+    speechTimeout: 'auto',
+  });
+  gather.say({ language: 'pt-BR' }, result.greeting);
+
+  // Reached when the person never speaks — e.g. an answering machine picked up.
+  twiml.say({ language: 'pt-BR' }, telephonyService.messages.goodbye);
+  sendTwiml(res, twiml);
+}
+
 export async function gatherHandler(req: Request, res: Response) {
   const sessionId = String(req.query.sessionId || '');
   const speechResult = String(req.body.SpeechResult || '').trim();

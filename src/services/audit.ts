@@ -10,20 +10,15 @@ const redisUrl = getRedisUrl();
 const connection = new Redis(redisUrl, { maxRetriesPerRequest: null, connectTimeout: 2000 });
 connection.on('error', (err) => logger.error('Audit Redis connection error', err.message));
 
-// bullmq bundles its own internal ioredis copy, which TS treats as a structurally distinct
-// (but runtime-compatible) `Redis` type from the top-level ioredis instance we create above —
-// a known cross-package duplicate-dependency mismatch, not a case of unchecked data.
-/* eslint-disable @typescript-eslint/no-explicit-any */
-const auditQueue = new Queue('auditLogs', { connection: connection as any });
+const auditQueue = new Queue('auditLogs', { connection });
 
 new Worker(
   'auditLogs',
   async (job) => {
     await createAuditLog(job.data);
   },
-  { connection: connection as any }
+  { connection }
 );
-/* eslint-enable @typescript-eslint/no-explicit-any */
 
 export function writeAuditLog(tenantId: string | undefined, userId: string, action: string, details: unknown) {
   auditQueue

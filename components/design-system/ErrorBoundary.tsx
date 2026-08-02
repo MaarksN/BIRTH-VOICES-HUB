@@ -1,6 +1,7 @@
 
 import React, { ErrorInfo, ReactNode } from 'react';
 import { AlertCircle, RotateCcw, Home } from 'lucide-react';
+import { logger } from '../../lib/logger';
 
 interface Props {
   children?: ReactNode;
@@ -27,7 +28,7 @@ export class ErrorBoundary extends React.Component<Props, State> {
   }
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error("Uncaught error inside Birth Hub 360 Error Boundary:", error, errorInfo);
+    logger.error('Uncaught error inside Birth Hub 360 Error Boundary', { error, errorInfo });
   }
 
   private handleReload = () => {

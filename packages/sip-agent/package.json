@@ -1,0 +1,23 @@
+{
+  "name": "@birth-voices/sip-agent",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Proof of concept: 3CX -> SIP trunk -> LiveKit -> AI voice agent. Not wired into the main server.",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx src/agent.ts dev",
+    "start": "tsx src/agent.ts start"
+  },
+  "dependencies": {
+    "@livekit/agents": "^1.6.1",
+    "@livekit/agents-plugin-elevenlabs": "^1.6.1",
+    "@livekit/agents-plugin-openai": "^1.6.1",
+    "@livekit/agents-plugin-silero": "^1.6.1",
+    "livekit-server-sdk": "^2.17.0",
+    "dotenv": "^16.4.5"
+  },
+  "devDependencies": {
+    "tsx": "^4.22.3",
+    "typescript": "~5.8.2"
+  }
+}

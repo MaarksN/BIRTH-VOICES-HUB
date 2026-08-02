@@ -2,6 +2,26 @@ import * as workflowRepository from '../repositories/workflowRepository.js';
 
 export class NotFoundError extends Error {}
 
+/** A single saved revision of a workflow, appended to `WorkflowMetadata.history` on every save. */
+export interface WorkflowVersionSnapshot {
+  version: number;
+  timestamp: number;
+  author: string;
+  message: string;
+  nodes: unknown;
+  edges: unknown;
+}
+
+/**
+ * Shape of the Workflow.metadata Prisma `Json` field. There's no dedicated
+ * WorkflowVersion table (per the "don't alter the Prisma schema" constraint
+ * noted below), so version history is kept inline here.
+ */
+export interface WorkflowMetadata {
+  history?: WorkflowVersionSnapshot[];
+  [key: string]: unknown;
+}
+
 export function getWorkflow(tenantId: string, _version?: number) {
   // Mock finding specific version, we would normally query the specific version
   return workflowRepository.findWorkflowForTenant(tenantId);
@@ -12,19 +32,17 @@ export async function getWorkflowHistory(tenantId: string) {
   // Using JSON metadata for now as per rules to not alter Prisma schema
   const existing = await workflowRepository.findWorkflowForTenant(tenantId);
   if (!existing) return [];
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const metadata = existing.metadata as any;
+  const metadata = existing.metadata as unknown as WorkflowMetadata;
   return metadata?.history || [];
 }
 
 export async function saveWorkflow(tenantId: string, userId: string, data: { name?: string; nodes?: unknown; edges?: unknown, commitMessage?: string }) {
   const existing = await workflowRepository.findWorkflowForTenant(tenantId);
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const metadata = existing?.metadata as any || {};
+  const metadata = (existing?.metadata as unknown as WorkflowMetadata) || {};
   const newVersion = (existing?.version || 0) + 1;
 
-  const snapshot = {
+  const snapshot: WorkflowVersionSnapshot = {
     version: newVersion,
     timestamp: Date.now(),
     author: userId,
@@ -59,11 +77,9 @@ export async function restoreWorkflowVersion(tenantId: string, userId: string, v
   const existing = await workflowRepository.findWorkflowForTenant(tenantId);
   if (!existing) throw new NotFoundError('Workflow não encontrado.');
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const metadata = existing.metadata as any;
+  const metadata = existing.metadata as unknown as WorkflowMetadata;
   const history = metadata?.history || [];
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const snapshot = history.find((h: any) => h.version === versionToRestore);
+  const snapshot = history.find((h) => h.version === versionToRestore);
 
   if (!snapshot) throw new NotFoundError('Versão não encontrada.');
 

@@ -15,6 +15,9 @@ dump.rdb
 
 # Environment variables (use .env.example as the template)
 .env
+# .env.local is what the LiveKit agent SDK loads by default, so it holds real API keys.
+.env.local
+.env.*.local
 
 # Test/coverage artifacts
 coverage

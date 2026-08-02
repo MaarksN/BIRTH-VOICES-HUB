@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Card, Badge, Spinner, Table, TableHead, TableRow, TableCell } from '../../components/design-system';
 import { Activity, BarChart2, Server, Zap, Shield, Terminal, RefreshCw, Layers } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell } from 'recharts';
+import type { Attributes } from '@opentelemetry/api';
+import { logger } from '../../lib/logger';
 
 interface LocalSpan {
   id: string;
@@ -10,16 +12,14 @@ interface LocalSpan {
   startTime: number;
   endTime?: number;
   duration?: number;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  attributes: Record<string, any>;
+  attributes: Attributes;
 }
 
 interface LocalMetric {
   name: string;
   value: number;
   timestamp: number;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  attributes: Record<string, any>;
+  attributes: Attributes;
 }
 
 export default function ObservabilityPage() {
@@ -38,7 +38,7 @@ export default function ObservabilityPage() {
         setMetrics(data.metrics || []);
       }
     } catch (err) {
-      console.error('Error fetching telemetry data:', err);
+      logger.error('Error fetching telemetry data', { err });
     } finally {
       setLoading(false);
     }
@@ -60,9 +60,11 @@ export default function ObservabilityPage() {
   // Emotion count
   const emotionCounts: Record<string, number> = {};
   spans.forEach(s => {
-    if (s.name === 'EmotionEngine.analyzeTurn' && s.attributes.detectedEmotions) {
-      s.attributes.detectedEmotions.forEach((emo: string) => {
-        emotionCounts[emo] = (emotionCounts[emo] || 0) + 1;
+    const detectedEmotions = s.attributes.detectedEmotions;
+    if (s.name === 'EmotionEngine.analyzeTurn' && Array.isArray(detectedEmotions)) {
+      detectedEmotions.forEach((emo) => {
+        const key = String(emo);
+        emotionCounts[key] = (emotionCounts[key] || 0) + 1;
       });
     }
   });
@@ -74,9 +76,9 @@ export default function ObservabilityPage() {
   // Intent count
   const intentCounts: Record<string, number> = {};
   spans.forEach(s => {
-    if (s.name === 'IntentEngine.analyzeIntent' && s.attributes.primaryIntent) {
-      const intent = s.attributes.primaryIntent;
-      intentCounts[intent] = (intentCounts[intent] || 0) + 1;
+    const primaryIntent = s.attributes.primaryIntent;
+    if (s.name === 'IntentEngine.analyzeIntent' && typeof primaryIntent === 'string') {
+      intentCounts[primaryIntent] = (intentCounts[primaryIntent] || 0) + 1;
     }
   });
   const intentChartData = Object.keys(intentCounts).map(key => ({

@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { StudioNode, StudioEdge, NodeType } from '../lib/studio/types';
 import { addEdge, Connection } from '@xyflow/react';
+import { logger } from '../lib/logger';
 
 export type NodeLifecycleState = 
   | 'Created'
@@ -825,7 +826,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
       } else if (outgoingEdges.length > 1) {
         // Evaluate conditions
         if (currentNode.type === 'condition') {
-          const checkVar = currentNode.data.config?.variable || 'intent';
+          const checkVar = typeof currentNode.data.config?.variable === 'string' ? currentNode.data.config.variable : 'intent';
           const valToCheck = simulationVariables[checkVar] || '';
           const checkVal = currentNode.data.config?.value || '';
           
@@ -876,7 +877,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
               nodeId: nextNodeId,
               nodeLabel: nextNode.data.label,
               type: 'info',
-              message: `Fired system instruction compilation: Text length=${nextNode.data.config?.promptText?.length || 0} characters. DeepThinking: active.`
+              message: `Fired system instruction compilation: Text length=${typeof nextNode.data.config?.promptText === 'string' ? nextNode.data.config.promptText.length : 0} characters. DeepThinking: active.`
             });
           } else if (nextNode.type === 'human_handoff') {
             get().addSimulationLog({
@@ -984,7 +985,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
       nextNodeId = outgoingEdges[0].target;
     } else if (outgoingEdges.length > 1) {
       if (currentNode.type === 'condition') {
-        const checkVar = currentNode.data.config?.variable || 'intent';
+        const checkVar = typeof currentNode.data.config?.variable === 'string' ? currentNode.data.config.variable : 'intent';
         const valToCheck = simulationVariables[checkVar] || '';
         const checkVal = currentNode.data.config?.value || '';
         
@@ -1050,7 +1051,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
         });
       }
     } catch (err: unknown) {
-      console.error(err);
+      logger.error('Error applying AI refactor to workflow', { err });
       const errMessage = err instanceof Error ? err.message : String(err);
       get().addSimulationLog({
         type: 'error',
@@ -1133,7 +1134,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
         });
       }
     } catch (err: unknown) {
-      console.error(err);
+      logger.error('Error generating workflow from prompt', { err });
       const errMessage = err instanceof Error ? err.message : String(err);
       get().addSimulationLog({
         type: 'error',
@@ -1163,7 +1164,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
         }
       }
     } catch (err) {
-      console.error("Error loading workflow from server:", err);
+      logger.error('Error loading workflow from server', { err });
     }
   },
   saveWorkflowToServer: async () => {
@@ -1181,7 +1182,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
         message: 'Progresso do Canvas salvo de forma segura e persistente no banco de dados.'
       });
     } catch (err) {
-      console.error("Error saving workflow to server:", err);
+      logger.error('Error saving workflow to server', { err });
     }
   }
 }));

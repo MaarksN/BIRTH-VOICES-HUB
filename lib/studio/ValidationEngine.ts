@@ -125,7 +125,8 @@ export class ValidationEngine {
 
       // Specific Node Validations
       if (node.type === 'prompt') {
-        if (!node.data.config?.promptText || node.data.config.promptText.trim() === '') {
+        const promptText = node.data.config?.promptText;
+        if (!promptText || (typeof promptText === 'string' && promptText.trim() === '')) {
           issues.push({
             id: `err-prompt-empty-${node.id}`,
             nodeId: node.id,

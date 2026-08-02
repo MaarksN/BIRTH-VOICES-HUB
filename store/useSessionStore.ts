@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { logger } from '../lib/logger';
 
 interface SessionState {
   activeCalls: number;
@@ -41,7 +42,7 @@ export const useSessionStore = create<SessionState>((set) => ({
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ color })
-    }).catch(err => console.error("Failed to save brand color:", err));
+    }).catch(err => logger.error('Failed to save brand color', { err }));
 
     set({ brandColor: color });
     applyBrandColorToDom(color);

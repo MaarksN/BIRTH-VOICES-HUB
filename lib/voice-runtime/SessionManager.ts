@@ -5,8 +5,6 @@ import { memoryPipeline } from './MemoryPipeline';
 import { streamingEngine } from './StreamingEngine';
 import { audioPipeline } from './AudioPipeline';
 import { failoverEngine } from './FailoverEngine';
-import { liveSupervisorEngine } from './intelligence/LiveSupervisorEngine';
-import { conversationOrchestrator } from './intelligence/ConversationOrchestrator';
 import { webhookService } from '../../src/services/webhook.service.js';
 
 export class SessionManager {
@@ -81,14 +79,7 @@ export class SessionManager {
       timestamp: Date.now()
     };
     
-    conversationOrchestrator.processIncomingTurn(session, turn);
-    
     memoryPipeline.addTurn(sessionId, turn);
-    
-    // Live Supervisor Check (Real-time monitoring)
-    if (session.intelligence) {
-       liveSupervisorEngine.monitorSession(session, session.intelligence);
-    }
 
     // Context & RAG would happen here
     const context = memoryPipeline.getContext(sessionId);
@@ -113,16 +104,16 @@ export class SessionManager {
       // Handle Tools if LLM returned tool calls
       if (response.text) {
         this.updateState(sessionId, 'Speaking');
-        
-        let assistantTurn: ConversationTurn = {
+
+        const responseText = response.text;
+
+        const assistantTurn: ConversationTurn = {
           id: crypto.randomUUID(),
           role: 'assistant',
-          content: response.text,
+          content: responseText,
           timestamp: Date.now()
         };
-        
-        assistantTurn = conversationOrchestrator.processOutgoingTurn(session, assistantTurn);
-        
+
         memoryPipeline.addTurn(sessionId, assistantTurn);
 
         // TTS processing
@@ -134,7 +125,7 @@ export class SessionManager {
           'TTS',
           ['ElevenLabs', 'Deepgram'],
           async (provider) => {
-            return await provider.process(response.text);
+            return await provider.process(responseText);
           }
         );
         const ttsLatency = observability.endSpan(`tts-${sessionId}`, sessionId, 'TTS_COMPLETED');
@@ -158,11 +149,6 @@ export class SessionManager {
     const session = this.sessions.get(sessionId);
     this.updateState(sessionId, 'Finished');
     streamingEngine.cleanup(sessionId);
-    
-    // Lazy require avoids a circular import with IntelligencePipeline at module load time.
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { intelligencePipeline } = require('./intelligence/IntelligencePipeline');
-    intelligencePipeline.evaluateSessionEnd(sessionId);
 
     observability.logEvent(sessionId, 'SESSION_ENDED');
 
@@ -179,15 +165,7 @@ export class SessionManager {
   }
 
   public getSession(sessionId: string) {
-    const session = this.sessions.get(sessionId);
-    if (!session) return undefined;
-    
-    // Attach intelligence snapshot for monitoring/debugging (lazy require avoids a circular import)
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { intelligencePipeline } = require('./intelligence/IntelligencePipeline');
-    session.intelligence = intelligencePipeline.getIntelligence(sessionId);
-    
-    return session;
+    return this.sessions.get(sessionId);
   }
 }
 

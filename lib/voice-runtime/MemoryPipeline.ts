@@ -1,6 +1,5 @@
 import { ConversationTurn, MemoryNode, MemoryLevel } from './types';
 import { observability } from './Observability';
-import { intelligencePipeline } from './intelligence/IntelligencePipeline';
 
 export class MemoryPipeline {
   private memoryStore: Map<string, {
@@ -22,16 +21,12 @@ export class MemoryPipeline {
     if (Object.keys(initialContext).length > 0) {
       this.addMemoryNode(sessionId, 'persistent', initialContext, null, 100);
     }
-
-    // Initialize Intelligence
-    intelligencePipeline.initialize(sessionId);
   }
 
   private addMemoryNode(
     sessionId: string, 
-    level: MemoryLevel, 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    content: any, 
+    level: MemoryLevel,
+    content: unknown,
     ttl: number | null = null, 
     priority: number = 50,
     relationships: string[] = []
@@ -59,17 +54,14 @@ export class MemoryPipeline {
     const memory = this.memoryStore.get(sessionId);
     if (!memory) return;
 
-    // Analyze the turn with the intelligence pipeline before storing
-    const enrichedTurn = intelligencePipeline.analyzeTurn(sessionId, rawTurn, false);
-
     // 1. Immediate Memory (TTL: very short, highly contextual)
-    const turnNode = this.addMemoryNode(sessionId, 'immediate', enrichedTurn, 60000, 90);
-    
-    observability.logEvent(sessionId, 'MEMORY_IMMEDIATE_UPDATED', { role: enrichedTurn.role, nodeId: turnNode.id });
+    const turnNode = this.addMemoryNode(sessionId, 'immediate', rawTurn, 60000, 90);
+
+    observability.logEvent(sessionId, 'MEMORY_IMMEDIATE_UPDATED', { role: rawTurn.role, nodeId: turnNode.id });
 
     // 2. Session Memory (TTL: session duration)
     // We clone it to session memory as well
-    this.addMemoryNode(sessionId, 'session', enrichedTurn, null, 70, [turnNode.id]);
+    this.addMemoryNode(sessionId, 'session', rawTurn, null, 70, [turnNode.id]);
 
     // Cleanup immediate memory based on length (simulate TTL for immediate)
     if (memory.immediate.length > 5) {

@@ -1,4 +1,4 @@
-import { BaseProvider, ProviderResponse } from './BaseProvider';
+import { BaseProvider, ProviderResponse, ProviderInput, ProviderContext } from './BaseProvider';
 import { logger } from '../../../src/lib/logger.js';
 
 export class VoiceboxProvider extends BaseProvider {
@@ -22,8 +22,11 @@ export class VoiceboxProvider extends BaseProvider {
     }
   }
 
-  public async process(input: string, voiceId: string = 'default'): Promise<ProviderResponse> {
+  public async process(input: ProviderInput, context?: ProviderContext): Promise<ProviderResponse> {
     const start = Date.now();
+    // No caller currently threads a voice selection through `context`; keep
+    // the previous default while allowing a future `{ voiceId }` context.
+    const voiceId = typeof context?.voiceId === 'string' ? context.voiceId : 'default';
 
     try {
       const response = await fetch(`${this.apiUrl}/generate`, {

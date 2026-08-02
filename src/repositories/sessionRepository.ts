@@ -56,3 +56,20 @@ export function findActivePhoneSessionByCallSid(callSid: string) {
     where: { channel: 'phone', status: 'active', deletedAt: null, metadata: { path: ['callSid'], equals: callSid } },
   });
 }
+
+// Guard against an automated dialer double-calling the same lead: a retry loop that fires before
+// the first call reaches a terminal status would otherwise ring the same person twice at once.
+export function findActiveOutboundSessionToNumber(tenantId: string, toNumber: string) {
+  return prisma.session.findFirst({
+    where: {
+      tenantId,
+      channel: 'phone',
+      status: 'active',
+      deletedAt: null,
+      AND: [
+        { metadata: { path: ['direction'], equals: 'outbound' } },
+        { metadata: { path: ['to'], equals: toNumber } },
+      ],
+    },
+  });
+}

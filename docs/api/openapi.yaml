@@ -182,9 +182,13 @@ paths:
               schema:
                 $ref: '#/components/schemas/Agent'
 
-  /voice/initiate:
+  /voice/outbound:
     post:
-      summary: Initiate Voice Call
+      summary: Place an Outbound Voice Call
+      description: >
+        Asks the telephony provider to dial `targetNumber` and hand the answered call to the given
+        agent. Returns as soon as the call is queued — the conversation and its result happen
+        afterwards, and the outcome is delivered via the `agent.call.ended` webhook.
       requestBody:
         required: true
         content:
@@ -198,11 +202,52 @@ paths:
                   format: uuid
                 targetNumber:
                   type: string
+                  description: Destination number in E.164 format.
+                  example: '+5511999998888'
                 context:
                   type: object
+                  description: >
+                    Free-form facts about who is being called. Values are available as
+                    `{{placeholder}}` substitutions in the agent's `outboundGreeting` and are
+                    echoed back on the `agent.call.ended` webhook for correlation.
+                  example:
+                    name: João
+                    company: Transportadora X
+                    leadId: ckv1234
+                callbackUrl:
+                  type: string
+                  format: uri
+                  description: >
+                    Per-call destination for the `agent.call.ended` webhook, overriding the
+                    deployment-wide `WEBHOOK_URL`. Must be HTTPS outside development.
       responses:
-        '200':
-          description: Call initiated successfully
+        '202':
+          description: Call accepted by the telephony provider and queued for dialing.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  sessionId:
+                    type: string
+                    description: Correlates this call with the `agent.call.ended` webhook.
+                  callSid:
+                    type: string
+                  status:
+                    type: string
+                    example: queued
+        '400':
+          description: Invalid payload (e.g. `targetNumber` is not E.164).
+        '404':
+          description: No such agent for the authenticated tenant.
+        '409':
+          description: A call to this number is already in progress for this tenant.
+        '502':
+          description: The telephony provider rejected the call.
+        '503':
+          description: Outbound calling is not configured on this deployment.
 
   /health:
     get:

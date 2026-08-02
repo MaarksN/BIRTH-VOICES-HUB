@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Question } from '../types';
+import { logger } from '../lib/logger';
 
 const POSITIVE_WORDS = ['sim', 'claro', 'ótimo', 'bom', 'gostei', 'certeza', 'ok', 'beleza', 'excelente', 'rápido'];
 const NEGATIVE_WORDS = ['não', 'ruim', 'péssimo', 'errado', 'difícil', 'problema', 'demora', 'caro', 'infelizmente'];
@@ -158,7 +159,7 @@ export function useVoiceConversation(questions: Question[], speed: number = 1.1)
         };
 
         recognition.onerror = (event: SpeechRecognitionErrorEventLike) => {
-          console.error('Speech recognition error', event.error);
+          logger.error('Speech recognition error', { error: event.error });
           if (event.error === 'no-speech') {
               // Maybe restart listening?
           }

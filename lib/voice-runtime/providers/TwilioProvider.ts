@@ -1,4 +1,4 @@
-import { BaseProvider, ProviderResponse } from './BaseProvider';
+import { BaseProvider, ProviderResponse, ProviderInput, ProviderContext } from './BaseProvider';
 import { WebSocket } from 'ws';
 import { logger } from '../../../src/lib/logger.js';
 
@@ -12,9 +12,7 @@ export class TwilioProvider extends BaseProvider {
     logger.debug(`[${this.name}] Initialized with config`, config);
   }
 
-   
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  public async process(_input: any, _context?: any): Promise<ProviderResponse> {
+  public async process(_input: ProviderInput, _context?: ProviderContext): Promise<ProviderResponse> {
     // Handling WebSocket or direct chunk transmission in a robust system
     // Mock processing step for architecture completeness
     return {

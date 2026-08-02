@@ -19,8 +19,11 @@ export interface StudioNodeData extends Record<string, unknown> {
   category: string;
   icon?: string;
   color?: string;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  config?: any;
+  // Node config is a dynamic key/value bag whose shape depends on the node's
+  // registry entry (see nodeRegistry.defaultConfig in store/useStudioStore.ts,
+  // itself typed as Record<string, unknown>) and is edited field-by-field via
+  // InspectorPanel; there is no single fixed schema across node types.
+  config?: Record<string, unknown>;
   lifecycleState?: string;
   validation?: {
     isValid: boolean;

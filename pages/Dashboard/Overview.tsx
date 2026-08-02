@@ -12,6 +12,7 @@ import {
   Tooltip, Modal, useToast, ToastContainer
 } from '../../components/design-system';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, LineChart, Line } from 'recharts';
+import { logger } from '../../lib/logger';
 
 interface CallLogEntry {
   id: string;
@@ -58,7 +59,7 @@ export default function RebuiltExecutiveOverview() {
         }
       }
     } catch (err) {
-      console.error("Error loading call logs:", err);
+      logger.error('Error loading call logs', { err });
     }
   };
 
@@ -73,7 +74,7 @@ export default function RebuiltExecutiveOverview() {
           }
         }
       } catch (err) {
-        console.error("Error loading onboarding checklist from database:", err);
+        logger.error('Error loading onboarding checklist from database', { err });
       }
     };
 
@@ -95,7 +96,7 @@ export default function RebuiltExecutiveOverview() {
         body: JSON.stringify({ checklist: updated })
       });
     } catch (err) {
-      console.error("Error saving onboarding checklist to database:", err);
+      logger.error('Error saving onboarding checklist to database', { err });
     }
   };
 
@@ -164,7 +165,7 @@ export default function RebuiltExecutiveOverview() {
         });
         fetchCalls();
       } catch (err) {
-        console.error("Error generating call log:", err);
+        logger.error('Error generating call log', { err });
       }
 
       navigate('/dashboard/playground');

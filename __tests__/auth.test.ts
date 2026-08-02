@@ -33,17 +33,23 @@ beforeAll(async () => {
   app = await appPromise;
 });
 
+type MockedResolved<T extends (...args: never[]) => unknown> = Awaited<ReturnType<T>>;
+
 describe('Authentication API', () => {
   it('should register a new user', async () => {
     vi.mocked(userRepository.findUserByEmail).mockResolvedValue(null);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    vi.mocked(tenantRepository.createTenant).mockResolvedValue({ id: 'tenant-1' } as any);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    vi.mocked(roleRepository.getOrCreateSystemRole).mockResolvedValue({ id: 'role-1' } as any);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    vi.mocked(userRepository.createUser).mockResolvedValue({ id: 'user-1', email: 'test@example.com', passwordHash: 'hash', companyName: 'Test Inc', tenantId: 'tenant-1' } as any);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    vi.mocked(userRepository.createMembership).mockResolvedValue(true as any);
+    vi.mocked(tenantRepository.createTenant).mockResolvedValue(
+      { id: 'tenant-1' } as unknown as MockedResolved<typeof tenantRepository.createTenant>
+    );
+    vi.mocked(roleRepository.getOrCreateSystemRole).mockResolvedValue(
+      { id: 'role-1' } as unknown as MockedResolved<typeof roleRepository.getOrCreateSystemRole>
+    );
+    vi.mocked(userRepository.createUser).mockResolvedValue(
+      { id: 'user-1', email: 'test@example.com', passwordHash: 'hash', companyName: 'Test Inc', tenantId: 'tenant-1' } as unknown as MockedResolved<typeof userRepository.createUser>
+    );
+    vi.mocked(userRepository.createMembership).mockResolvedValue(
+      true as unknown as MockedResolved<typeof userRepository.createMembership>
+    );
 
     const res = await request(app)
       .post('/api/auth/register')
@@ -65,13 +71,11 @@ describe('Authentication API', () => {
       passwordHash: bcrypt.hashSync('password123', 1),
       tenantId: 'tenant-1',
       companyName: 'Test Inc'
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } as any);
+    } as unknown as MockedResolved<typeof userRepository.findUserByEmail>);
 
     vi.mocked(userRepository.findMembershipWithRole).mockResolvedValue({
       role: { name: 'admin' }
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } as any);
+    } as unknown as MockedResolved<typeof userRepository.findMembershipWithRole>);
 
     const res = await request(app)
       .post('/api/auth/login')
@@ -91,8 +95,7 @@ describe('Authentication API', () => {
       passwordHash: bcrypt.hashSync('password123', 1),
       tenantId: 'tenant-1',
       companyName: 'Test Inc'
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } as any);
+    } as unknown as MockedResolved<typeof userRepository.findUserByEmail>);
 
     const res = await request(app)
       .post('/api/auth/login')

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Save, UserPlus, Upload, Shield, Video, Loader2 } from 'lucide-react';
 import { auth } from '../../lib/auth';
 import { useSessionStore } from '../../store/useSessionStore';
+import { logger } from '../../lib/logger';
 
 export default function OrganizationPage() {
   const [activeTab, setActiveTab] = useState('branding');
@@ -46,7 +47,7 @@ export default function OrganizationPage() {
             setVideoOperation(null);
           }
         } catch (e: unknown) {
-          console.error(e);
+          logger.error('Error polling video generation status', { e });
         }
       }, 5000); // poll every 5s
     }

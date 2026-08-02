@@ -61,3 +61,36 @@ export const metricSchema = z.object({
   value: z.number(),
   tags: z.record(z.string(), z.any()).optional(),
 });
+
+// The server POSTs to whatever callbackUrl a client supplies, so an unrestricted value here is an
+// SSRF primitive. Requiring HTTPS blocks non-HTTP schemes outright and keeps call transcripts off
+// the wire in the clear; plain http stays allowed outside production for local receivers.
+// Note this does not resolve DNS, so it does not by itself stop a public name pointing at a
+// private address — tighten with an egress allowlist if untrusted tenants ever get API access.
+const callbackUrlSchema = z
+  .string()
+  .url('callbackUrl deve ser uma URL válida')
+  .refine(
+    (value) => {
+      let parsed: URL;
+      try {
+        parsed = new URL(value);
+      } catch {
+        return false;
+      }
+      if (parsed.protocol === 'https:') return true;
+      return parsed.protocol === 'http:' && process.env.NODE_ENV !== 'production';
+    },
+    { message: 'callbackUrl deve usar HTTPS' },
+  );
+
+export const outboundCallSchema = z.object({
+  agentId: z.string().min(1, 'agentId é obrigatório'),
+  // E.164. A CRM dialing a prospect list will inevitably send malformed numbers; rejecting them
+  // here costs nothing, while Twilio rejects them after we have already created a session.
+  targetNumber: z
+    .string()
+    .regex(/^\+[1-9]\d{7,14}$/, 'targetNumber deve estar no formato E.164 (ex: +5511999998888)'),
+  context: z.record(z.string(), z.any()).optional(),
+  callbackUrl: callbackUrlSchema.optional(),
+});

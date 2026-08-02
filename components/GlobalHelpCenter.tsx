@@ -5,6 +5,7 @@ import {
   Lightbulb, ShieldCheck
 } from 'lucide-react';
 import { Card, Button, Spinner } from './design-system';
+import { logger } from '../lib/logger';
 
 interface Message {
   id: string;
@@ -112,7 +113,7 @@ export function GlobalHelpCenter() {
         text: data.text || 'Desculpe, tive um problema para processar essa instrução.'
       }]);
     } catch (error) {
-      console.error(error);
+      logger.error('Failed to get response from Catarina help chat', { error });
       setMessages(prev => [...prev, {
         id: (Date.now() + 1).toString(),
         sender: 'catarina',

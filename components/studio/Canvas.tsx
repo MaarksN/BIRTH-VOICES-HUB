@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, lazy, Suspense } from 'react';
 import {
   ReactFlow,
   MiniMap,
@@ -29,7 +29,9 @@ import { TopBar } from './panels/TopBar';
 import { LayersPanel } from './panels/LayersPanel';
 import { InspectorPanel } from './panels/InspectorPanel';
 import { BottomDrawer } from './panels/BottomDrawer';
-import { TestSimulatorModal } from './panels/TestSimulatorModal';
+const TestSimulatorModal = lazy(() =>
+  import('./panels/TestSimulatorModal').then((m) => ({ default: m.TestSimulatorModal }))
+);
 
 const nodeTypes = {
   start: StartNode,
@@ -137,7 +139,20 @@ function CanvasInner() {
         onSimulate={() => setIsSimulatorOpen(true)}
       />
       
-      {isSimulatorOpen && <TestSimulatorModal onClose={() => setIsSimulatorOpen(false)} />}
+      {isSimulatorOpen && (
+        <Suspense
+          fallback={
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0B0D14]/80">
+              <div className="flex items-center gap-3 text-sm text-gray-300">
+                <div className="h-5 w-5 animate-spin rounded-full border-2 border-gray-600 border-t-white" />
+                Loading simulator...
+              </div>
+            </div>
+          }
+        >
+          <TestSimulatorModal onClose={() => setIsSimulatorOpen(false)} />
+        </Suspense>
+      )}
       
       <div className="flex-1 flex min-h-0 relative">
         <LayersPanel nodes={nodes} />
