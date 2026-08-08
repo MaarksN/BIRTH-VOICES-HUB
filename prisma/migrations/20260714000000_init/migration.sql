@@ -125,7 +125,7 @@ CREATE TABLE "CallLog" (
     "id" TEXT NOT NULL,
     "tenantId" TEXT NOT NULL,
     "userId" TEXT,
-    "patientName" TEXT NOT NULL,
+    "contactName" TEXT NOT NULL,
     "duration" TEXT NOT NULL,
     "status" TEXT NOT NULL,
     "time" TEXT NOT NULL,

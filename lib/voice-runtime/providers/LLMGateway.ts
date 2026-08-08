@@ -165,9 +165,8 @@ class LLMProviderGateway {
       }
     }
     if (!text) {
-      // Never fabricate a confirmation (e.g. a scheduled appointment) when every provider failed —
-      // for a caller reaching out about maternal/birth care, a false "you're booked" is worse than
-      // an honest apology.
+      // Never fabricate a confirmation (for example, a scheduled service) when every provider
+      // failed. An honest apology is safer than claiming an action that never happened.
       text = `Peço desculpas, estou com uma instabilidade técnica no momento. Por favor, tente novamente em alguns instantes.`;
       currentProvider = 'GoogleGemini';
     }

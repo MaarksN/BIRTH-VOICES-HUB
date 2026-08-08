@@ -10,7 +10,7 @@ Emitted today:
   via `POST /api/voice/outbound`.
 - `call.completed`: a voice-runtime (non-telephony) session ended.
 
-Planned, not yet emitted: `workflow.completed`, `patient.onboarded`.
+Planned, not yet emitted: `workflow.completed`, `contact.onboarded`.
 
 ## Delivery target
 

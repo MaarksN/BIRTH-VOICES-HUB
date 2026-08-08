@@ -6,11 +6,11 @@ export function listCallLogs(tenantId: string) {
   return callLogRepository.listCallLogsForTenant(tenantId);
 }
 
-export function createCallLog(tenantId: string, userId: string | null, data: { patientName?: string; duration?: string; status?: string; agent?: string }) {
+export function createCallLog(tenantId: string, userId: string | null, data: { contactName?: string; duration?: string; status?: string; agent?: string }) {
   return callLogRepository.createCallLog(tenantId, userId, data);
 }
 
-export async function updateCallLog(id: string, tenantId: string, data: { patientName?: string; status?: string; duration?: string }) {
+export async function updateCallLog(id: string, tenantId: string, data: { contactName?: string; status?: string; duration?: string }) {
   const existing = await callLogRepository.findCallLogForTenant(id, tenantId);
   if (!existing) throw new NotFoundError('Log de chamada não encontrado.');
   return callLogRepository.updateCallLog(id, data);

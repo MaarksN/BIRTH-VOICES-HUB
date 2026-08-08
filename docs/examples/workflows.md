@@ -8,7 +8,7 @@ const TOKEN = 'your_jwt_token';
 
 async function defineWorkflow() {
   const payload = {
-    name: "Patient Onboarding Workflow",
+    name: "Customer Onboarding Workflow",
     description: "Handles initial contact and data collection",
     status: "active",
     nodes: [

@@ -43,7 +43,7 @@ describe('callLogRepository.createCallLog', () => {
     vi.mocked(prisma.callLog.create).mockResolvedValue({ id: 'c1' } as any);
 
     const result = await createCallLog('tenant-1', 'user-1', {
-      patientName: 'Jane Doe',
+      contactName: 'Jane Doe',
       duration: '05:00',
       status: 'Completed',
       agent: 'Custom Agent',
@@ -53,7 +53,7 @@ describe('callLogRepository.createCallLog', () => {
       data: {
         tenantId: 'tenant-1',
         userId: 'user-1',
-        patientName: 'Jane Doe',
+        contactName: 'Jane Doe',
         duration: '05:00',
         status: 'Completed',
         time: 'Agora mesmo',
@@ -72,7 +72,7 @@ describe('callLogRepository.createCallLog', () => {
       data: {
         tenantId: 'tenant-1',
         userId: undefined,
-        patientName: 'Contato Anônimo',
+        contactName: 'Contato Anônimo',
         duration: '02:15',
         status: 'Concluído',
         time: 'Agora mesmo',

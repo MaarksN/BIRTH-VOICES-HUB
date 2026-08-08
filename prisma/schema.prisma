@@ -166,7 +166,7 @@ model CallLog {
   tenantId    String
   tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   userId      String?
-  patientName String
+  contactName String
   duration    String
   status      String
   time        String

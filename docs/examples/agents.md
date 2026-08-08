@@ -12,7 +12,7 @@ async function createSupportAgent() {
     model: "gemini-1.5-pro",
     configuration: {
       temperature: 0.7,
-      systemPrompt: "You are a helpful assistant for a maternal health clinic. Always be empathetic."
+      systemPrompt: "You are a helpful customer support assistant. Be clear, respectful, and empathetic."
     }
   };
 

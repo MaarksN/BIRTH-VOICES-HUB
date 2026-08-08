@@ -174,7 +174,7 @@ export async function endCall(params: { callSid: string; status: string; duratio
 
   await callLogService.createCallLog(session.tenantId, null, {
     // Outbound calls know who they dialed; inbound ones keep the generic label they always had.
-    patientName: isOutbound ? String(metadata.context?.name ?? metadata.to ?? 'Ligação Telefônica') : 'Ligação Telefônica',
+    contactName: isOutbound ? String(metadata.context?.name ?? metadata.to ?? 'Ligação Telefônica') : 'Ligação Telefônica',
     duration: formatDuration(params.durationSeconds),
     status: outcome,
     agent: agent?.name || 'Agente não identificado',

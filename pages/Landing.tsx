@@ -5,7 +5,7 @@ import {
   ShieldCheck, Sparkles, Database, GitMerge, BarChart3, Radio, Sliders,
   Smartphone, Lock, Globe, ArrowRight, CheckCircle, ChevronDown,
   Activity, Terminal, Code2, Layers, CreditCard, Star,
-  HelpCircle, KeyRound, HeartHandshake, Heart, MessageSquare,
+  HelpCircle, KeyRound, Building2, BadgeDollarSign, MessageSquare,
   ArrowUpRight, Check, Layers2,
   LockKeyhole, Server, UserCheck, Sun, Moon, Mic
 } from 'lucide-react';
@@ -178,7 +178,7 @@ export default function LandingPage() {
     },
     {
       q: "Como o agente lida com situações de escalonamento crítico?",
-      a: "Os agentes do Birth Hub são programados com barreiras de segurança rígidas. Se detectado um sinal de urgência extrema (como uma reclamação grave ou risco de perda do cliente), o agente interrompe o protocolo padrão e transfere instantaneamente a chamada para um atendente humano de plantão."
+      a: "Os agentes do Birth Hub são programados com barreiras de segurança rígidas. Se detectado um sinal de urgência extrema (como uma reclamação grave ou risco de perda do cliente), o agente interrompe o fluxo padrão e transfere instantaneamente a chamada para um atendente humano disponível."
     },
     {
       q: "Os agentes de IA podem falar outros idiomas além do português?",
@@ -910,7 +910,7 @@ export default function LandingPage() {
           <div className="max-w-3xl mb-16 space-y-3">
             <Badge variant="info">Casos de Uso Multi-Indústria</Badge>
             <h3 className="text-3xl md:text-4xl font-extrabold text-slate-900 dark:text-white tracking-tight leading-none font-sans">
-              Especialização cirúrgica para cada necessidade.
+              Especialização precisa para cada necessidade.
             </h3>
             <p className="text-base text-slate-500 dark:text-slate-400 leading-relaxed font-semibold">
               Agentes customizados para operar verticais operacionais críticas com inteligência técnica e alta precisão de resultados.
@@ -923,7 +923,7 @@ export default function LandingPage() {
             <div className="lg:col-span-4 space-y-2">
               {[
                 { title: "SDR e Qualificação de Leads", desc: "Qualificação ágil de contatos por voz natural e preenchimento de CRM.", icon: <UserCheck className="h-4.5 w-4.5" /> },
-                { title: "Recepção e Concierge Corporativo", desc: "Triagem de solicitações, coleta de dados e encaminhamento ao setor certo.", icon: <Heart className="h-4.5 w-4.5" /> },
+                { title: "Recepção e Concierge Corporativo", desc: "Classificação de solicitações, coleta de dados e encaminhamento ao setor certo.", icon: <Building2 className="h-4.5 w-4.5" /> },
                 { title: "Suporte e Atendimento ao Cliente", desc: "Resolução de dúvidas frequentes consultando manuais semânticos (RAG).", icon: <MessageSquare className="h-4.5 w-4.5" /> },
                 { title: "Cobrança e Faturamento", desc: "Negociação de pendências de boletos, faturas e links de transação.", icon: <CreditCard className="h-4.5 w-4.5" /> },
                 { title: "Pesquisas de Satisfação e NPS", desc: "Entrevistas qualitativas por voz e classificação analítica de sentimentos.", icon: <BarChart3 className="h-4.5 w-4.5" /> }
@@ -984,7 +984,7 @@ export default function LandingPage() {
                       <Badge variant="success">Concierge Corporativo</Badge>
                       <span className="text-xs text-slate-450 font-bold">Redução de tempo de fila em 48%</span>
                     </div>
-                    <h4 className="text-xl font-extrabold text-slate-950 dark:text-white">Recepção e Triagem de Solicitações</h4>
+                    <h4 className="text-xl font-extrabold text-slate-950 dark:text-white">Recepção e Encaminhamento de Solicitações</h4>
                     <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed font-semibold">
                       O agente atende contatos que ligam para a central da empresa com dúvidas ou solicitações. Ele identifica a necessidade, cruza os relatos com a base de conhecimento (RAG) e envia um alerta direto com a prioridade e o setor responsável no painel de controle em menos de 10 segundos.
                     </p>
@@ -1286,7 +1286,7 @@ export default function LandingPage() {
 
                   <div>
                     <div className="flex justify-between text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                      <span>2. Identificação de Sintomas Críticos</span>
+                      <span>2. Identificação de Demandas Críticas</span>
                       <span>92.4% de engajamento</span>
                     </div>
                     <Progress value={92.4} />
@@ -1294,7 +1294,7 @@ export default function LandingPage() {
 
                   <div>
                     <div className="flex justify-between text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                      <span>3. Busca de Conhecimento Assistencial (RAG)</span>
+                      <span>3. Busca na Base de Conhecimento (RAG)</span>
                       <span>88.2% de precisão</span>
                     </div>
                     <Progress value={88.2} />
@@ -1302,7 +1302,7 @@ export default function LandingPage() {
 
                   <div>
                     <div className="flex justify-between text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                      <span>4. Integração Prontuário & Conclusão de Chamada</span>
+                      <span>4. Integração com CRM & Conclusão de Chamada</span>
                       <span>82.6% concluídas de ponta a ponta</span>
                     </div>
                     <Progress value={82.6} />
@@ -1497,7 +1497,7 @@ export default function LandingPage() {
             <div className="flex flex-wrap justify-center items-center gap-x-8 gap-y-3.5 pt-6 border-t border-slate-900 text-xs font-bold text-slate-500">
               <span className="flex items-center gap-1.5"><ShieldCheck className="h-4.5 w-4.5 text-brand" /> SLA de 99.98% de Uptime</span>
               <span className="flex items-center gap-1.5"><LockKeyhole className="h-4.5 w-4.5 text-brand" /> Criptografia de nível bancário</span>
-              <span className="flex items-center gap-1.5"><HeartHandshake className="h-4.5 w-4.5 text-brand" /> Sem taxa de adesão obrigatória</span>
+              <span className="flex items-center gap-1.5"><BadgeDollarSign className="h-4.5 w-4.5 text-brand" /> Sem taxa de adesão obrigatória</span>
             </div>
 
           </Card>

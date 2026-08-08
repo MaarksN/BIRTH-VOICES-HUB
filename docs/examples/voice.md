@@ -10,7 +10,7 @@ async function initiateVoiceCall(agentId, phoneNumber) {
   const payload = {
     agentId,
     targetNumber: phoneNumber,
-    context: { patientId: "12345" }
+    context: { contactId: "12345" }
   };
 
   const response = await fetch(`${API_URL}/voice/initiate`, {

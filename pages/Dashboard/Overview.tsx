@@ -16,8 +16,7 @@ import { logger } from '../../lib/logger';
 
 interface CallLogEntry {
   id: string;
-  patientName?: string;
-  patient?: string;
+  contactName?: string;
   duration?: string;
   agent?: string;
   status?: string;
@@ -157,7 +156,7 @@ export default function RebuiltExecutiveOverview() {
             'Content-Type': 'application/json'
           },
           body: JSON.stringify({
-            patientName: 'Fernanda Lima (Simulado)',
+            contactName: 'Fernanda Lima (Simulado)',
             duration: '02:45',
             status: 'Concluído',
             agent: 'Catarina Atendimento'
@@ -219,7 +218,7 @@ export default function RebuiltExecutiveOverview() {
         {/* API STATUS / SERVICE HEALTH */}
         <div className="flex flex-wrap items-center gap-3 bg-slate-100 dark:bg-slate-800/80 p-3 rounded-xl border border-slate-200 dark:border-slate-700 w-full lg:w-auto">
           <div className="text-left mr-2 lg:border-r border-slate-200 dark:border-slate-700 pr-4">
-            <p className="text-[10px] font-bold text-slate-400 uppercase">Saúde do Sistema</p>
+            <p className="text-[10px] font-bold text-slate-400 uppercase">Status do Sistema</p>
             <p className="text-xs font-bold text-slate-700 dark:text-slate-200 font-mono">
               {time.toLocaleTimeString('pt-BR')} (UTC-3)
             </p>
@@ -687,7 +686,7 @@ export default function RebuiltExecutiveOverview() {
                         {recentCalls.slice(0, 5).map((call) => (
                           <tr key={call.id} className="hover:bg-slate-50 dark:hover:bg-slate-900/50">
                             <td className="py-2.5 font-mono text-[10px] text-slate-400">#{call.id}</td>
-                            <td className="py-2.5 font-bold text-slate-800 dark:text-slate-200">{call.patientName || call.patient}</td>
+                            <td className="py-2.5 font-bold text-slate-800 dark:text-slate-200">{call.contactName}</td>
                             <td className="py-2.5 font-mono">{call.duration}</td>
                             <td className="py-2.5">{call.agent}</td>
                             <td className="py-2.5">
@@ -737,11 +736,11 @@ export default function RebuiltExecutiveOverview() {
 
             {/* Right Column: Health & System tasks */}
             <div className="space-y-6">
-              {/* SAÚDE DO SISTEMA */}
+              {/* STATUS DO SISTEMA */}
               <Card className="p-6 space-y-4">
                 <div className="flex items-center gap-2 text-slate-800 dark:text-slate-100">
                   <Activity className="h-5 w-5 text-emerald-500" />
-                  <h4 className="font-bold text-sm uppercase tracking-wider">Saúde do Sistema</h4>
+                  <h4 className="font-bold text-sm uppercase tracking-wider">Status do Sistema</h4>
                 </div>
                 <div className="space-y-3">
                   <div className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-900/40 rounded-lg border border-slate-100 dark:border-slate-800">

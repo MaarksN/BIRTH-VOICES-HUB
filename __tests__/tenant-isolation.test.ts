@@ -26,14 +26,14 @@ describe('Multi-tenant data isolation', () => {
     const createRes = await request(app)
       .post('/api/call-logs')
       .set('Cookie', tenantA.cookies)
-      .send({ patientName: 'Tenant A Patient' });
+      .send({ contactName: 'Contato do Tenant A' });
     expect(createRes.status).toBe(200);
 
     const tenantALogs = await request(app).get('/api/call-logs').set('Cookie', tenantA.cookies);
-    expect(tenantALogs.body.callLogs.some((l: Record<string, unknown>) => l.patientName === 'Tenant A Patient')).toBe(true);
+    expect(tenantALogs.body.callLogs.some((l: Record<string, unknown>) => l.contactName === 'Contato do Tenant A')).toBe(true);
 
     const tenantBLogs = await request(app).get('/api/call-logs').set('Cookie', tenantB.cookies);
-    expect(tenantBLogs.body.callLogs.some((l: Record<string, unknown>) => l.patientName === 'Tenant A Patient')).toBe(false);
+    expect(tenantBLogs.body.callLogs.some((l: Record<string, unknown>) => l.contactName === 'Contato do Tenant A')).toBe(false);
   });
 
   it('does not leak agents across tenants', async () => {

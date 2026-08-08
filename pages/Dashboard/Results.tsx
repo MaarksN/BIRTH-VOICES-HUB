@@ -5,7 +5,7 @@ import { Download, FileText, Clock, MessageSquare, Search, Music } from 'lucide-
 interface CallLogEntry {
   id: string;
   agent?: string;
-  patientName?: string;
+  contactName?: string;
   timestamp: string;
   duration: string;
   status?: string;
@@ -39,7 +39,7 @@ export default function ResultsPage() {
            const mappedLogs = data.callLogs.map((log: CallLogEntry) => ({
              id: log.id,
              agentName: log.agent || 'Desconhecido',
-             caller: log.patientName || 'Anônimo',
+             caller: log.contactName || 'Anônimo',
              dateTime: new Date(log.timestamp).toLocaleString(),
              duration: log.duration,
              sentiment: log.status === 'Concluído' ? 'Positivo' : 'Neutro',
