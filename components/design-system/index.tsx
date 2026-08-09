@@ -8,10 +8,13 @@ import { AlertTriangle, AlertCircle, Info, CheckCircle, X, ChevronDown, RefreshC
 
 export function AtlasLogo({ className = 'h-5 w-5' }: { className?: string }) {
   return (
-    <svg className={className} viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-      <path d="M23 82 L48 82 L82 18 L57 18 Z" fill="var(--brand-color, #ff5618)" />
-      <path d="M57 82 L82 82 L69.5 55 Z" fill="var(--color-brand-500, #ffc500)" />
-    </svg>
+    <span className={`inline-flex items-center justify-center ${className}`} aria-hidden="true">
+      <img
+        src="/brand/atlasgr-symbol.svg"
+        className="h-full w-full object-contain"
+        alt=""
+      />
+    </span>
   );
 }
 

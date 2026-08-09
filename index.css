@@ -9,7 +9,7 @@
   --color-brand-50: var(--brand-color-50, #fff3ec);
   --color-brand-100: var(--brand-color-100, #ffe1d0);
   --color-brand-200: var(--brand-color-200, #ffc2a1);
-  --color-brand-500: var(--brand-color-500, #ff7a45);
+  --color-brand-500: var(--brand-color-500, #ff6b10);
   --color-brand-600: var(--brand-color-600, #ff5618);
   --color-brand-700: var(--brand-color-700, #d84914);
   --color-brand-800: var(--brand-color-800, #b23c10);
@@ -20,19 +20,19 @@
 /* Dynamic Theme Colors mapping to custom styles */
 :root {
   --brand-color: #ff5618;
-  --bg-primary: #f1f5f9;
+  --bg-primary: #f7f5f3;
   --bg-surface: #ffffff;
-  --text-primary: #0f172a;
-  --text-secondary: #475569;
-  --border-color: #e2e8f0;
+  --text-primary: #333333;
+  --text-secondary: #5b6169;
+  --border-color: #e7e3df;
 }
 
 html.dark {
-  --bg-primary: #0b1329;
-  --bg-surface: #1e293b;
-  --text-primary: #f8fafc;
-  --text-secondary: #cbd5e1;
-  --border-color: #334155;
+  --bg-primary: #171615;
+  --bg-surface: #242322;
+  --text-primary: #ffffff;
+  --text-secondary: #d0cbc6;
+  --border-color: #3d3a37;
 }
 
 body {
@@ -121,6 +121,6 @@ body {
 }
 
 .dark .glass-panel {
-  background: rgba(30, 41, 59, 0.7);
+  background: rgba(36, 35, 34, 0.72);
   border: 1px solid rgba(255, 255, 255, 0.05);
 }

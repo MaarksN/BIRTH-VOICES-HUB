@@ -13,13 +13,13 @@ export const colors = {
     info: '#3b82f6', // blue-500
     neutral: '#475569', // slate-600
     surface: '#ffffff',
-    surfaceMuted: '#f8fafc', // slate-50
-    background: '#f1f5f9', // slate-100
-    border: '#e2e8f0', // slate-200
+    surfaceMuted: '#f7f5f3',
+    background: '#f7f5f3',
+    border: '#e7e3df',
     borderHover: '#cbd5e1', // slate-300
     overlay: 'rgba(15, 23, 42, 0.4)', // slate-900 with opacity
-    textPrimary: '#0f172a', // slate-900
-    textSecondary: '#475569', // slate-600
+    textPrimary: '#333333',
+    textSecondary: '#5b6169',
     textMuted: '#94a3b8', // slate-400
   },
   dark: {
@@ -31,11 +31,11 @@ export const colors = {
     danger: '#f87171', // red-400
     info: '#60a5fa', // blue-400
     neutral: '#94a3b8', // slate-400
-    surface: '#1e293b', // slate-800
-    surfaceMuted: '#0f172a', // slate-900
-    background: '#0b1329', // deep dark blue-black
-    border: '#334155', // slate-700
-    borderHover: '#475569', // slate-600
+    surface: '#242322',
+    surfaceMuted: '#171615',
+    background: '#171615',
+    border: '#3d3a37',
+    borderHover: '#5b5651',
     overlay: 'rgba(0, 0, 0, 0.6)',
     textPrimary: '#f8fafc', // slate-50
     textSecondary: '#cbd5e1', // slate-300
@@ -80,7 +80,7 @@ export const shadows = {
 
 export const typography = {
   fontFamily: {
-    sans: "'Inter', sans-serif",
+    sans: "'Montserrat', Arial, sans-serif",
     mono: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
   },
   fontSize: {

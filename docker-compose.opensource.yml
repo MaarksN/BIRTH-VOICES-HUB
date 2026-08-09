@@ -1,0 +1,184 @@
+services:
+  app:
+    environment:
+      OIDC_ISSUER: http://keycloak:8080/realms/birth-voices
+      OIDC_CLIENT_ID: birth-voices
+      OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:-}
+      S3_ENDPOINT: http://minio:9000
+      S3_REGION: us-east-1
+      S3_ACCESS_KEY: ${MINIO_ROOT_USER:-birthvoices}
+      S3_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-change-this-minio-password}
+      S3_RECORDINGS_BUCKET: birth-voice-recordings
+      CLAMAV_HOST: clamav
+      CLAMAV_PORT: 3310
+      OTEL_SERVICE_NAME: birth-voices-hub
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
+    depends_on:
+      keycloak:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      clamav:
+        condition: service_healthy
+      otel-collector:
+        condition: service_started
+
+  keycloak-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: keycloak
+      POSTGRES_PASSWORD: ${KEYCLOAK_DB_PASSWORD:-keycloak-local-password}
+      POSTGRES_DB: keycloak
+    volumes:
+      - keycloak_data:/var/lib/postgresql/data
+    networks: [app_network]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U keycloak -d keycloak"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.3.3
+    command: ["start-dev", "--import-realm"]
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://keycloak-db:5432/keycloak
+      KC_DB_USERNAME: keycloak
+      KC_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD:-keycloak-local-password}
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN:-admin}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-change-this-admin-password}
+      KC_HEALTH_ENABLED: "true"
+    ports: ["8080:8080"]
+    volumes:
+      - ./infrastructure/keycloak/birth-realm.json:/opt/keycloak/data/import/birth-realm.json:ro
+    networks: [app_network]
+    depends_on:
+      keycloak-db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/9000; echo -e 'GET /health/ready HTTP/1.1\r\nhost: localhost\r\nConnection: close\r\n\r\n' >&3; grep 'HTTP/1.1 200 OK' <&3"]
+      interval: 15s
+      timeout: 5s
+      retries: 20
+
+  minio:
+    image: quay.io/minio/minio:latest
+    command: ["server", "/data", "--console-address", ":9001"]
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-birthvoices}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-change-this-minio-password}
+    ports: ["9000:9000", "9001:9001"]
+    volumes: ["minio_data:/data"]
+    networks: [app_network]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  minio-init:
+    image: quay.io/minio/mc:latest
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - >-
+        mc alias set local http://minio:9000 "$${MINIO_ROOT_USER}" "$${MINIO_ROOT_PASSWORD}" &&
+        mc mb --ignore-existing local/birth-voice-recordings &&
+        mc anonymous set none local/birth-voice-recordings
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-birthvoices}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-change-this-minio-password}
+    networks: [app_network]
+
+  clamav:
+    image: clamav/clamav:1.4
+    ports: ["3310:3310"]
+    volumes: ["clamav_data:/var/lib/clamav"]
+    networks: [app_network]
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/clamdcheck.sh"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 2m
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.136.0
+    command: ["--config=/etc/otelcol-contrib/config.yaml"]
+    volumes:
+      - ./infrastructure/observability/otel-collector.yml:/etc/otelcol-contrib/config.yaml:ro
+    ports: ["4317:4317", "4318:4318", "9464:9464"]
+    networks: [app_network]
+    depends_on: [tempo, loki]
+
+  tempo:
+    image: grafana/tempo:2.8.2
+    command: ["-config.file=/etc/tempo.yml"]
+    volumes:
+      - ./infrastructure/observability/tempo.yml:/etc/tempo.yml:ro
+      - tempo_data:/var/tempo
+    networks: [app_network]
+
+  loki:
+    image: grafana/loki:3.5.5
+    command: ["-config.file=/etc/loki/local-config.yaml"]
+    volumes:
+      - ./infrastructure/observability/loki.yml:/etc/loki/local-config.yaml:ro
+      - loki_data:/loki
+    networks: [app_network]
+
+  prometheus:
+    image: prom/prometheus:v3.5.0
+    command: ["--config.file=/etc/prometheus/prometheus.yml"]
+    volumes:
+      - ./infrastructure/observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    ports: ["9090:9090"]
+    networks: [app_network]
+
+  grafana:
+    image: grafana/grafana-oss:12.1.1
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-change-this-grafana-password}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    ports: ["3001:3000"]
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./infrastructure/observability/grafana-datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml:ro
+    networks: [app_network]
+    depends_on: [prometheus, tempo, loki]
+
+  k6:
+    image: grafana/k6:latest
+    profiles: [tools]
+    command: ["run", "/tests/k6-load-test.js"]
+    volumes: ["./k6-load-test.js:/tests/k6-load-test.js:ro"]
+    environment:
+      BASE_URL: http://app:3000
+    networks: [app_network]
+
+  zap:
+    image: ghcr.io/zaproxy/zaproxy:stable
+    profiles: [tools]
+    command: ["zap-baseline.py", "-t", "http://app:3000", "-r", "/zap/wrk/zap-report.html"]
+    volumes: ["./reports:/zap/wrk:rw"]
+    networks: [app_network]
+
+  trivy:
+    image: aquasec/trivy:latest
+    profiles: [tools]
+    command: ["fs", "--exit-code", "1", "--severity", "HIGH,CRITICAL", "/workspace"]
+    volumes: [".:/workspace:ro"]
+
+volumes:
+  keycloak_data:
+  minio_data:
+  clamav_data:
+  tempo_data:
+  loki_data:
+  prometheus_data:
+  grafana_data:

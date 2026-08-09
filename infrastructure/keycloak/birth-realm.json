@@ -1,0 +1,27 @@
+{
+  "realm": "birth-voices",
+  "enabled": true,
+  "displayName": "BIRTH Voices Hub",
+  "registrationAllowed": false,
+  "resetPasswordAllowed": true,
+  "clients": [
+    {
+      "clientId": "birth-voices",
+      "name": "BIRTH Voices Hub",
+      "enabled": true,
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "redirectUris": ["http://localhost:3000/*"],
+      "webOrigins": ["http://localhost:3000"]
+    }
+  ],
+  "roles": {
+    "realm": [
+      { "name": "platform-admin" },
+      { "name": "tenant-admin" },
+      { "name": "supervisor" },
+      { "name": "agent" }
+    ]
+  }
+}
