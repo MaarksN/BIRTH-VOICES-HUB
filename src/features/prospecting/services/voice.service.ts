@@ -86,8 +86,9 @@ export class VoiceProspectingService {
         },
         body: JSON.stringify({
           phone_number: payload.phone_number,
-          task: `Você é um assistente de vendas senior da AtlasGR. Você está ligando para ${payload.name} da empresa ${payload.company}. Seu objetivo é fazer 3 perguntas curtas para entender se a empresa tem fit para a nossa plataforma de CRM e BI. Seja simpático, natural, e nunca fale mais que 2 frases seguidas sem deixar o cliente responder.`,
-          voice: 'josh',
+          task: `Você é um assistente de vendas senior da AtlasGR. Fale OBRIGATORIAMENTE e EXCLUSIVAMENTE em Português do Brasil (pt-BR). Você está ligando para ${payload.name} da empresa ${payload.company}. Seu objetivo é fazer 3 perguntas curtas para entender se a empresa tem fit para a nossa plataforma de CRM e BI. Seja simpático, natural, e nunca fale mais que 2 frases seguidas sem deixar o cliente responder.`,
+          language: 'pt-BR',
+          voice: 'nat',
           reduce_latency: true,
           record: true,
           webhook: `${(process.env.WEBHOOK_BASE_URL || 'https://seu-dominio.com').replace(/\/$/, '')}/api/webhooks/bland/${callbackToken}`,
