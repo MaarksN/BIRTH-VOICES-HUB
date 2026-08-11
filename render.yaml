@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: birth-voices-hub
+    env: node
+    buildCommand: npm install && npm run build
+    startCommand: npx tsx server.ts
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3001
+      - key: BLAND_API_KEY
+        sync: false
+      - key: BLAND_WEBHOOK_TOKEN
+        sync: false
+      - key: ATLASGR_WEBHOOK_SECRET
+        sync: false
+      - key: DATABASE_URL
+        sync: false
