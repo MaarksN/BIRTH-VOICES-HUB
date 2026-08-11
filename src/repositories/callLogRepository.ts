@@ -31,3 +31,11 @@ export function updateCallLog(id: string, data: { contactName?: string; status?:
 export function deleteCallLog(id: string) {
   return prisma.callLog.delete({ where: { id } });
 }
+
+// Bulk retention purge — not tenant-scoped by design, it runs across every tenant's expired
+// records in one pass. `timestamp` is set once at creation (see createCallLog) and never updated,
+// so it is a safe, monotonic cutoff for "how old is this record" regardless of any later edits via
+// updateCallLog.
+export function deleteCallLogsOlderThan(cutoff: Date) {
+  return prisma.callLog.deleteMany({ where: { timestamp: { lt: cutoff } } });
+}
