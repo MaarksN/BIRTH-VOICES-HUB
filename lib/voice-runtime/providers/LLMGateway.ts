@@ -1,5 +1,5 @@
 import { GoogleGenAI } from "@google/genai";
-import { otelCollector } from "../otel";
+import { otelCollector, SYSTEM_TENANT_ID } from "../otel";
 
 export interface GatewayResponse {
   text: string;
@@ -35,15 +35,21 @@ class LLMProviderGateway {
     return true;
   }
 
+  // `tenantId` defaults to SYSTEM_TENANT_ID so callers outside Agente 04's ownership that have
+  // not yet been updated to pass a real tenant (see
+  // .agents/handoffs/onda-1/04-para-05-llmgateway-tenantid-propagation.md) keep compiling and
+  // keep tagging their spans/metrics as system-level instead of silently mixing them into a real
+  // tenant's data — never omit the tag, never guess a tenant.
   public async processRequest(
-    prompt: string, 
+    prompt: string,
     preferredProvider: 'GoogleGemini' | 'OpenAI' | 'Claude' = 'GoogleGemini',
-    systemInstruction: string = "Você é um assistente atencioso de atendimento e qualificação por voz."
+    systemInstruction: string = "Você é um assistente atencioso de atendimento e qualificação por voz.",
+    tenantId: string = SYSTEM_TENANT_ID
   ): Promise<GatewayResponse> {
     const spanId = otelCollector.startLocalSpan('LLMProviderGateway.processRequest', 'system', {
       preferredProvider,
       promptLength: prompt.length
-    });
+    }, tenantId);
 
     const startTime = Date.now();
 
@@ -189,8 +195,8 @@ class LLMProviderGateway {
       errors: errorLog
     });
 
-    otelCollector.recordLocalMetric('llm_cost', costUSD, { provider: currentProvider });
-    otelCollector.recordLocalMetric('llm_tokens', tokensUsed, { provider: currentProvider });
+    otelCollector.recordLocalMetric('llm_cost', costUSD, { provider: currentProvider }, tenantId);
+    otelCollector.recordLocalMetric('llm_tokens', tokensUsed, { provider: currentProvider }, tenantId);
 
     return {
       text,
