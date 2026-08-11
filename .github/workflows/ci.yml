@@ -14,7 +14,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  NODE_VERSION: '20.x'
+  NODE_VERSION: '22.x'
   # Fixed values for the ephemeral CI database/cache — these are not read from
   # repository secrets; CI never talks to production infrastructure.
   DATABASE_URL: "postgresql://devuser:devpassword@localhost:5432/birthvoices"
