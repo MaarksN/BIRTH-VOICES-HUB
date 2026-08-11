@@ -1,12 +1,28 @@
 import { create } from 'zustand';
 import { logger } from '../lib/logger';
 
+export interface SessionUser {
+  id: string;
+  email: string;
+  role: string;
+  tenantId: string;
+}
+
+export type SessionStatus = 'idle' | 'loading' | 'authenticated' | 'unauthenticated';
+
 interface SessionState {
   activeCalls: number;
   increment: () => void;
   decrement: () => void;
   brandColor: string;
   setBrandColor: (color: string) => void;
+
+  // Real session state: who is logged in, which tenant/role they act under. Populated from
+  // GET /api/auth/me (the only source of truth — never trust a client-writable cookie for this).
+  user: SessionUser | null;
+  sessionStatus: SessionStatus;
+  fetchSession: () => Promise<SessionUser | null>;
+  clearSession: () => void;
 }
 
 export const applyBrandColorToDom = (color: string) => {
@@ -46,5 +62,29 @@ export const useSessionStore = create<SessionState>((set) => ({
 
     set({ brandColor: color });
     applyBrandColorToDom(color);
-  }
+  },
+
+  user: null,
+  sessionStatus: 'idle',
+  fetchSession: async () => {
+    set({ sessionStatus: 'loading' });
+    try {
+      const res = await fetch('/api/auth/me', { credentials: 'include' });
+      if (!res.ok) {
+        set({ user: null, sessionStatus: 'unauthenticated' });
+        return null;
+      }
+      const data = await res.json();
+      const user: SessionUser | null = data?.user
+        ? { id: data.user.id, email: data.user.email, role: data.user.role, tenantId: data.user.tenantId }
+        : null;
+      set({ user, sessionStatus: user ? 'authenticated' : 'unauthenticated' });
+      return user;
+    } catch (err) {
+      logger.error('Failed to fetch current session', { err });
+      set({ user: null, sessionStatus: 'unauthenticated' });
+      return null;
+    }
+  },
+  clearSession: () => set({ user: null, sessionStatus: 'unauthenticated' }),
 }));

@@ -11,9 +11,20 @@ const mockLogout = vi.fn();
 
 vi.mock('../lib/auth', () => ({
   auth: {
-    getUser: () => ({ name: 'Maria Teste', company: 'maria@teste.com' }),
+    getToken: () => 'true',
     logout: () => mockLogout()
   }
+}));
+
+// Sidebar reads the real logged-in user (id/email/role/tenantId) from useSessionStore, which is
+// populated from GET /api/auth/me by DashboardLayout — not from a client-writable cookie. Mock
+// the store's selector-based API directly rather than a fabricated `user_info` cookie.
+vi.mock('../store/useSessionStore', () => ({
+  useSessionStore: (selector: (state: { user: { id: string; email: string; role: string; tenantId: string } | null; sessionStatus: string }) => unknown) =>
+    selector({
+      user: { id: 'user-1', email: 'maria@teste.com', role: 'admin', tenantId: 'tenant-1' },
+      sessionStatus: 'authenticated',
+    }),
 }));
 
 vi.mock('./design-system/ThemeContext', () => ({
@@ -58,7 +69,9 @@ describe('Sidebar', () => {
     expect(screen.getByText('Birth Hub 360')).toBeInTheDocument();
     expect(screen.getByText('Agent Registry')).toBeInTheDocument();
     expect(screen.getByText('Voice Studio')).toBeInTheDocument();
-    expect(screen.getByText('Maria Teste')).toBeInTheDocument();
+    // Real session user from useSessionStore (GET /api/auth/me), not a fabricated fallback.
+    expect(screen.getByText('maria@teste.com')).toBeInTheDocument();
+    expect(screen.getByText('admin')).toBeInTheDocument();
   });
 
   it('dispatches the open-command-palette event when the search trigger is clicked', async () => {
