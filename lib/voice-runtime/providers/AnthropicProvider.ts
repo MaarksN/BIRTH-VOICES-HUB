@@ -13,7 +13,9 @@ export class AnthropicProvider extends BaseProvider {
   public async process(input: ProviderInput, context?: ProviderContext): Promise<ProviderResponse> {
     const apiKey = process.env.ANTHROPIC_API_KEY;
     if (!apiKey) {
-      return { text: 'Chave da Anthropic não configurada.', latencyMs: 0 };
+      // Must throw, not return a fake success — see GeminiProvider.process for why. A swallowed
+      // failure here means FailoverEngine never tries the next provider in the chain.
+      throw new Error('Chave da Anthropic não configurada.');
     }
 
     const start = Date.now();
@@ -42,7 +44,10 @@ export class AnthropicProvider extends BaseProvider {
       }
 
       const data = await res.json();
-      const text = data.content?.[0]?.text || 'Sem resposta.';
+      const text = data.content?.[0]?.text;
+      if (!text) {
+        throw new Error('Anthropic retornou resposta vazia.');
+      }
 
       return {
         text,
@@ -51,7 +56,7 @@ export class AnthropicProvider extends BaseProvider {
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       logger.error(`[${this.name}] Error processing LLM request`, err);
-      return { text: `Erro: ${msg}`, latencyMs: Date.now() - start };
+      throw new Error(`Anthropic API Error: ${msg}`);
     }
   }
 
