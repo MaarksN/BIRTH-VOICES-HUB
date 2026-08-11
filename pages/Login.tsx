@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ArrowRight } from 'lucide-react';
 import { AtlasLogo } from '../components/design-system';
+import { useSessionStore } from '../store/useSessionStore';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -9,6 +10,7 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const navigate = useNavigate();
+  const fetchSession = useSessionStore((state) => state.fetchSession);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -29,6 +31,9 @@ export default function LoginPage() {
         throw new Error(data.error || 'Erro ao realizar login.');
       }
 
+      // Populate the real session (id/email/role/tenantId) before navigating so the shell
+      // renders the real user on the very first dashboard paint instead of a loading flash.
+      await fetchSession();
       navigate('/dashboard');
     } catch (err: unknown) {
       setError((err instanceof Error && err.message) || 'Erro de conexão.');
