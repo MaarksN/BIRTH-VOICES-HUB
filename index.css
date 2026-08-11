@@ -112,6 +112,27 @@ body {
   outline-offset: 2px;
 }
 
+/* Reduced motion: respects OS-level `prefers-reduced-motion` unconditionally, and additionally
+   `data-reduced-motion="true"` on <html> when the user opts in from Preferences (persisted via
+   PUT /api/settings, applied in App.tsx) even on a system that hasn't set the OS flag. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+html[data-reduced-motion="true"] *,
+html[data-reduced-motion="true"] *::before,
+html[data-reduced-motion="true"] *::after {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001ms !important;
+  scroll-behavior: auto !important;
+}
+
 /* Glassmorphism Classes */
 .glass-panel {
   background: rgba(255, 255, 255, 0.7);

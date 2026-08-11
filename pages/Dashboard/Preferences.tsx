@@ -1,30 +1,105 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Settings, Globe, Bell, Keyboard, LayoutGrid,
-  SlidersHorizontal, ArrowRight
+  SlidersHorizontal, ArrowRight, AlertTriangle
 } from 'lucide-react';
-import { Card, Button, Badge, Switch, Select, useToast, ToastContainer } from '../../components/design-system';
+import { Card, Button, Badge, Switch, Select, useToast, ToastContainer, Skeleton } from '../../components/design-system';
+import { logger } from '../../lib/logger';
+
+const PREFERENCES_DEFAULTS = {
+  lang: 'pt',
+  timezone: 'America/Sao_Paulo',
+  dateFormat: 'DD/MM/YYYY',
+  timeFormat: '24h',
+  density: 'comfortable',
+  highContrast: false,
+  reducedMotion: false,
+  notifEmail: true,
+  notifBrowser: true,
+  notifWeekly: false,
+  notifCalls: true,
+};
 
 export default function PreferencesPage() {
   const { toasts, showToast } = useToast();
-  
-  // States
-  const [lang, setLang] = useState('pt');
-  const [timezone, setTimezone] = useState('America/Sao_Paulo');
-  const [dateFormat, setDateFormat] = useState('DD/MM/YYYY');
-  const [timeFormat, setTimeFormat] = useState('24h');
-  const [density, setDensity] = useState('comfortable');
-  const [highContrast, setHighContrast] = useState(false);
-  const [reducedMotion, setReducedMotion] = useState(false);
+
+  // States — start `null`-ish (loaded=false) so we never briefly render client-only defaults
+  // as if they were the user's saved choice before the real GET /api/settings resolves.
+  const [loaded, setLoaded] = useState(false);
+  const [loadError, setLoadError] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  const [lang, setLang] = useState(PREFERENCES_DEFAULTS.lang);
+  const [timezone, setTimezone] = useState(PREFERENCES_DEFAULTS.timezone);
+  const [dateFormat, setDateFormat] = useState(PREFERENCES_DEFAULTS.dateFormat);
+  const [timeFormat, setTimeFormat] = useState(PREFERENCES_DEFAULTS.timeFormat);
+  const [density, setDensity] = useState(PREFERENCES_DEFAULTS.density);
+  const [highContrast, setHighContrast] = useState(PREFERENCES_DEFAULTS.highContrast);
+  const [reducedMotion, setReducedMotion] = useState(PREFERENCES_DEFAULTS.reducedMotion);
 
   // Notifications
-  const [notifEmail, setNotifEmail] = useState(true);
-  const [notifBrowser, setNotifBrowser] = useState(true);
-  const [notifWeekly, setNotifWeekly] = useState(false);
-  const [notifCalls, setNotifCalls] = useState(true);
+  const [notifEmail, setNotifEmail] = useState(PREFERENCES_DEFAULTS.notifEmail);
+  const [notifBrowser, setNotifBrowser] = useState(PREFERENCES_DEFAULTS.notifBrowser);
+  const [notifWeekly, setNotifWeekly] = useState(PREFERENCES_DEFAULTS.notifWeekly);
+  const [notifCalls, setNotifCalls] = useState(PREFERENCES_DEFAULTS.notifCalls);
 
-  const handleSave = () => {
-    showToast('Preferências salvas com sucesso no seu perfil!', 'success');
+  useEffect(() => {
+    fetch('/api/settings')
+      .then((res) => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.json();
+      })
+      .then((data) => {
+        const s = { ...PREFERENCES_DEFAULTS, ...(data.settings ?? {}) };
+        setLang(s.lang);
+        setTimezone(s.timezone);
+        setDateFormat(s.dateFormat);
+        setTimeFormat(s.timeFormat);
+        setDensity(s.density);
+        setHighContrast(!!s.highContrast);
+        setReducedMotion(!!s.reducedMotion);
+        setNotifEmail(!!s.notifEmail);
+        setNotifBrowser(!!s.notifBrowser);
+        setNotifWeekly(!!s.notifWeekly);
+        setNotifCalls(!!s.notifCalls);
+        setLoaded(true);
+      })
+      .catch((err) => {
+        logger.error('Failed to load user preferences', { err });
+        setLoadError(true);
+        setLoaded(true);
+      });
+  }, []);
+
+  // Applies reduced-motion immediately (both on load and on toggle), independent of save, so
+  // the effect is never in a state where the switch says "on" but nothing actually changed.
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    document.documentElement.dataset.reducedMotion = reducedMotion ? 'true' : 'false';
+  }, [reducedMotion]);
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      const res = await fetch('/api/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          settings: {
+            lang, timezone, dateFormat, timeFormat, density,
+            highContrast, reducedMotion,
+            notifEmail, notifBrowser, notifWeekly, notifCalls,
+          },
+        }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      showToast('Preferências salvas com sucesso no seu perfil!', 'success');
+    } catch (err) {
+      logger.error('Failed to save user preferences', { err });
+      showToast('Não foi possível salvar suas preferências. Tente novamente.', 'error');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const timezones = [
@@ -71,14 +146,31 @@ export default function PreferencesPage() {
             Ajuste as configurações de localidade, notificações, interface de dados e acessibilidade para criar o seu ambiente de trabalho perfeito.
           </p>
         </div>
-        <Button variant="primary" onClick={handleSave} className="shadow-lg shrink-0">
+        <Button variant="primary" onClick={handleSave} isLoading={saving} disabled={!loaded} className="shadow-lg shrink-0">
           Salvar Alterações
         </Button>
       </div>
 
+      {loadError && (
+        <div className="flex items-center gap-2 p-3 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/30 rounded-lg text-xs text-amber-800 dark:text-amber-300">
+          <AlertTriangle className="h-4 w-4 shrink-0" />
+          Não foi possível carregar suas preferências salvas — exibindo valores padrão. Suas próximas alterações ainda serão salvas normalmente.
+        </div>
+      )}
+
+      {!loaded ? (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="lg:col-span-2 space-y-6">
+            <Skeleton className="h-48 w-full" />
+            <Skeleton className="h-40 w-full" />
+            <Skeleton className="h-56 w-full" />
+          </div>
+          <Skeleton className="h-64 w-full" />
+        </div>
+      ) : (
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-6">
-          
+
           {/* LOCALIDADE */}
           <Card className="space-y-6">
             <div className="flex items-center gap-3 border-b border-slate-100 dark:border-slate-700/60 pb-3">
@@ -140,17 +232,20 @@ export default function PreferencesPage() {
               />
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2 border-t border-slate-100 dark:border-slate-750">
-                <Switch 
-                  checked={highContrast} 
-                  onChange={setHighContrast} 
-                  label="Modo de Alto Contraste"
-                  description="Aumenta o contraste dos textos e bordas de inputs (WCAG AAA)"
-                />
-                <Switch 
-                  checked={reducedMotion} 
-                  onChange={setReducedMotion} 
+                <div className="space-y-1">
+                  <Switch
+                    checked={highContrast}
+                    onChange={setHighContrast}
+                    label="Modo de Alto Contraste"
+                    description="Preferência salva; aplicação visual completa do tema de alto contraste ainda não implementada."
+                  />
+                  <Badge variant="secondary">Em breve</Badge>
+                </div>
+                <Switch
+                  checked={reducedMotion}
+                  onChange={setReducedMotion}
                   label="Reduzir Movimento"
-                  description="Desativa micro-animações de entrada e transições"
+                  description="Desativa animações e transições em toda a interface imediatamente."
                 />
               </div>
             </div>
@@ -183,20 +278,23 @@ export default function PreferencesPage() {
                 description="Alertas instantâneos quando um novo lead ou chamada for concluída."
               />
               <hr className="border-slate-100 dark:border-slate-750" />
-              <Switch 
-                checked={notifWeekly} 
-                onChange={setNotifWeekly} 
+              <Switch
+                checked={notifWeekly}
+                onChange={setNotifWeekly}
                 label="Relatório Executivo Semanal"
-                description="Envio de métricas de CSAT, SLA e minutos consumidos consolidados."
+                description="Resumo periódico de atividade da conta, quando disponível."
               />
               <hr className="border-slate-100 dark:border-slate-750" />
-              <Switch 
-                checked={notifCalls} 
-                onChange={setNotifCalls} 
-                label="Alertas de Latência e Erro na IA"
-                description="Notificar se o tempo de resposta do modelo ultrapassar 1.5s."
+              <Switch
+                checked={notifCalls}
+                onChange={setNotifCalls}
+                label="Alertas de Erro na IA"
+                description="Notificar sobre falhas na execução de agentes de voz."
               />
             </div>
+            <p className="text-[11px] text-slate-400 leading-relaxed pt-1">
+              Sua preferência é salva agora; o envio efetivo de e-mail/push para estes canais depende de um serviço de notificações que ainda não está implementado nesta versão.
+            </p>
           </Card>
 
         </div>
@@ -239,7 +337,7 @@ export default function PreferencesPage() {
             <SlidersHorizontal className="h-8 w-8 mx-auto text-brand animate-bounce" />
             <h4 className="font-bold text-slate-900 dark:text-slate-50 text-sm">Design System integrado</h4>
             <p className="text-xs text-slate-500 leading-relaxed">
-              Todas as preferências alteradas aqui reconfiguram dinamicamente o comportamento de renderização dos componentes, cumprindo estritamente as diretrizes de acessibilidade WCAG.
+              As preferências desta página são salvas na sua conta. Redução de movimento é aplicada imediatamente em toda a interface.
             </p>
             <Button size="sm" variant="outline" className="w-full" onClick={() => { window.location.hash = '#/dashboard/docs'; }}>
               Ver Design Tokens
@@ -248,6 +346,7 @@ export default function PreferencesPage() {
           </Card>
         </div>
       </div>
+      )}
 
       <ToastContainer toasts={toasts} />
     </div>
