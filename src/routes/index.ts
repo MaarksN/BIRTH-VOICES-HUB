@@ -14,6 +14,7 @@ import organizationRoutes from './organization.routes.js';
 import userRoutes from './user.routes.js';
 import aiRoutes from './ai.routes.js';
 import observabilityRoutes from './observability.routes.js';
+import atlasgrRoutes from '../features/prospecting/routes/atlasgr.routes.js';
 
 const router = express.Router();
 
@@ -32,5 +33,6 @@ router.use(organizationRoutes);
 router.use(userRoutes);
 router.use(aiRoutes);
 router.use(observabilityRoutes);
+router.use(atlasgrRoutes);
 
 export default router;
