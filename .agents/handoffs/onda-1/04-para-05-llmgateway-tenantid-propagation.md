@@ -2,7 +2,7 @@
 - Para: Agente 05 (Telefonia, Chamadas e Webhooks)
 - Onda: 1
 - Status: aberto
-- Prioridade: normal
+- Prioridade: alto (elevada na Onda 2 — ver "Atualização Onda 2" abaixo)
 
 ## Problema
 Ao corrigir o vazamento cross-tenant do coletor de observability (ver
@@ -60,3 +60,21 @@ public async processRequest(
 `tenantId` foi adicionado como último parâmetro (não inserido no meio) exatamente para preservar
 compatibilidade posicional com chamadores existentes como este, sem exigir edição imediata fora do
 escopo do Agente 04.
+
+## Atualização Onda 2 (prioridade elevada para "alto")
+
+Na Onda 2 implementei o gate de consentimento de IA (LGPD, `AGENTS.md` bloqueador #8) em
+`LLMGateway.ts`/`SessionManager.ts` — ver `.agents/handoffs/onda-2/04-para-01-ai-consent-schema.md`.
+O gate verifica consentimento **por tenant real**; chamadas marcadas com o tenant sentinela
+`SYSTEM_TENANT_ID = 'system'` (que é o que `telephonyService.ts` produz hoje, por não passar
+`tenantId`) **pulam** a checagem propositalmente, para não bloquear 100% das chamadas de telefonia
+reais de uma hora para outra sem aviso.
+
+Isso significa que, enquanto este handoff continuar aberto, o gate de consentimento de IA
+**não está de fato protegendo dados de contato reais processados via telefonia** — só protege
+chamadas que já chegam com um tenant real (ex.: `/api/chat` do Playground). Assim que
+`telephonyService.ts` passar `session.tenantId` real para `processRequest`, o gate de
+consentimento passa a valer automaticamente para chamadas de telefonia também, sem qualquer
+mudança adicional no Agente 04. Por isso a prioridade deste handoff subiu de "normal" para "alto"
+nesta onda — ele agora bloqueia mais do que granularidade de observability, bloqueia o alcance
+real da proteção de LGPD já implementada.
