@@ -11,6 +11,9 @@ declare module 'clamscan' {
 
   interface Scanner {
     isInfected(path: string): Promise<{ isInfected: boolean; viruses: string[] }>;
+    // `isInfected` is `null` when clamd returns a response NodeClam can't confidently parse as
+    // clean/infected — callers must treat that the same as "scan failed", never as "clean".
+    scanStream(stream: NodeJS.ReadableStream): Promise<{ isInfected: boolean | null; viruses: string[] }>;
   }
 
   export default class NodeClam {
