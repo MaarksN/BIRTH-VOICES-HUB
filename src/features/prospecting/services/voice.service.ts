@@ -86,6 +86,7 @@ export class VoiceProspectingService {
         },
         body: JSON.stringify({
           phone_number: payload.phone_number,
+          first_sentence: `Olá ${payload.name}! Tudo bem com você? Aqui é a inteligência comercial da AtlasGR.`,
           task: `Você é um assistente de vendas senior da AtlasGR. Fale OBRIGATORIAMENTE e EXCLUSIVAMENTE em Português do Brasil (pt-BR). Você está ligando para ${payload.name} da empresa ${payload.company}. Seu objetivo é fazer 3 perguntas curtas para entender se a empresa tem fit para a nossa plataforma de CRM e BI. Seja simpático, natural, e nunca fale mais que 2 frases seguidas sem deixar o cliente responder.`,
           language: 'pt-BR',
           voice: 'nat',
