@@ -65,8 +65,47 @@ export const metricSchema = z.object({
 // The server POSTs to whatever callbackUrl a client supplies, so an unrestricted value here is an
 // SSRF primitive. Requiring HTTPS blocks non-HTTP schemes outright and keeps call transcripts off
 // the wire in the clear; plain http stays allowed outside production for local receivers.
-// Note this does not resolve DNS, so it does not by itself stop a public name pointing at a
-// private address — tighten with an egress allowlist if untrusted tenants ever get API access.
+// isPrivateOrReservedHost rejects literal loopback/private/link-local/cloud-metadata IPs and the
+// `localhost` hostname family so a caller cannot point the webhook at internal infrastructure
+// (e.g. 169.254.169.254 cloud metadata, 127.0.0.1, a service on the private VPC). This is a
+// literal-IP check only — it does not resolve DNS, so a public hostname that resolves to a
+// private address at request time is not caught here; tighten with an egress allowlist/proxy if
+// untrusted tenants ever get API access and this residual DNS-rebinding gap needs closing too.
+function isPrivateOrReservedHost(hostname: string): boolean {
+  // Node's URL.hostname keeps the brackets for IPv6 literals (e.g. "[::1]") — strip them so the
+  // IPv6 branch below matches against the bare address.
+  const host = hostname.toLowerCase().replace(/^\[|\]$/g, '');
+  if (host === 'localhost' || host.endsWith('.localhost') || host === '0.0.0.0') return true;
+
+  // IPv4 literal (including IPv4-mapped IPv6 forms like ::ffff:127.0.0.1)
+  const ipv4Match = host.match(/(?:^|:)(\d{1,3}(?:\.\d{1,3}){3})$/);
+  const ipv4 = ipv4Match ? ipv4Match[1] : (/^\d{1,3}(\.\d{1,3}){3}$/.test(host) ? host : null);
+  if (ipv4) {
+    const octets = ipv4.split('.').map(Number);
+    if (octets.some((o) => Number.isNaN(o) || o < 0 || o > 255)) return true; // malformed -> reject
+    const [a, b] = octets;
+    if (a === 127) return true; // loopback
+    if (a === 10) return true; // private
+    if (a === 172 && b >= 16 && b <= 31) return true; // private
+    if (a === 192 && b === 168) return true; // private
+    if (a === 169 && b === 254) return true; // link-local + cloud metadata (169.254.169.254)
+    if (a === 100 && b >= 64 && b <= 127) return true; // CGNAT
+    if (a === 0) return true; // "this network"
+    if (a >= 224) return true; // multicast/reserved
+    return false;
+  }
+
+  // IPv6 literal (bracketed by URL parsing rules, hostname comes without brackets)
+  if (host.includes(':')) {
+    if (host === '::1') return true; // loopback
+    if (host.startsWith('fe80:') || host.startsWith('fe8') || host.startsWith('fe9') || host.startsWith('fea') || host.startsWith('feb')) return true; // link-local fe80::/10
+    if (host.startsWith('fc') || host.startsWith('fd')) return true; // unique local fc00::/7
+    return false;
+  }
+
+  return false;
+}
+
 const callbackUrlSchema = z
   .string()
   .url('callbackUrl deve ser uma URL válida')
@@ -78,10 +117,12 @@ const callbackUrlSchema = z
       } catch {
         return false;
       }
-      if (parsed.protocol === 'https:') return true;
-      return parsed.protocol === 'http:' && process.env.NODE_ENV !== 'production';
+      if (parsed.protocol !== 'https:' && !(parsed.protocol === 'http:' && process.env.NODE_ENV !== 'production')) {
+        return false;
+      }
+      return !isPrivateOrReservedHost(parsed.hostname);
     },
-    { message: 'callbackUrl deve usar HTTPS' },
+    { message: 'callbackUrl deve ser uma URL pública válida (HTTPS, sem apontar para rede interna/privada).' },
   );
 
 export const outboundCallSchema = z.object({
