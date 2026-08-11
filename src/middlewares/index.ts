@@ -5,6 +5,17 @@ import { setCookie, ACCESS_TOKEN_MAX_AGE_MS } from '../lib/cookies.js';
 
 export const csrfProtection = (req: express.Request, res: express.Response, next: express.NextFunction) => {
   if (['POST', 'PUT', 'DELETE'].includes(req.method)) {
+    // Requests authenticated via a Bearer token in the Authorization header — rather than the
+    // ambient session cookie — are not exploitable via CSRF: a malicious page cannot attach an
+    // arbitrary Authorization header to a cross-site request, and cors() already restricts which
+    // origins may read the response of a JS-initiated cross-origin request. This unblocks
+    // legitimate server-to-server callers authenticated this way (e.g. the AtlasGR CRM calling
+    // POST /api/voice/outbound with its own bearer token, which never sends an Origin header)
+    // without weakening protection for the cookie-authenticated browser path below.
+    if (req.headers.authorization?.startsWith('Bearer ')) {
+      return next();
+    }
+
     const isProduction = process.env.NODE_ENV === 'production';
     const origin = req.headers.origin;
     const host = req.headers.host;

@@ -7,6 +7,12 @@ import { IdempotencyCheckFailedError } from '../lib/webhookIdempotency.js';
 
 const router = express.Router();
 
+// This router is now mounted before the global express.json() (see server.ts — it also needs to
+// run before csrfProtection, since both routes below are server-to-server webhooks authenticated
+// by their own secret, not by session cookie/Origin). It needs its own JSON body parser, the same
+// way telephony.routes.ts brings its own express.urlencoded() for the same reason.
+router.use(express.json());
+
 /**
  * Authenticates the AtlasGR CRM as the caller via a pre-shared secret sent in a custom header.
  *

@@ -21,6 +21,7 @@ import { csrfProtection } from "./src/middlewares/index.js";
 import { createHealthRouter } from "./src/routes/health.routes.js";
 import apiRoutes from "./src/routes/index.js";
 import telephonyRoutes from "./src/routes/telephony.routes.js";
+import atlasgrRoutes from "./src/features/prospecting/routes/atlasgr.routes.js";
 import { otelCollector } from "./lib/voice-runtime/otel.js";
 import { logger } from "./src/lib/logger.js";
 import { startWebhookWorker } from "./src/services/webhook.worker.js";
@@ -130,6 +131,14 @@ async function startServer() {
   // every request). Authenticity is instead verified per-request via the Twilio request signature
   // inside telephonyRoutes — see validateTwilioSignature.
   app.use('/api', createRateLimiter('telephony', 120, 60), telephonyRoutes);
+
+  // AtlasGR/Bland AI webhooks: same reasoning as telephonyRoutes above — these are
+  // server-to-server calls (the AtlasGR CRM backend, the Bland AI call-result callback) that
+  // never send an Origin header, so csrfProtection would reject every request in production.
+  // Authenticity is verified per-route instead: a pre-shared secret header for the AtlasGR
+  // webhook, a token embedded in the callback URL for the Bland AI callback — see
+  // src/features/prospecting/routes/atlasgr.routes.ts.
+  app.use('/api', atlasgrRoutes);
 
   app.use(csrfProtection);
   app.use(express.json());
