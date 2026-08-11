@@ -1,17 +1,16 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   Users, Phone, FileText, Sparkles, CheckCircle2,
   Play, Code, ShieldCheck, Activity,
-  Calendar, RefreshCw,
-  ShieldAlert, MousePointerClick, Settings
+  RefreshCw, Database, Server,
+  ShieldAlert, AlertTriangle
 } from 'lucide-react';
 import {
-  Card, Button, Badge, Progress, Spinner,
+  Card, Button, Badge, Progress, Spinner, Skeleton, EmptyState, Alert,
   Tooltip, Modal, useToast, ToastContainer
 } from '../../components/design-system';
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, LineChart, Line } from 'recharts';
 import { logger } from '../../lib/logger';
 
 interface CallLogEntry {
@@ -21,87 +20,149 @@ interface CallLogEntry {
   agent?: string;
   status?: string;
   time?: string;
+  timestamp?: string;
+}
+
+interface AgentRecord {
+  id: string;
+  name: string;
+  model: string;
+  phoneNumber?: string;
+  updatedAt?: string;
+}
+
+interface ReadyChecks {
+  database: 'ok' | 'error';
+  redis: 'ok' | 'error';
+}
+
+type FetchStatus = 'loading' | 'ready' | 'error';
+
+// Parses a "mm:ss" call-duration string into whole seconds. Real call durations are free-text
+// (see prisma CallLog.duration / callLogRepository.createCallLog) so not every value is
+// guaranteed to match — anything that doesn't parse is simply excluded from the average rather
+// than silently coerced to 0, which would understate real call length.
+function parseDurationToSeconds(duration?: string): number | null {
+  if (!duration) return null;
+  const match = /^(\d{1,2}):(\d{2})$/.exec(duration.trim());
+  if (!match) return null;
+  const minutes = Number(match[1]);
+  const seconds = Number(match[2]);
+  if (Number.isNaN(minutes) || Number.isNaN(seconds)) return null;
+  return minutes * 60 + seconds;
+}
+
+function formatSecondsAsDuration(totalSeconds: number): string {
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = Math.round(totalSeconds % 60);
+  return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
 }
 
 export default function RebuiltExecutiveOverview() {
   const navigate = useNavigate();
   const { toasts, showToast } = useToast();
-  
-  // Real-time Clock for Enterprise Dashboards
-  const [time, setTime] = useState(new Date());
-  useEffect(() => {
-    const timer = setInterval(() => setTime(new Date()), 1000);
-    return () => clearInterval(timer);
-  }, []);
 
-  // Onboarding Checklist States (Saves to server-side database)
-  const [checklist, setChecklist] = useState({
-    orgCreated: true,
-    agentCreated: false,
-    telephonyConnected: false,
-    knowledgeAdded: false,
-    firstTest: false,
-    agentPublished: false,
-    analyticsActive: false,
-    firstCallCompleted: false
+  // Onboarding Checklist — real, persisted server-side (GET/POST /api/onboarding). Kept `null`
+  // until the first fetch resolves so we never render the server's default checklist as if it
+  // had already been confirmed loaded (avoids a flash of "done" state before real data arrives).
+  const [checklist, setChecklist] = useState<Record<string, boolean> | null>(null);
+  const [checklistError, setChecklistError] = useState(false);
+
+  const [callsState, setCallsState] = useState<{ status: FetchStatus; calls: CallLogEntry[] }>({
+    status: 'loading',
+    calls: [],
+  });
+  const [agentsState, setAgentsState] = useState<{ status: FetchStatus; agents: AgentRecord[] }>({
+    status: 'loading',
+    agents: [],
+  });
+  const [readyState, setReadyState] = useState<{ status: FetchStatus; checks: ReadyChecks | null }>({
+    status: 'loading',
+    checks: null,
   });
 
-  const [recentCalls, setRecentCalls] = useState<CallLogEntry[]>([]);
-
-  const fetchCalls = async () => {
+  const fetchCalls = useCallback(async () => {
+    setCallsState((prev) => ({ ...prev, status: 'loading' }));
     try {
       const res = await fetch('/api/call-logs');
-      if (res.ok) {
-        const data = await res.json();
-        if (data.callLogs) {
-          setRecentCalls(data.callLogs);
-        }
-      }
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      setCallsState({ status: 'ready', calls: Array.isArray(data.callLogs) ? data.callLogs : [] });
     } catch (err) {
       logger.error('Error loading call logs', { err });
+      setCallsState((prev) => ({ ...prev, status: 'error' }));
     }
-  };
+  }, []);
+
+  const fetchAgents = useCallback(async () => {
+    setAgentsState((prev) => ({ ...prev, status: 'loading' }));
+    try {
+      const res = await fetch('/api/agents');
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      setAgentsState({ status: 'ready', agents: Array.isArray(data.agents) ? data.agents : [] });
+    } catch (err) {
+      logger.error('Error loading agents', { err });
+      setAgentsState((prev) => ({ ...prev, status: 'error' }));
+    }
+  }, []);
+
+  const fetchReady = useCallback(async () => {
+    setReadyState((prev) => ({ ...prev, status: 'loading' }));
+    try {
+      const res = await fetch('/api/ready');
+      const data = await res.json();
+      setReadyState({ status: 'ready', checks: data.checks ?? null });
+    } catch (err) {
+      logger.error('Error loading platform readiness', { err });
+      setReadyState({ status: 'error', checks: null });
+    }
+  }, []);
 
   useEffect(() => {
-    const fetchServerData = async () => {
+    const fetchChecklist = async () => {
       try {
         const res = await fetch('/api/onboarding');
-        if (res.ok) {
-          const data = await res.json();
-          if (data.checklist) {
-            setChecklist(data.checklist);
-          }
-        }
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        setChecklist(data.checklist ?? {});
       } catch (err) {
         logger.error('Error loading onboarding checklist from database', { err });
+        setChecklistError(true);
+        setChecklist({});
       }
     };
 
-    fetchServerData();
+    fetchChecklist();
     fetchCalls();
-  }, []);
+    fetchAgents();
+    fetchReady();
+  }, [fetchCalls, fetchAgents, fetchReady]);
 
-  const updateChecklist = async (key: keyof typeof checklist, value: boolean) => {
+  const updateChecklist = async (key: string, value: boolean) => {
+    if (!checklist) return;
     const updated = { ...checklist, [key]: value };
     setChecklist(updated);
     showToast(`Checklist atualizado! Progresso atualizado para ${Math.round(calculateOnboardingProgress(updated))}%`, 'info');
 
     try {
-      await fetch('/api/onboarding', {
+      const res = await fetch('/api/onboarding', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ checklist: updated })
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ checklist: updated }),
       });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
     } catch (err) {
       logger.error('Error saving onboarding checklist to database', { err });
+      showToast('Não foi possível salvar o checklist no servidor. Tente novamente.', 'error');
     }
   };
 
-  const calculateOnboardingProgress = (currentList = checklist) => {
-    const keys = Object.keys(currentList) as (keyof typeof checklist)[];
-    const completed = keys.filter(k => currentList[k]).length;
+  const calculateOnboardingProgress = (currentList: Record<string, boolean> | null = checklist) => {
+    if (!currentList) return 0;
+    const keys = Object.keys(currentList);
+    if (keys.length === 0) return 0;
+    const completed = keys.filter((k) => currentList[k]).length;
     return (completed / keys.length) * 100;
   };
 
@@ -111,143 +172,105 @@ export default function RebuiltExecutiveOverview() {
 
   // Modals for Quick Actions
   const [activeActionModal, setActiveActionModal] = useState<string | null>(null);
-  const [actionLoading, setActionLoading] = useState(false);
-  const [actionInput, setActionInput] = useState('');
-  
+
   const [activeTab, setActiveTab] = useState<'kpis' | 'audit' | 'analytics'>('kpis');
 
-  // Sparklines SVG coordinates for high-end Stripe looks
-  const sparklines = {
-    agents: "M0,25 Q15,10 30,20 T60,5 T90,22 T120,8 T150,15",
-    calls: "M0,28 Q15,5 30,25 T60,10 T90,5 T120,20 T150,8",
-    duration: "M0,15 Q15,22 30,8 T60,18 T90,25 T120,5 T150,12",
-    tokens: "M0,25 Q15,25 30,10 T60,20 T90,8 T120,18 T150,3",
-    costs: "M0,20 Q15,12 30,22 T60,5 T90,15 T120,8 T150,2",
-    revenue: "M0,30 Q15,20 30,15 T60,5 T90,2 T120,1 T150,0",
-    availability: "M0,1 Q15,1 30,1 T60,1 T90,1 T120,1 T150,1",
-    csat: "M0,25 Q15,5 30,8 T60,1 T90,5 T120,2 T150,1"
-  };
-
   // Quick action executor
-  const handleExecuteQuickAction = async (type: string) => {
-    setActionLoading(true);
-    setActionLoading(false);
+  const handleExecuteQuickAction = (type: string) => {
     setActiveActionModal(null);
-    
+
     if (type === 'agent') {
-      updateChecklist('agentCreated', true);
-      showToast(`Agente "${actionInput || 'Catarina Assistente'}" criado com sucesso!`, 'success');
+      showToast('Abrindo formulário de criação de agente...', 'info');
       navigate('/dashboard/agents/new');
-    } else if (type === 'org') {
-      updateChecklist('orgCreated', true);
-      showToast(`Organização "${actionInput || 'ATLASGR Enterprise'}" configurada!`, 'success');
     } else if (type === 'telephony') {
-      updateChecklist('telephonyConnected', true);
-      showToast(`Número de telefone conectado ao Twilio Trunk!`, 'success');
       navigate('/dashboard/telephony');
     } else if (type === 'test') {
-      updateChecklist('firstTest', true);
-      showToast(`Simulando chamada de voz de teste... Alerta enviado ao webhook!`, 'info');
-      
-      try {
-        await fetch('/api/call-logs', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            contactName: 'Fernanda Lima (Simulado)',
-            duration: '02:45',
-            status: 'Concluído',
-            agent: 'Catarina Atendimento'
-          })
-        });
-        fetchCalls();
-      } catch (err) {
-        logger.error('Error generating call log', { err });
-      }
-
       navigate('/dashboard/playground');
     } else if (type === 'knowledge') {
-      updateChecklist('knowledgeAdded', true);
-      showToast(`Base de conhecimento importada com sucesso!`, 'success');
+      navigate('/dashboard/knowledge');
     }
-    setActionInput('');
   };
 
-  const usageData = [
-    { name: '01 Jul', tokens: 4000, minutes: 24 },
-    { name: '05 Jul', tokens: 3000, minutes: 13 },
-    { name: '10 Jul', tokens: 2000, minutes: 98 },
-    { name: '15 Jul', tokens: 2780, minutes: 39 },
-    { name: '20 Jul', tokens: 1890, minutes: 48 },
-    { name: '25 Jul', tokens: 2390, minutes: 38 },
-    { name: '30 Jul', tokens: 3490, minutes: 43 },
-  ];
+  // ---- Real, derived metrics (no fabricated numbers) ----
+  const totalAgents = agentsState.agents.length;
+  const agentsWithPhone = agentsState.agents.filter((a) => !!a.phoneNumber).length;
 
-  const latencyData = [
-    { time: '10:00', latency: 120 },
-    { time: '10:05', latency: 150 },
-    { time: '10:10', latency: 130 },
-    { time: '10:15', latency: 280 },
-    { time: '10:20', latency: 140 },
-    { time: '10:25', latency: 125 },
-    { time: '10:30', latency: 110 },
-  ];
+  const totalCalls = callsState.calls.length;
+  const today = new Date();
+  const callsToday = callsState.calls.filter((c) => {
+    if (!c.timestamp) return false;
+    const d = new Date(c.timestamp);
+    return d.getFullYear() === today.getFullYear() && d.getMonth() === today.getMonth() && d.getDate() === today.getDate();
+  }).length;
+
+  const completedCalls = callsState.calls.filter((c) => c.status === 'Concluído').length;
+  const completionRate = totalCalls > 0 ? (completedCalls / totalCalls) * 100 : null;
+
+  const parsedDurations = callsState.calls
+    .map((c) => parseDurationToSeconds(c.duration))
+    .filter((v): v is number => v !== null);
+  const avgDuration = parsedDurations.length > 0
+    ? formatSecondsAsDuration(parsedDurations.reduce((a, b) => a + b, 0) / parsedDurations.length)
+    : null;
 
   return (
     <div className="space-y-8 animate-slide-up text-left">
-      
-      {/* HEADER SECTION WITH SYSTEMS METRICS */}
+
+      {/* HEADER SECTION */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 border-b border-slate-200 dark:border-slate-800 pb-6">
         <div>
           <div className="flex items-center gap-2">
-            <Sparkles className="h-4 w-4 text-brand animate-pulse" />
+            <Sparkles className="h-4 w-4 text-brand" />
             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-              {time.toLocaleDateString('pt-BR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+              {today.toLocaleDateString('pt-BR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
             </span>
           </div>
           <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-50 font-sans tracking-tight mt-1">
             Birth Hub 360 Executive
           </h1>
           <p className="text-slate-500 dark:text-slate-400 mt-2 text-sm max-w-xl">
-            Plataforma omnicanal de IA de voz para prospecção e atendimento. Monitore latência, SLAs de telefonia, CSAT e engajamento em tempo real.
+            Plataforma omnicanal de IA de voz para prospecção e atendimento.
           </p>
         </div>
 
-        {/* API STATUS / SERVICE HEALTH */}
+        {/* PLATFORM READINESS — real data from GET /api/ready (database + redis), not a
+            decorative "everything is green" claim. */}
         <div className="flex flex-wrap items-center gap-3 bg-slate-100 dark:bg-slate-800/80 p-3 rounded-xl border border-slate-200 dark:border-slate-700 w-full lg:w-auto">
           <div className="text-left mr-2 lg:border-r border-slate-200 dark:border-slate-700 pr-4">
-            <p className="text-[10px] font-bold text-slate-400 uppercase">Status do Sistema</p>
+            <p className="text-[10px] font-bold text-slate-400 uppercase">Status da Plataforma</p>
             <p className="text-xs font-bold text-slate-700 dark:text-slate-200 font-mono">
-              {time.toLocaleTimeString('pt-BR')} (UTC-3)
+              {today.toLocaleTimeString('pt-BR')} (UTC-3)
             </p>
           </div>
           <div className="flex items-center gap-4 text-xs font-semibold">
-            <Tooltip text="Provedor de telefonia SIP Trunk">
-              <span className="flex items-center gap-1.5 text-slate-600 dark:text-slate-300">
-                <span className="h-2 w-2 rounded-full bg-green-500 animate-ping" />
-                Twilio
+            {readyState.status === 'loading' && (
+              <span className="flex items-center gap-1.5 text-slate-400">
+                <Spinner size="sm" /> Verificando...
               </span>
-            </Tooltip>
-            <Tooltip text="Modelo de IA principal executado no servidor">
-              <span className="flex items-center gap-1.5 text-slate-600 dark:text-slate-300">
-                <span className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
-                Gemini 2.5
+            )}
+            {readyState.status === 'error' && (
+              <span className="flex items-center gap-1.5 text-red-500">
+                <span className="h-2 w-2 rounded-full bg-red-500" /> Indisponível
               </span>
-            </Tooltip>
-            <Tooltip text="Transcrição de voz de altíssima velocidade">
-              <span className="flex items-center gap-1.5 text-slate-600 dark:text-slate-300">
-                <span className="h-2 w-2 rounded-full bg-green-500" />
-                Deepgram
-              </span>
-            </Tooltip>
-            <Tooltip text="Servidores de Webhooks para CRM externo">
-              <span className="flex items-center gap-1.5 text-slate-600 dark:text-slate-300">
-                <span className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
-                Webhooks
-              </span>
-            </Tooltip>
+            )}
+            {readyState.status === 'ready' && (
+              <>
+                <Tooltip text="Conexão com o banco de dados (PostgreSQL)">
+                  <span className="flex items-center gap-1.5 text-slate-600 dark:text-slate-300">
+                    <Database className="h-3 w-3" />
+                    <span className={`h-2 w-2 rounded-full ${readyState.checks?.database === 'ok' ? 'bg-green-500' : 'bg-red-500'}`} />
+                    Banco de Dados
+                  </span>
+                </Tooltip>
+                <Tooltip text="Fila/cache Redis (sessões, idempotência)">
+                  <span className="flex items-center gap-1.5 text-slate-600 dark:text-slate-300">
+                    <Server className="h-3 w-3" />
+                    <span className={`h-2 w-2 rounded-full ${readyState.checks?.redis === 'ok' ? 'bg-green-500' : 'bg-red-500'}`} />
+                    Redis
+                  </span>
+                </Tooltip>
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -275,7 +298,7 @@ export default function RebuiltExecutiveOverview() {
             <p className="text-xs text-slate-500">Testar chamadas</p>
           </div>
         </Card>
-        <Card className="p-4 hover:border-brand cursor-pointer transition-colors flex items-center gap-3" onClick={() => setActiveActionModal('knowledge')}>
+        <Card className="p-4 hover:border-brand cursor-pointer transition-colors flex items-center gap-3" onClick={() => navigate('/dashboard/knowledge')}>
           <div className="p-2 bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 rounded-lg"><FileText className="h-5 w-5" /></div>
           <div className="text-left">
             <h4 className="font-bold text-slate-900 dark:text-white text-sm">Nova Base</h4>
@@ -285,173 +308,188 @@ export default function RebuiltExecutiveOverview() {
       </div>
 
       {/* COMPACT ONBOARDING WIZARD & CHECKLIST */}
-      <AnimatePresence>
-        {!wizardCollapsed && (
-          <motion.div 
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, height: 0 }}
-            className="grid grid-cols-1 lg:grid-cols-3 gap-6 bg-brand-50/50 dark:bg-brand-950/20 p-6 rounded-2xl border border-brand-100 dark:border-brand-900/40"
-          >
-            {/* Onboarding Wizard (Left 2 cols) */}
-            <div className="lg:col-span-2 space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Badge variant="primary">Guia de Onboarding</Badge>
-                  <span className="text-xs text-slate-500 font-bold">Inicie sua operação em minutos</span>
-                </div>
-                <button 
-                  onClick={() => setWizardCollapsed(true)} 
-                  className="text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 font-semibold"
-                >
-                  Minimizar
-                </button>
-              </div>
-
-              <div className="text-left space-y-1">
-                <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                  Bem-vindo ao Birth Voices Hub
-                  <Sparkles className="h-4 w-4 text-amber-500" />
-                </h3>
-                <p className="text-xs text-slate-500 dark:text-slate-450 leading-relaxed">
-                  Siga o nosso assistente passo a passo para configurar e testar sua atendente virtual com inteligência avançada.
-                </p>
-              </div>
-
-              {/* Progress bar */}
-              <div className="space-y-1.5 pt-2">
-                <div className="flex justify-between items-baseline">
-                  <span className="text-xs font-bold text-brand">Progresso do Setup Executivo</span>
-                  <span className="text-xs font-bold text-brand font-mono">{Math.round(calculateOnboardingProgress())}%</span>
-                </div>
-                <Progress value={calculateOnboardingProgress()} />
-              </div>
-
-              {/* Wizard Steps Layout */}
-              <div className="grid grid-cols-4 gap-2 pt-2">
-                {[
-                  { step: 0, title: 'Organização', active: checklist.orgCreated },
-                  { step: 1, title: 'IA Agente', active: checklist.agentCreated },
-                  { step: 2, title: 'Telefonia', active: checklist.telephonyConnected },
-                  { step: 3, title: 'Atendimento', active: checklist.firstCallCompleted }
-                ].map((item) => (
+      {checklist === null ? (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 p-6 rounded-2xl border border-slate-200 dark:border-slate-800">
+          <div className="lg:col-span-2 space-y-3">
+            <Skeleton className="h-5 w-48" />
+            <Skeleton className="h-3 w-full" />
+            <Skeleton className="h-24 w-full" />
+          </div>
+          <Skeleton className="h-40 w-full" />
+        </div>
+      ) : (
+        <AnimatePresence>
+          {!wizardCollapsed && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, height: 0 }}
+              className="grid grid-cols-1 lg:grid-cols-3 gap-6 bg-brand-50/50 dark:bg-brand-950/20 p-6 rounded-2xl border border-brand-100 dark:border-brand-900/40"
+            >
+              {/* Onboarding Wizard (Left 2 cols) */}
+              <div className="lg:col-span-2 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Badge variant="primary">Guia de Onboarding</Badge>
+                    <span className="text-xs text-slate-500 font-bold">Inicie sua operação em minutos</span>
+                  </div>
                   <button
-                    key={item.step}
-                    onClick={() => setWizardStep(item.step)}
-                    className={`p-2.5 rounded-lg border text-center transition-all ${
-                      wizardStep === item.step
-                        ? 'bg-white dark:bg-slate-800 border-brand shadow-sm font-bold text-slate-900 dark:text-white'
-                        : 'bg-transparent border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 hover:bg-white/40'
-                    }`}
+                    onClick={() => setWizardCollapsed(true)}
+                    className="text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 font-semibold"
                   >
-                    <p className="text-[10px] uppercase font-bold text-slate-400">Etapa {item.step + 1}</p>
-                    <p className="text-xs truncate font-semibold">{item.title}</p>
-                    <div className="flex justify-center mt-1">
-                      {item.active ? (
-                        <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />
-                      ) : (
-                        <div className="h-1.5 w-1.5 rounded-full bg-slate-300 dark:bg-slate-600" />
-                      )}
-                    </div>
+                    Minimizar
                   </button>
-                ))}
+                </div>
+
+                {checklistError && (
+                  <Alert variant="warning" title="Não foi possível carregar seu progresso salvo" description="Exibindo checklist local; suas próximas alterações ainda serão salvas ao servidor." />
+                )}
+
+                <div className="text-left space-y-1">
+                  <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                    Bem-vindo ao Birth Voices Hub
+                    <Sparkles className="h-4 w-4 text-amber-500" />
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-450 leading-relaxed">
+                    Siga o assistente passo a passo para configurar e testar sua atendente virtual.
+                  </p>
+                </div>
+
+                {/* Progress bar */}
+                <div className="space-y-1.5 pt-2">
+                  <div className="flex justify-between items-baseline">
+                    <span className="text-xs font-bold text-brand">Progresso do Setup</span>
+                    <span className="text-xs font-bold text-brand font-mono">{Math.round(calculateOnboardingProgress())}%</span>
+                  </div>
+                  <Progress value={calculateOnboardingProgress()} />
+                </div>
+
+                {/* Wizard Steps Layout */}
+                <div className="grid grid-cols-4 gap-2 pt-2">
+                  {[
+                    { step: 0, title: 'Organização', active: !!checklist.orgCreated },
+                    { step: 1, title: 'IA Agente', active: !!checklist.agentCreated },
+                    { step: 2, title: 'Telefonia', active: !!checklist.telephonyConnected },
+                    { step: 3, title: 'Atendimento', active: !!checklist.firstCallCompleted },
+                  ].map((item) => (
+                    <button
+                      key={item.step}
+                      onClick={() => setWizardStep(item.step)}
+                      className={`p-2.5 rounded-lg border text-center transition-all ${
+                        wizardStep === item.step
+                          ? 'bg-white dark:bg-slate-800 border-brand shadow-sm font-bold text-slate-900 dark:text-white'
+                          : 'bg-transparent border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 hover:bg-white/40'
+                      }`}
+                    >
+                      <p className="text-[10px] uppercase font-bold text-slate-400">Etapa {item.step + 1}</p>
+                      <p className="text-xs truncate font-semibold">{item.title}</p>
+                      <div className="flex justify-center mt-1">
+                        {item.active ? (
+                          <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />
+                        ) : (
+                          <div className="h-1.5 w-1.5 rounded-full bg-slate-300 dark:bg-slate-600" />
+                        )}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+
+                {/* Step Detail Content */}
+                <div className="p-4 bg-white dark:bg-slate-800 rounded-xl border border-brand-100 dark:border-brand-900/30 text-left space-y-3">
+                  {wizardStep === 0 && (
+                    <>
+                      <h4 className="text-sm font-bold text-slate-800 dark:text-slate-100">1. Criar e Configurar Organização</h4>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                        Defina as cores corporativas, faça upload do logotipo da empresa e gerencie os administradores do sistema.
+                      </p>
+                      <div className="flex gap-2 pt-1">
+                        <Button size="sm" variant="primary" onClick={() => navigate('/dashboard/organization')}>
+                          Configurar Organização
+                        </Button>
+                        <Button size="sm" variant="outline" onClick={() => updateChecklist('orgCreated', true)}>
+                          Marcar como feito
+                        </Button>
+                      </div>
+                    </>
+                  )}
+                  {wizardStep === 1 && (
+                    <>
+                      <h4 className="text-sm font-bold text-slate-800 dark:text-slate-100">2. Criar seu Primeiro Agente de Voz</h4>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                        Configure os prompts comerciais, ajuste o tom de voz e defina as diretrizes de qualificação de leads.
+                      </p>
+                      <div className="flex gap-2 pt-1">
+                        <Button size="sm" variant="primary" onClick={() => navigate('/dashboard/agents/new')}>
+                          Criar Agente
+                        </Button>
+                        <Button size="sm" variant="outline" onClick={() => updateChecklist('agentCreated', true)}>
+                          Marcar como feito
+                        </Button>
+                      </div>
+                    </>
+                  )}
+                  {wizardStep === 2 && (
+                    <>
+                      <h4 className="text-sm font-bold text-slate-800 dark:text-slate-100">3. Conectar Telefonia e SIP Trunk</h4>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                        Conecte seu número de telefone virtual ou operadora local via protocolo SIP para receber chamadas de leads.
+                      </p>
+                      <div className="flex gap-2 pt-1">
+                        <Button size="sm" variant="primary" onClick={() => navigate('/dashboard/telephony')}>
+                          Conectar Telefonia
+                        </Button>
+                        <Button size="sm" variant="outline" onClick={() => updateChecklist('telephonyConnected', true)}>
+                          Marcar como feito
+                        </Button>
+                      </div>
+                    </>
+                  )}
+                  {wizardStep === 3 && (
+                    <>
+                      <h4 className="text-sm font-bold text-slate-800 dark:text-slate-100">4. Executar Primeiro Teste Real de Chamada</h4>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                        Abra o playground reativo de áudio e simule uma chamada de voz para verificar a latência, o tom e as transcrições do agente.
+                      </p>
+                      <div className="flex gap-2 pt-1">
+                        <Button size="sm" variant="primary" onClick={() => navigate('/dashboard/playground')}>
+                          Abrir Playground
+                        </Button>
+                        <Button size="sm" variant="outline" onClick={() => updateChecklist('firstCallCompleted', true)}>
+                          Concluir Setup!
+                        </Button>
+                      </div>
+                    </>
+                  )}
+                </div>
               </div>
 
-              {/* Step Detail Content */}
-              <div className="p-4 bg-white dark:bg-slate-800 rounded-xl border border-brand-100 dark:border-brand-900/30 text-left space-y-3">
-                {wizardStep === 0 && (
-                  <>
-                    <h4 className="text-sm font-bold text-slate-800 dark:text-slate-100">1. Criar e Configurar Organização</h4>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-                      Defina as cores corporativas, faça upload do logotipo da empresa e gerencie os administradores do sistema.
-                    </p>
-                    <div className="flex gap-2 pt-1">
-                      <Button size="sm" variant="primary" onClick={() => navigate('/dashboard/organization')}>
-                        Configurar Organização
-                      </Button>
-                      <Button size="sm" variant="outline" onClick={() => updateChecklist('orgCreated', true)}>
-                        Marcar como feito
-                      </Button>
-                    </div>
-                  </>
-                )}
-                {wizardStep === 1 && (
-                  <>
-                    <h4 className="text-sm font-bold text-slate-800 dark:text-slate-100">2. Criar seu Primeiro Agente de Voz</h4>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-                      Configure os prompts comerciais da Catarina (assistente virtual), ajuste o tom de voz e defina as diretrizes de qualificação de leads.
-                    </p>
-                    <div className="flex gap-2 pt-1">
-                      <Button size="sm" variant="primary" onClick={() => navigate('/dashboard/agents/new')}>
-                        Criar Agente
-                      </Button>
-                      <Button size="sm" variant="outline" onClick={() => updateChecklist('agentCreated', true)}>
-                        Marcar como feito
-                      </Button>
-                    </div>
-                  </>
-                )}
-                {wizardStep === 2 && (
-                  <>
-                    <h4 className="text-sm font-bold text-slate-800 dark:text-slate-100">3. Conectar Telefonia e SIP Trunk</h4>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-                      Conecte seu número de telefone virtual ou operadora local via protocolo SIP para receber chamadas de leads.
-                    </p>
-                    <div className="flex gap-2 pt-1">
-                      <Button size="sm" variant="primary" onClick={() => navigate('/dashboard/telephony')}>
-                        Conectar Telefonia
-                      </Button>
-                      <Button size="sm" variant="outline" onClick={() => updateChecklist('telephonyConnected', true)}>
-                        Marcar como feito
-                      </Button>
-                    </div>
-                  </>
-                )}
-                {wizardStep === 3 && (
-                  <>
-                    <h4 className="text-sm font-bold text-slate-800 dark:text-slate-100">4. Executar Primeiro Teste Real de Chamada</h4>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-                      Abra o playground reativo de áudio e simule uma chamada de voz para verificar a latência, o tom e as transcrições do agente.
-                    </p>
-                    <div className="flex gap-2 pt-1">
-                      <Button size="sm" variant="primary" onClick={() => navigate('/dashboard/playground')}>
-                        Abrir Playground
-                      </Button>
-                      <Button size="sm" variant="outline" onClick={() => updateChecklist('firstCallCompleted', true)}>
-                        Concluir Setup!
-                      </Button>
-                    </div>
-                  </>
-                )}
-              </div>
-            </div>
+              {/* Smart Checklist (Right 1 col) */}
+              <div className="bg-white dark:bg-slate-850 p-4 rounded-xl border border-brand-100/60 dark:border-slate-800 flex flex-col justify-between">
+                <div>
+                  <div className="flex items-center gap-1.5 text-slate-800 dark:text-slate-100 font-bold text-xs uppercase tracking-wider mb-3">
+                    <CheckCircle2 className="h-4.5 w-4.5 text-brand" />
+                    <span>Checklist Permanente</span>
+                  </div>
 
-            {/* Smart Checklist (Right 1 col) */}
-            <div className="bg-white dark:bg-slate-850 p-4 rounded-xl border border-brand-100/60 dark:border-slate-800 flex flex-col justify-between">
-              <div>
-                <div className="flex items-center gap-1.5 text-slate-800 dark:text-slate-100 font-bold text-xs uppercase tracking-wider mb-3">
-                  <CheckCircle2 className="h-4.5 w-4.5 text-brand" />
-                  <span>Checklist Permanente</span>
+                  <div className="space-y-2.5">
+                    <ChecklistItem label="Organização Configurada" checked={!!checklist.orgCreated} onChange={() => updateChecklist('orgCreated', !checklist.orgCreated)} onClick={() => navigate('/dashboard/organization')} />
+                    <ChecklistItem label="Primeiro Agente Criado" checked={!!checklist.agentCreated} onChange={() => updateChecklist('agentCreated', !checklist.agentCreated)} onClick={() => navigate('/dashboard/agents/new')} />
+                    <ChecklistItem label="Telefonia Conectada" checked={!!checklist.telephonyConnected} onChange={() => updateChecklist('telephonyConnected', !checklist.telephonyConnected)} onClick={() => navigate('/dashboard/telephony')} />
+                    <ChecklistItem label="Conhecimento Enviado" checked={!!checklist.knowledgeAdded} onChange={() => updateChecklist('knowledgeAdded', !checklist.knowledgeAdded)} onClick={() => navigate('/dashboard/knowledge')} />
+                    <ChecklistItem label="Primeiro Teste Efetuado" checked={!!checklist.firstTest} onChange={() => updateChecklist('firstTest', !checklist.firstTest)} onClick={() => navigate('/dashboard/playground')} />
+                    <ChecklistItem label="Agente de Voz Ativo" checked={!!checklist.agentPublished} onChange={() => updateChecklist('agentPublished', !checklist.agentPublished)} onClick={() => navigate('/dashboard/agents/new')} />
+                  </div>
                 </div>
-                
-                <div className="space-y-2.5">
-                  <ChecklistItem label="Organização Configurada" checked={checklist.orgCreated} onChange={() => updateChecklist('orgCreated', !checklist.orgCreated)} onClick={() => navigate('/dashboard/organization')} />
-                  <ChecklistItem label="Primeiro Agente Criado" checked={checklist.agentCreated} onChange={() => updateChecklist('agentCreated', !checklist.agentCreated)} onClick={() => navigate('/dashboard/agents/new')} />
-                  <ChecklistItem label="Telefonia Conectada" checked={checklist.telephonyConnected} onChange={() => updateChecklist('telephonyConnected', !checklist.telephonyConnected)} onClick={() => navigate('/dashboard/telephony')} />
-                  <ChecklistItem label="Conhecimento Enviado" checked={checklist.knowledgeAdded} onChange={() => updateChecklist('knowledgeAdded', !checklist.knowledgeAdded)} onClick={() => navigate('/dashboard/playground')} />
-                  <ChecklistItem label="Primeiro Teste Efetuado" checked={checklist.firstTest} onChange={() => updateChecklist('firstTest', !checklist.firstTest)} onClick={() => navigate('/dashboard/playground')} />
-                  <ChecklistItem label="Agente de Voz Ativo" checked={checklist.agentPublished} onChange={() => updateChecklist('agentPublished', !checklist.agentPublished)} onClick={() => navigate('/dashboard/agents/new')} />
+                <div className="pt-3 border-t border-slate-100 dark:border-slate-800 mt-3 text-left">
+                  <span className="text-[10px] text-slate-400 block leading-tight">
+                    Seu progresso é salvo automaticamente na sua conta.
+                  </span>
                 </div>
               </div>
-              <div className="pt-3 border-t border-slate-100 dark:border-slate-800 mt-3 text-left">
-                <span className="text-[10px] text-slate-400 block leading-tight">
-                  Cada item executado libera novos gráficos e relatórios detalhados nos painéis de controle.
-                </span>
-              </div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      )}
 
       {/* DASHBOARD TAB SELECTOR */}
       <div className="flex border-b border-slate-200 dark:border-slate-800">
@@ -463,7 +501,7 @@ export default function RebuiltExecutiveOverview() {
               : 'border-transparent text-slate-550 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200'
           }`}
         >
-          Visão Geral Executiva
+          Visão Geral
         </button>
         <button
           onClick={() => setActiveTab('audit')}
@@ -473,8 +511,7 @@ export default function RebuiltExecutiveOverview() {
               : 'border-transparent text-slate-550 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200'
           }`}
         >
-          Relatório de UX Audit (Etapa 1)
-          <Badge variant="primary">Audit</Badge>
+          Relatório de UX Audit
         </button>
         <button
           onClick={() => setActiveTab('analytics')}
@@ -484,192 +521,102 @@ export default function RebuiltExecutiveOverview() {
               : 'border-transparent text-slate-550 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200'
           }`}
         >
-          UX Analytics & Funis (Etapa 15)
-          <Badge variant="info">Live</Badge>
+          Analytics de Produto
         </button>
       </div>
 
       {/* TAB 1: EXECUTIVE METRICS & WIDGETS */}
       {activeTab === 'kpis' && (
         <div className="space-y-8 animate-fade-in">
-          {/* HIGH-DENSITY EXECUTIVE STRIPE-STYLE KPIS */}
+          {/* REAL, COUNTABLE KPIS — derived from GET /api/agents and GET /api/call-logs.
+              No token/cost/CSAT/SLA/latency card here: this platform has no telemetry pipeline
+              feeding those yet (see handoff 02-para-04-10-telemetria-overview.md). */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-            <ExecutiveStatCard
-              title="Agentes Ativos"
-              value="8 / 10"
-              percentage="80% capacidade"
-              isPositive={true}
-              tooltip="Total de instâncias Catarina de IA rodando no cluster"
-              sparkline={sparklines.agents}
-              color="text-brand"
+            <RealStatCard
+              title="Agentes Cadastrados"
+              status={agentsState.status}
+              value={String(totalAgents)}
+              caption={`${agentsWithPhone} com telefonia conectada`}
+              tooltip="Total de agentes de voz cadastrados nesta organização"
+              onClick={() => navigate('/dashboard/agents')}
             />
-            <ExecutiveStatCard
+            <RealStatCard
+              title="Chamadas Registradas"
+              status={callsState.status}
+              value={String(totalCalls)}
+              caption={totalCalls >= 100 ? 'Últimas 100 registradas' : 'Total no histórico'}
+              tooltip="Total de chamadas registradas para esta organização"
+            />
+            <RealStatCard
               title="Chamadas Hoje"
-              value="142"
-              percentage="+18.4% vs ontem"
-              isPositive={true}
-              tooltip="Número absoluto de ligações telefônicas atendidas hoje"
-              sparkline={sparklines.calls}
-              color="text-emerald-500"
+              status={callsState.status}
+              value={String(callsToday)}
+              caption={today.toLocaleDateString('pt-BR')}
+              tooltip="Chamadas registradas com timestamp de hoje"
             />
-            <ExecutiveStatCard
-              title="Tempo de Conversa"
-              value="04:12"
-              percentage="-12s vs anterior"
-              isPositive={true}
-              tooltip="Duração média de cada ligação de qualificação"
-              sparkline={sparklines.duration}
-              color="text-amber-500"
+            <RealStatCard
+              title="Duração Média"
+              status={callsState.status}
+              value={avgDuration ?? '—'}
+              caption={avgDuration ? `${parsedDurations.length} chamadas com duração válida` : 'Sem dados suficientes'}
+              tooltip="Média calculada a partir das durações registradas"
             />
-            <ExecutiveStatCard
-              title="Tokens Consumidos"
-              value="2.4M"
-              percentage="+4.2% vs média"
-              isPositive={false}
-              tooltip="Volume de tokens de contexto Gemini processados"
-              sparkline={sparklines.tokens}
-              color="text-purple-500"
-            />
-            <ExecutiveStatCard
-              title="Custo Estimado"
-              value="$14.20"
-              percentage="Dentro do SLA"
-              isPositive={true}
-              tooltip="Custos do cluster de IA de voz mais faturamento de ligações"
-              sparkline={sparklines.costs}
-              color="text-red-500"
+            <RealStatCard
+              title="Taxa de Conclusão"
+              status={callsState.status}
+              value={completionRate !== null ? `${completionRate.toFixed(0)}%` : '—'}
+              caption={completionRate !== null ? `${completedCalls} de ${totalCalls} concluídas` : 'Sem chamadas registradas'}
+              tooltip="Percentual de chamadas com status Concluído"
             />
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <ExecutiveStatCard
-              title="Disponibilidade (SLA)"
-              value="99.98%"
-              percentage="Meta de 99.9%"
-              isPositive={true}
-              tooltip="Disponibilidade operacional dos canais de áudio"
-              sparkline={sparklines.availability}
-              color="text-emerald-500"
-            />
-            <ExecutiveStatCard
-              title="Satisfação (CSAT)"
-              value="94.6%"
-              percentage="+1.2% este mês"
-              isPositive={true}
-              tooltip="Pesquisa de satisfação automatizada ao final do atendimento"
-              sparkline={sparklines.csat}
-              color="text-indigo-500"
-            />
-            <ExecutiveStatCard
-              title="Latência Média"
-              value="340ms"
-              percentage="Dentro do SLA"
-              isPositive={true}
-              tooltip="Tempo médio de resposta do pipeline (Speech to Text + LLM + TTS)"
-              sparkline={sparklines.duration}
-              color="text-emerald-500"
-            />
-            <ExecutiveStatCard
-              title="Resolução Contatos"
-              value="88.2%"
-              percentage="Excelente"
-              isPositive={true}
-              tooltip="Porcentagem de ligações resolvidas na primeira chamada sem CRM"
-              sparkline={sparklines.agents}
-              color="text-blue-500"
-            />
-          </div>
+          {/* Honest placeholder for metrics this platform doesn't produce yet, instead of
+              inventing tokens/cost/CSAT/SLA/latency numbers. */}
+          <Alert
+            variant="info"
+            title="Telemetria de IA e voz ainda não instrumentada"
+            description="Tokens consumidos, custo estimado, latência de resposta, disponibilidade (SLA) e CSAT dependem do pipeline de Observability/Voice Runtime, que ainda não publica esses eventos para o dashboard. Assim que existir, estas métricas aparecem aqui com dado real — nunca um número de exemplo."
+          />
 
           {/* LOWER WIDGETS GRID */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            
-            {/* Left Column: Recent Activity & Usage Summary */}
+
+            {/* Left Column: Recent Activity */}
             <div className="lg:col-span-2 space-y-6">
-              {/* RESUMO DE USO (Recharts) */}
-              <Card className="p-6 space-y-4">
-                <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-700/60 pb-3">
-                  <div className="text-left">
-                    <h3 className="font-bold text-slate-900 dark:text-white text-base">Resumo de Uso (Mês Atual)</h3>
-                    <p className="text-xs text-slate-500 dark:text-slate-450 mt-0.5">Consumo de tokens e minutos ativos.</p>
-                  </div>
-                  <Button variant="outline" size="sm" onClick={() => showToast('Exportando dados para CSV...', 'info')}>
-                    Exportar CSV
-                  </Button>
-                </div>
-                <div className="h-64">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={usageData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                      <defs>
-                        <linearGradient id="colorTokens" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.8}/>
-                          <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
-                        </linearGradient>
-                      </defs>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#334155" opacity={0.2} />
-                      <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#64748b' }} />
-                      <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#64748b' }} />
-                      <RechartsTooltip 
-                        contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '8px', color: '#f8fafc', fontSize: '12px' }}
-                        itemStyle={{ color: '#e2e8f0' }}
-                      />
-                      <Area type="monotone" dataKey="tokens" stroke="#3b82f6" fillOpacity={1} fill="url(#colorTokens)" />
-                    </AreaChart>
-                  </ResponsiveContainer>
-                </div>
-              </Card>
-
-              {/* LIMITES DE CONTA E ALERTAS */}
-              <Card className="p-6 space-y-4">
-                <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-700/60 pb-3">
-                  <div className="text-left">
-                    <h3 className="font-bold text-slate-900 dark:text-white text-base">Limites de Conta</h3>
-                    <p className="text-xs text-slate-500 dark:text-slate-450 mt-0.5">Configure alertas de e-mail ao atingir limites de consumo.</p>
-                  </div>
-                </div>
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-center text-sm">
-                      <span className="font-medium text-slate-700 dark:text-slate-300">Minutos Mensais (850 / 1000)</span>
-                      <span className="text-brand font-bold">85%</span>
-                    </div>
-                    <Progress value={85} />
-                  </div>
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-center text-sm">
-                      <span className="font-medium text-slate-700 dark:text-slate-300">Tokens LLM (14.2M / 20M)</span>
-                      <span className="text-emerald-500 font-bold">71%</span>
-                    </div>
-                    <Progress value={71} className="bg-emerald-500" />
-                  </div>
-                  
-                  <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex flex-col gap-3">
-                    <p className="text-sm font-semibold text-slate-900 dark:text-white">Alertas de Notificação</p>
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input type="checkbox" className="rounded border-slate-300 text-brand focus:ring-brand accent-brand" defaultChecked />
-                      <span className="text-sm text-slate-600 dark:text-slate-400">Receber e-mail ao atingir <strong>80%</strong> de uso</span>
-                    </label>
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input type="checkbox" className="rounded border-slate-300 text-brand focus:ring-brand accent-brand" defaultChecked />
-                      <span className="text-sm text-slate-600 dark:text-slate-400">Receber e-mail ao atingir <strong>95%</strong> de uso</span>
-                    </label>
-                  </div>
-                </div>
-              </Card>
-
               {/* CHAMADAS RECENTES (BANCO DE DADOS) */}
               <Card className="p-6 space-y-4">
                 <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-700/60 pb-3">
                   <div className="text-left">
-                    <h3 className="font-bold text-slate-900 dark:text-white text-base">Registro de Chamadas (Tempo Real)</h3>
+                    <h3 className="font-bold text-slate-900 dark:text-white text-base">Registro de Chamadas</h3>
                     <p className="text-xs text-slate-500 dark:text-slate-450 mt-0.5">Últimas interações de voz registradas no banco de dados.</p>
                   </div>
                   <button onClick={fetchCalls} className="p-1 px-2.5 border rounded-lg text-xs font-semibold hover:bg-slate-50 flex items-center gap-1.5 dark:hover:bg-slate-800 dark:border-slate-700">
                     <RefreshCw className="h-3 w-3" /> Atualizar
                   </button>
                 </div>
-                {recentCalls.length === 0 ? (
-                  <p className="text-xs text-slate-400 py-4 text-center">Nenhuma chamada recente registrada.</p>
-                ) : (
+                {callsState.status === 'loading' && (
+                  <div className="space-y-2 py-2">
+                    <Skeleton className="h-8 w-full" />
+                    <Skeleton className="h-8 w-full" />
+                    <Skeleton className="h-8 w-full" />
+                  </div>
+                )}
+                {callsState.status === 'error' && (
+                  <EmptyState
+                    icon={<AlertTriangle className="h-8 w-8" />}
+                    title="Não foi possível carregar as chamadas"
+                    description="Verifique sua conexão e tente novamente."
+                    action={<Button size="sm" variant="outline" onClick={fetchCalls}>Tentar novamente</Button>}
+                  />
+                )}
+                {callsState.status === 'ready' && callsState.calls.length === 0 && (
+                  <EmptyState
+                    icon={<Phone className="h-8 w-8" />}
+                    title="Nenhuma chamada registrada ainda"
+                    description="Assim que uma chamada real acontecer, ela aparece aqui."
+                  />
+                )}
+                {callsState.status === 'ready' && callsState.calls.length > 0 && (
                   <div className="overflow-x-auto">
                     <table className="w-full text-left text-xs text-slate-650 dark:text-slate-450">
                       <thead>
@@ -683,7 +630,7 @@ export default function RebuiltExecutiveOverview() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-semibold">
-                        {recentCalls.slice(0, 5).map((call) => (
+                        {callsState.calls.slice(0, 5).map((call) => (
                           <tr key={call.id} className="hover:bg-slate-50 dark:hover:bg-slate-900/50">
                             <td className="py-2.5 font-mono text-[10px] text-slate-400">#{call.id}</td>
                             <td className="py-2.5 font-bold text-slate-800 dark:text-slate-200">{call.contactName}</td>
@@ -703,160 +650,127 @@ export default function RebuiltExecutiveOverview() {
                 )}
               </Card>
 
-              {/* ATIVIDADE RECENTE DO USUÁRIO */}
+              {/* AGENTES */}
               <Card className="p-6 space-y-4">
                 <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-700/60 pb-3">
                   <div className="text-left">
-                    <h3 className="font-bold text-slate-900 dark:text-white text-base">Atividade Recente</h3>
-                    <p className="text-xs text-slate-500 dark:text-slate-450 mt-0.5">Últimas ações realizadas no sistema.</p>
+                    <h3 className="font-bold text-slate-900 dark:text-white text-base">Seus Agentes</h3>
+                    <p className="text-xs text-slate-500 dark:text-slate-450 mt-0.5">Agentes de voz cadastrados nesta organização.</p>
                   </div>
+                  <button onClick={() => navigate('/dashboard/agents')} className="p-1 px-2.5 border rounded-lg text-xs font-semibold hover:bg-slate-50 dark:hover:bg-slate-800 dark:border-slate-700">
+                    Ver todos
+                  </button>
                 </div>
-                <div className="space-y-4">
-                  {[
-                    { action: 'Agente criado', entity: 'Catarina Atendimento', time: 'Há 10 minutos', icon: <Users className="h-4 w-4" />, color: 'text-brand', bg: 'bg-brand/10' },
-                    { action: 'Arquivo de conhecimento carregado', entity: 'Tabela_Precos_2026.pdf', time: 'Há 2 horas', icon: <FileText className="h-4 w-4" />, color: 'text-amber-500', bg: 'bg-amber-500/10' },
-                    { action: 'Configuração atualizada', entity: 'Organização Birth Hub', time: 'Ontem', icon: <Settings className="h-4 w-4" />, color: 'text-slate-500', bg: 'bg-slate-500/10' },
-                    { action: 'Agente publicado', entity: 'SDR Qualificador B2B', time: 'Há 2 dias', icon: <Play className="h-4 w-4" />, color: 'text-emerald-500', bg: 'bg-emerald-500/10' },
-                    { action: 'Conexão SIP criada', entity: 'Twilio Trunk SP', time: 'Há 3 dias', icon: <Phone className="h-4 w-4" />, color: 'text-indigo-500', bg: 'bg-indigo-500/10' },
-                  ].map((activity, i) => (
-                    <div key={i} className="flex items-start gap-3">
-                      <div className={`p-2 rounded-full ${activity.bg} ${activity.color} shrink-0`}>
-                        {activity.icon}
+                {agentsState.status === 'loading' && (
+                  <div className="space-y-2 py-2">
+                    <Skeleton className="h-8 w-full" />
+                    <Skeleton className="h-8 w-full" />
+                  </div>
+                )}
+                {agentsState.status === 'error' && (
+                  <EmptyState
+                    icon={<AlertTriangle className="h-8 w-8" />}
+                    title="Não foi possível carregar os agentes"
+                    description="Verifique sua conexão e tente novamente."
+                    action={<Button size="sm" variant="outline" onClick={fetchAgents}>Tentar novamente</Button>}
+                  />
+                )}
+                {agentsState.status === 'ready' && agentsState.agents.length === 0 && (
+                  <EmptyState
+                    icon={<Users className="h-8 w-8" />}
+                    title="Nenhum agente criado ainda"
+                    description="Crie seu primeiro agente de voz para começar a qualificar leads."
+                    action={<Button size="sm" variant="primary" onClick={() => navigate('/dashboard/agents/new')}>Criar Agente</Button>}
+                  />
+                )}
+                {agentsState.status === 'ready' && agentsState.agents.length > 0 && (
+                  <div className="space-y-2">
+                    {agentsState.agents.slice(0, 5).map((agent) => (
+                      <div key={agent.id} className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-900/40 rounded-lg border border-slate-100 dark:border-slate-800">
+                        <div className="flex items-center gap-3">
+                          <div className="p-2 bg-brand/10 text-brand rounded-lg"><Users className="h-4 w-4" /></div>
+                          <div className="text-left">
+                            <p className="text-xs font-bold text-slate-800 dark:text-slate-200">{agent.name}</p>
+                            <p className="text-[10px] text-slate-500">{agent.model}</p>
+                          </div>
+                        </div>
+                        <Badge variant={agent.phoneNumber ? 'success' : 'secondary'}>
+                          {agent.phoneNumber ? 'Telefonia conectada' : 'Sem telefonia'}
+                        </Badge>
                       </div>
-                      <div className="text-left">
-                        <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{activity.action}</p>
-                        <p className="text-xs text-slate-500 dark:text-slate-400">{activity.entity}</p>
-                        <p className="text-[10px] text-slate-400 mt-0.5">{activity.time}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                )}
               </Card>
             </div>
 
-            {/* Right Column: Health & System tasks */}
+            {/* Right Column: Health & Alerts */}
             <div className="space-y-6">
-              {/* STATUS DO SISTEMA */}
               <Card className="p-6 space-y-4">
                 <div className="flex items-center gap-2 text-slate-800 dark:text-slate-100">
-                  <Activity className="h-5 w-5 text-emerald-500" />
-                  <h4 className="font-bold text-sm uppercase tracking-wider">Status do Sistema</h4>
+                  <Activity className="h-5 w-5 text-brand" />
+                  <h4 className="font-bold text-sm uppercase tracking-wider">Status da Plataforma</h4>
                 </div>
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-900/40 rounded-lg border border-slate-100 dark:border-slate-800">
-                    <div className="flex items-center gap-3">
-                      <Phone className="h-4 w-4 text-slate-400" />
-                      <div className="text-left">
-                        <p className="text-xs font-bold text-slate-800 dark:text-slate-200">Serviços de Telefonia</p>
-                        <p className="text-[10px] text-slate-500">Twilio Trunk SP</p>
+                {readyState.status === 'loading' && <Skeleton className="h-20 w-full" />}
+                {readyState.status !== 'loading' && (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-900/40 rounded-lg border border-slate-100 dark:border-slate-800">
+                      <div className="flex items-center gap-3">
+                        <Database className="h-4 w-4 text-slate-400" />
+                        <p className="text-xs font-bold text-slate-800 dark:text-slate-200">Banco de Dados</p>
                       </div>
+                      <Badge variant={readyState.checks?.database === 'ok' ? 'success' : 'danger'}>
+                        {readyState.checks?.database === 'ok' ? 'Operacional' : 'Indisponível'}
+                      </Badge>
                     </div>
-                    <Badge variant="success" className="animate-pulse">Operacional</Badge>
-                  </div>
-                  <div className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-900/40 rounded-lg border border-slate-100 dark:border-slate-800">
-                    <div className="flex items-center gap-3">
-                      <Code className="h-4 w-4 text-slate-400" />
-                      <div className="text-left">
-                        <p className="text-xs font-bold text-slate-800 dark:text-slate-200">API Gateways</p>
-                        <p className="text-[10px] text-slate-500">Core Services</p>
+                    <div className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-900/40 rounded-lg border border-slate-100 dark:border-slate-800">
+                      <div className="flex items-center gap-3">
+                        <Server className="h-4 w-4 text-slate-400" />
+                        <p className="text-xs font-bold text-slate-800 dark:text-slate-200">Redis</p>
                       </div>
+                      <Badge variant={readyState.checks?.redis === 'ok' ? 'success' : 'danger'}>
+                        {readyState.checks?.redis === 'ok' ? 'Operacional' : 'Indisponível'}
+                      </Badge>
                     </div>
-                    <Badge variant="success">Operacional</Badge>
                   </div>
-                  <div className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-900/40 rounded-lg border border-slate-100 dark:border-slate-800">
-                    <div className="flex items-center gap-3">
-                      <Sparkles className="h-4 w-4 text-slate-400" />
-                      <div className="text-left">
-                        <p className="text-xs font-bold text-slate-800 dark:text-slate-200">Inference Engine</p>
-                        <p className="text-[10px] text-slate-500">Gemini 2.5 Pro</p>
-                      </div>
-                    </div>
-                    <Badge variant="success">Operacional</Badge>
-                  </div>
-                </div>
-
-                <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
-                  <p className="text-xs font-bold text-slate-800 dark:text-slate-200 mb-3">Latência de API (Tempo Real)</p>
-                  <div className="h-32">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <LineChart data={latencyData}>
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#334155" opacity={0.2} />
-                        <XAxis dataKey="time" axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: '#64748b' }} />
-                        <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: '#64748b' }} width={30} />
-                        <RechartsTooltip 
-                          contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '8px', color: '#f8fafc', fontSize: '10px' }}
-                          itemStyle={{ color: '#10b981' }}
-                        />
-                        <Line type="monotone" dataKey="latency" stroke="#10b981" strokeWidth={2} dot={false} activeDot={{ r: 4 }} />
-                      </LineChart>
-                    </ResponsiveContainer>
-                  </div>
-                </div>
+                )}
               </Card>
 
-              {/* ALERTA E PENDÊNCIAS */}
+              {/* ALERTA E PENDÊNCIAS — computed from real data, not hardcoded copy. */}
               <Card className="p-6 space-y-4">
                 <div className="flex items-center gap-2 text-red-600 dark:text-red-400">
                   <ShieldAlert className="h-5 w-5" />
                   <h4 className="font-bold text-sm uppercase tracking-wider">Alertas & Pendências</h4>
                 </div>
                 <div className="space-y-3">
-                  <div className="p-3 bg-red-50/60 dark:bg-red-950/20 border border-red-100 dark:border-red-900/30 rounded-lg text-left">
-                    <div className="flex justify-between items-start">
-                      <p className="text-xs font-bold text-red-800 dark:text-red-300">Nenhum número ativo Twilio</p>
-                      <button 
-                        onClick={() => navigate('/dashboard/telephony')}
-                        className="text-[10px] font-bold text-brand hover:underline"
-                      >
-                        Vincular
-                      </button>
-                    </div>
-                    <p className="text-[10px] text-slate-500 mt-1">Conecte um número de voz SIP para receber ligações de leads.</p>
-                  </div>
-
-                  <div className="p-3 bg-amber-50/60 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-900/30 rounded-lg text-left">
-                    <div className="flex justify-between items-start">
-                      <p className="text-xs font-bold text-amber-800 dark:text-amber-300">Base de Conhecimento desatualizada</p>
-                      <button 
-                        onClick={() => updateChecklist('knowledgeAdded', true)}
-                        className="text-[10px] font-bold text-brand hover:underline"
-                      >
-                        Sincronizar
-                      </button>
-                    </div>
-                    <p className="text-[10px] text-slate-500 mt-1">A tabela de preços não é sincronizada há 30 dias.</p>
-                  </div>
-                </div>
-              </Card>
-
-              {/* SERVICE STACK & UPCOMING TASKS */}
-              <Card className="p-6 space-y-4">
-                <div className="flex items-center gap-2 text-slate-800 dark:text-slate-100">
-                  <Calendar className="h-5 w-5 text-brand" />
-                  <h4 className="font-bold text-sm uppercase tracking-wider">Próximas Tarefas AI</h4>
-                </div>
-                <div className="space-y-3 text-left text-xs font-semibold">
-                  <div className="flex items-start gap-2.5">
-                    <div className="h-2 w-2 rounded-full bg-brand mt-1.5 shrink-0" />
-                    <div>
-                      <p className="text-slate-800 dark:text-slate-200">Re-treinamento da Qualificação de Leads</p>
-                      <span className="text-[10px] text-slate-400">Agendado para hoje às 23:00</span>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-2.5 border-t border-slate-100 dark:border-slate-850 pt-2.5">
-                    <div className="h-2 w-2 rounded-full bg-slate-350 mt-1.5 shrink-0" />
-                    <div>
-                      <p className="text-slate-600 dark:text-slate-400">Auditoria Mensal de Segurança (LGPD)</p>
-                      <span className="text-[10px] text-slate-400">Agendado para 15 de Julho</span>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-2.5 border-t border-slate-100 dark:border-slate-850 pt-2.5">
-                    <div className="h-2 w-2 rounded-full bg-slate-350 mt-1.5 shrink-0" />
-                    <div>
-                      <p className="text-slate-600 dark:text-slate-400">Renovação de Licença SIP</p>
-                      <span className="text-[10px] text-slate-400">Agendado para 28 de Julho</span>
-                    </div>
-                  </div>
+                  {agentsState.status === 'ready' && agentsState.agents.length === 0 && (
+                    <PendingAlert
+                      title="Nenhum agente criado"
+                      description="Crie seu primeiro agente de voz para começar a atender leads."
+                      actionLabel="Criar agente"
+                      onAction={() => navigate('/dashboard/agents/new')}
+                    />
+                  )}
+                  {agentsState.status === 'ready' && agentsState.agents.length > 0 && agentsWithPhone === 0 && (
+                    <PendingAlert
+                      title="Nenhum número de telefonia conectado"
+                      description="Conecte um número de voz SIP para receber ligações reais de leads."
+                      actionLabel="Vincular"
+                      onAction={() => navigate('/dashboard/telephony')}
+                    />
+                  )}
+                  {checklist && !checklist.knowledgeAdded && (
+                    <PendingAlert
+                      title="Base de conhecimento vazia"
+                      description="Adicione documentos de referência para melhorar a qualificação de leads."
+                      actionLabel="Adicionar"
+                      onAction={() => navigate('/dashboard/knowledge')}
+                      tone="amber"
+                    />
+                  )}
+                  {agentsState.status === 'ready' && agentsState.agents.length > 0 && agentsWithPhone > 0 && checklist?.knowledgeAdded && (
+                    <p className="text-xs text-slate-400 py-4 text-center">Nenhuma pendência identificada.</p>
+                  )}
                 </div>
               </Card>
             </div>
@@ -865,7 +779,7 @@ export default function RebuiltExecutiveOverview() {
         </div>
       )}
 
-      {/* TAB 2: UX AUDIT REPORT */}
+      {/* TAB 2: UX AUDIT REPORT (documentation of past UX work on this page — not a live metric) */}
       {activeTab === 'audit' && (
         <Card className="p-8 space-y-8 animate-fade-in text-left">
           <div className="flex items-center gap-3 border-b border-slate-100 dark:border-slate-750 pb-4">
@@ -874,7 +788,7 @@ export default function RebuiltExecutiveOverview() {
             </div>
             <div>
               <h2 className="text-xl font-bold text-slate-900 dark:text-white">UX Audit Report — Birth Hub 360</h2>
-              <p className="text-sm text-slate-500">Mapeamento completo da jornada do usuário e otimização de fluxos de IA.</p>
+              <p className="text-sm text-slate-500">Mapeamento da jornada do usuário e otimização de fluxos de onboarding.</p>
             </div>
           </div>
 
@@ -887,15 +801,15 @@ export default function RebuiltExecutiveOverview() {
               <div className="space-y-3 font-medium text-xs leading-relaxed text-slate-650 dark:text-slate-300">
                 <div className="p-3 bg-slate-50 dark:bg-slate-900/30 rounded-lg border border-slate-200 dark:border-slate-800">
                   <p className="font-bold text-slate-900 dark:text-slate-100 text-sm">Cadastro & Primeiros Passos</p>
-                  <p className="mt-1 text-slate-500">O usuário caía em uma tela vazia sem receber instruções de "qual ação tomar". Adicionamos o Onboarding Wizard de 4 fases para eliminar essa ambiguidade.</p>
+                  <p className="mt-1 text-slate-500">O usuário caía em uma tela vazia sem instruções de "qual ação tomar". O Onboarding Wizard de 4 fases elimina essa ambiguidade.</p>
                 </div>
                 <div className="p-3 bg-slate-50 dark:bg-slate-900/30 rounded-lg border border-slate-200 dark:border-slate-800">
-                  <p className="font-bold text-slate-900 dark:text-slate-100 text-sm">Fluxo de Criação de Agente</p>
-                  <p className="mt-1 text-slate-500">Criação exigia 4 abas para salvar configurações. Consolidamos em um fluxo linear único com feedback reativo de "Salvando..." em tempo real.</p>
+                  <p className="font-bold text-slate-900 dark:text-slate-100 text-sm">Painel executivo com dados de exemplo</p>
+                  <p className="mt-1 text-slate-500">A Visão Geral exibia KPIs de negócio (tokens, custo, CSAT, SLA, latência) fixos no código, sem fonte de dado real — corrigido nesta revisão: só métricas reais (agentes, chamadas) aparecem como número; o restante mostra estado vazio explícito até existir telemetria real.</p>
                 </div>
                 <div className="p-3 bg-slate-50 dark:bg-slate-900/30 rounded-lg border border-slate-200 dark:border-slate-800">
-                  <p className="font-bold text-slate-900 dark:text-slate-100 text-sm">Configurações de Telefonia</p>
-                  <p className="mt-1 text-slate-500">Gargalo na conexão SIP Trunk do Twilio. Implementamos o Checklist Inteligente que redireciona o usuário para a tela exata e valida sua credencial.</p>
+                  <p className="font-bold text-slate-900 dark:text-slate-100 text-sm">Sessão do usuário não identificada</p>
+                  <p className="mt-1 text-slate-500">O shell (barra lateral) lia um cookie que o servidor nunca definia, mostrando sempre um usuário de exemplo fixo. Corrigido: a sessão real vem de GET /api/auth/me.</p>
                 </div>
               </div>
             </div>
@@ -903,20 +817,20 @@ export default function RebuiltExecutiveOverview() {
             <div className="space-y-4">
               <h3 className="font-bold text-slate-800 dark:text-slate-200 text-sm uppercase tracking-wider flex items-center gap-2">
                 <span className="h-2 w-2 rounded-full bg-green-500" />
-                Soluções e UX de Classe Mundial
+                Soluções Aplicadas
               </h3>
               <div className="space-y-3 font-medium text-xs leading-relaxed text-slate-650 dark:text-slate-300">
                 <div className="p-3 bg-slate-50 dark:bg-slate-900/30 rounded-lg border border-slate-200 dark:border-slate-800">
                   <p className="font-bold text-slate-900 dark:text-slate-100 text-sm">Onboarding Direcionado</p>
-                  <p className="mt-1 text-slate-500">Wizard reativo exibe a porcentagem exata de finalização das chaves e do agente, estimulando a conversão e uso do produto.</p>
+                  <p className="mt-1 text-slate-500">Wizard reativo exibe a porcentagem real de finalização do checklist, persistida no servidor.</p>
                 </div>
                 <div className="p-3 bg-slate-50 dark:bg-slate-900/30 rounded-lg border border-slate-200 dark:border-slate-800">
-                  <p className="font-bold text-slate-900 dark:text-slate-100 text-sm">Micro-interações Sólidas</p>
-                  <p className="mt-1 text-slate-500">O sistema salva as configurações nos bastidores com alertas visuais amigáveis, mantendo o usuário ciente e seguro de suas ações.</p>
+                  <p className="font-bold text-slate-900 dark:text-slate-100 text-sm">Estados explícitos de loading/erro/vazio</p>
+                  <p className="mt-1 text-slate-500">Toda seção com dado remoto mostra esqueleto de carregamento, mensagem de erro com retry, ou estado vazio — nunca um número inventado no lugar do dado ainda não carregado.</p>
                 </div>
                 <div className="p-3 bg-slate-50 dark:bg-slate-900/30 rounded-lg border border-slate-200 dark:border-slate-800">
-                  <p className="font-bold text-slate-900 dark:text-slate-100 text-sm">Atendimento de Chamadas Unificado</p>
-                  <p className="mt-1 text-slate-500">Unificação de logs de voz, playground interativo, e faturamento para que gestores tomem decisões sem cliques extras redundantes.</p>
+                  <p className="font-bold text-slate-900 dark:text-slate-100 text-sm">Sessão e navegação coerentes</p>
+                  <p className="mt-1 text-slate-500">Expiração de sessão em qualquer chamada autenticada redireciona para o Login em vez de deixar a tela travada com dado obsoleto.</p>
                 </div>
               </div>
             </div>
@@ -924,63 +838,15 @@ export default function RebuiltExecutiveOverview() {
         </Card>
       )}
 
-      {/* TAB 3: UX ANALYTICS INSIGHTS */}
+      {/* TAB 3: PRODUCT ANALYTICS — honest placeholder; no funnel/usability-telemetry backend
+          exists yet, so this used to show fabricated conversion percentages. */}
       {activeTab === 'analytics' && (
         <div className="space-y-6 animate-fade-in text-left">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            
-            {/* Funil de Onboarding conversion */}
-            <Card className="lg:col-span-2 space-y-6">
-              <div className="border-b border-slate-150 dark:border-slate-750 pb-3">
-                <h3 className="font-bold text-slate-900 dark:text-white text-base">Funil de Ativação do Usuário</h3>
-                <p className="text-xs text-slate-400">Acompanhamento reativo do progresso médio de ativação no primeiro acesso.</p>
-              </div>
-
-              <div className="space-y-4">
-                <FunnelStep label="1. Conta Registrada" value="100%" desc="Usuário registrou-se na plataforma" />
-                <FunnelStep label="2. Organização Configurada" value="92.4%" desc="Cadastrou branding e logo da empresa" />
-                <FunnelStep label="3. Agente de IA Ativo" value="76.1%" desc="Definiu prompt e modelo Gemini" />
-                <FunnelStep label="4. Telefonia Conectada" value="48.5%" desc="Vínculo SIP concluído" />
-                <FunnelStep label="5. Primeiro Atendimento Ativado" value="34.2%" desc="Liga de qualificação de leads real operada" />
-              </div>
-            </Card>
-
-            {/* Telemetria e erros */}
-            <div className="space-y-6">
-              <Card className="space-y-4">
-                <h4 className="font-bold text-slate-900 dark:text-white text-sm uppercase tracking-wider">Telemetria de Usabilidade</h4>
-                <div className="space-y-3.5 text-xs">
-                  <div className="flex justify-between items-center border-b border-slate-100 dark:border-slate-750 pb-2">
-                    <span className="text-slate-500">Tempo médio de criação de agente</span>
-                    <span className="font-bold text-slate-800 dark:text-slate-200 font-mono">3m 42s</span>
-                  </div>
-                  <div className="flex justify-between items-center border-b border-slate-100 dark:border-slate-750 pb-2">
-                    <span className="text-slate-500">Cliques por sessão (Média)</span>
-                    <span className="font-bold text-slate-800 dark:text-slate-200 font-mono">14.2</span>
-                  </div>
-                  <div className="flex justify-between items-center border-b border-slate-100 dark:border-slate-750 pb-2">
-                    <span className="text-slate-500">Taxa de erro em campos de API</span>
-                    <span className="font-bold text-red-600 dark:text-red-400 font-mono">1.8%</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-slate-500">Adoção do Command Palette</span>
-                    <span className="font-bold text-emerald-600 dark:text-emerald-400 font-mono">68.2%</span>
-                  </div>
-                </div>
-              </Card>
-
-              <Card className="bg-slate-50 dark:bg-slate-900/30 p-4 border border-slate-200 dark:border-slate-800 text-left">
-                <div className="flex items-center gap-2 text-brand mb-2">
-                  <MousePointerClick className="h-5 w-5" />
-                  <span className="font-bold text-xs uppercase tracking-wider">Heatmap & Zonas de Fricção</span>
-                </div>
-                <p className="text-[11px] text-slate-500 leading-relaxed">
-                  Os sensores de UX de nossa plataforma detectaram que 22% dos usuários ignoram as diretrizes de prompt comercial por complexidade de formulário. Solução: Adicionamos templates pré-prontos de qualificação.
-                </p>
-              </Card>
-            </div>
-
-          </div>
+          <EmptyState
+            icon={<Code className="h-10 w-10" />}
+            title="Analytics de produto ainda não instrumentado"
+            description="Funil de ativação e telemetria de usabilidade (tempo de criação de agente, cliques por sessão, taxa de erro) dependem de um pipeline de eventos de produto que ainda não existe nesta plataforma. Quando existir, aparece aqui com dado real."
+          />
         </div>
       )}
 
@@ -990,98 +856,26 @@ export default function RebuiltExecutiveOverview() {
         onClose={() => setActiveActionModal(null)}
         title={
           activeActionModal === 'agent' ? 'Criar Novo Agente de Voz' :
-          activeActionModal === 'org' ? 'Criar Nova Organização' :
           activeActionModal === 'telephony' ? 'Vincular Número de Telefonia (SIP)' :
           activeActionModal === 'knowledge' ? 'Importar Base de Conhecimento' :
-          'Executar Teste Automático de Chamada'
+          'Executar Teste de Chamada'
         }
         footer={
           <div className="flex gap-2">
             <Button variant="outline" onClick={() => setActiveActionModal(null)}>Cancelar</Button>
-            <Button 
-              variant="primary" 
-              isLoading={actionLoading}
+            <Button
+              variant="primary"
               onClick={() => handleExecuteQuickAction(activeActionModal || '')}
             >
-              Confirmar
+              Continuar
             </Button>
           </div>
         }
       >
         <div className="space-y-4">
           <p className="text-xs text-slate-500 leading-relaxed">
-            Preencha os dados abaixo para simular a criação e vinculação automática no sistema do Birth Hub 360.
+            Você será redirecionado para a tela correspondente para concluir esta ação.
           </p>
-          
-          {activeActionModal === 'agent' && (
-            <div className="space-y-4">
-              <label className="text-xs font-bold text-slate-500 uppercase">Nome do Agente</label>
-              <input
-                type="text"
-                placeholder="Ex: Catarina Prospecção"
-                value={actionInput}
-                onChange={(e) => setActionInput(e.target.value)}
-                className="w-full px-3.5 py-2.5 border rounded-lg text-sm bg-white text-slate-900 border-slate-300 focus:outline-none focus:ring-2 focus:ring-brand dark:bg-slate-800 dark:text-slate-100 dark:border-slate-700"
-              />
-              <label className="text-xs font-bold text-slate-500 uppercase block mt-2">Modelo Principal</label>
-              <select className="w-full px-3.5 py-2.5 border rounded-lg text-sm bg-white dark:bg-slate-800 dark:text-slate-100 dark:border-slate-700 border-slate-300">
-                <option>Gemini 2.5 Pro (Recomendado para Precisão)</option>
-                <option>Gemini 2.5 Flash (Foco em velocidade)</option>
-              </select>
-            </div>
-          )}
-
-          {activeActionModal === 'org' && (
-            <div className="space-y-4">
-              <label className="text-xs font-bold text-slate-500 uppercase">Nome da Empresa</label>
-              <input
-                type="text"
-                placeholder="Ex: ATLASGR"
-                value={actionInput}
-                onChange={(e) => setActionInput(e.target.value)}
-                className="w-full px-3.5 py-2.5 border rounded-lg text-sm bg-white text-slate-900 border-slate-300 focus:outline-none focus:ring-2 focus:ring-brand dark:bg-slate-800 dark:text-slate-100 dark:border-slate-700"
-              />
-            </div>
-          )}
-
-          {activeActionModal === 'telephony' && (
-            <div className="space-y-4">
-              <label className="text-xs font-bold text-slate-500 uppercase">Número do Telefone (E.164)</label>
-              <input 
-                type="text" 
-                placeholder="Ex: +55 11 99999-9999" 
-                value={actionInput}
-                onChange={(e) => setActionInput(e.target.value)}
-                className="w-full px-3.5 py-2.5 border rounded-lg text-sm bg-white text-slate-900 border-slate-300 focus:outline-none focus:ring-2 focus:ring-brand dark:bg-slate-800 dark:text-slate-100 dark:border-slate-700"
-              />
-              <p className="text-[10px] text-slate-400">Nossa infraestrutura mapeará este número automaticamente para seu SIP Trunk corporativo.</p>
-            </div>
-          )}
-
-          {activeActionModal === 'knowledge' && (
-            <div className="space-y-4">
-              <label className="text-xs font-bold text-slate-500 uppercase">Nome do Documento ou URL</label>
-              <input 
-                type="text" 
-                placeholder="Ex: Tabela de Preços 2026.pdf"
-                value={actionInput}
-                onChange={(e) => setActionInput(e.target.value)}
-                className="w-full px-3.5 py-2.5 border rounded-lg text-sm bg-white text-slate-900 border-slate-300 focus:outline-none focus:ring-2 focus:ring-brand dark:bg-slate-800 dark:text-slate-100 dark:border-slate-700"
-              />
-            </div>
-          )}
-
-          {activeActionModal === 'test' && (
-            <div className="space-y-4 p-4 bg-slate-50 dark:bg-slate-900/40 rounded-xl border border-slate-200 dark:border-slate-800">
-              <div className="flex items-center gap-3">
-                <Spinner size="sm" />
-                <span className="text-xs font-bold text-slate-700 dark:text-slate-200">Pronto para iniciar chamada virtual...</span>
-              </div>
-              <p className="text-[11px] text-slate-400 mt-2">
-                Isto simulará o recebimento de uma chamada telefônica em nosso servidor. Transcrições de voz e respostas da IA serão processadas no Playground em tempo real.
-              </p>
-            </div>
-          )}
         </div>
       </Modal>
 
@@ -1090,50 +884,58 @@ export default function RebuiltExecutiveOverview() {
   );
 }
 
-// Subcomponent: Executive KPI Card
-interface ExecutiveStatCardProps {
+// Subcomponent: a KPI card driven by real fetch status — never renders a placeholder number as
+// if it were live data. Shows a skeleton while loading, an inline retry affordance on error, and
+// the real computed value (or an explicit "—" + caption) once ready.
+interface RealStatCardProps {
   title: string;
+  status: FetchStatus;
   value: string;
-  percentage: string;
-  isPositive: boolean;
+  caption: string;
   tooltip: string;
-  sparkline: string;
-  color: string;
+  onClick?: () => void;
 }
 
-function ExecutiveStatCard({ title, value, percentage, isPositive, tooltip, sparkline, color }: ExecutiveStatCardProps) {
+function RealStatCard({ title, status, value, caption, tooltip, onClick }: RealStatCardProps) {
   return (
     <Tooltip text={tooltip}>
-      <Card className="p-4 hoverable space-y-3 relative overflow-hidden flex flex-col justify-between h-full group">
+      <Card
+        className={`p-4 hoverable space-y-2 relative overflow-hidden flex flex-col justify-between h-full group ${onClick ? 'cursor-pointer' : ''}`}
+        onClick={onClick}
+      >
         <div className="space-y-1 text-left">
           <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{title}</p>
-          <p className="text-xl font-bold text-slate-900 dark:text-white tracking-tight font-sans">
-            {value}
-          </p>
+          {status === 'loading' ? (
+            <Skeleton className="h-7 w-16" />
+          ) : status === 'error' ? (
+            <p className="text-sm font-bold text-red-500 flex items-center gap-1"><AlertTriangle className="h-3.5 w-3.5" /> Erro</p>
+          ) : (
+            <p className="text-xl font-bold text-slate-900 dark:text-white tracking-tight font-sans">{value}</p>
+          )}
         </div>
-
-        {/* Sparkline & Comparison Row */}
-        <div className="flex items-end justify-between gap-2 pt-2">
-          <span className={`text-[10px] font-bold ${isPositive ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-            {percentage}
-          </span>
-          
-          {/* Sparkline mini-svg */}
-          <div className={`w-16 h-8 ${color} opacity-70 group-hover:opacity-100 transition-opacity`}>
-            <svg viewBox="0 0 150 30" className="w-full h-full">
-              <path 
-                d={sparkline} 
-                fill="none" 
-                stroke="currentColor" 
-                strokeWidth="2.5" 
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-          </div>
-        </div>
+        <span className="text-[10px] font-semibold text-slate-400">{status === 'ready' ? caption : status === 'error' ? 'Tentar novamente ao atualizar a página' : ' '}</span>
       </Card>
     </Tooltip>
+  );
+}
+
+// Subcomponent: an actionable pending item, computed from real state (not hardcoded copy).
+function PendingAlert({ title, description, actionLabel, onAction, tone = 'red' }: {
+  title: string; description: string; actionLabel: string; onAction: () => void; tone?: 'red' | 'amber';
+}) {
+  const toneClasses = tone === 'red'
+    ? 'bg-red-50/60 dark:bg-red-950/20 border-red-100 dark:border-red-900/30 text-red-800 dark:text-red-300'
+    : 'bg-amber-50/60 dark:bg-amber-950/20 border-amber-100 dark:border-amber-900/30 text-amber-800 dark:text-amber-300';
+  return (
+    <div className={`p-3 border rounded-lg text-left ${toneClasses}`}>
+      <div className="flex justify-between items-start">
+        <p className="text-xs font-bold">{title}</p>
+        <button onClick={onAction} className="text-[10px] font-bold text-brand hover:underline shrink-0 ml-2">
+          {actionLabel}
+        </button>
+      </div>
+      <p className="text-[10px] text-slate-500 mt-1">{description}</p>
+    </div>
   );
 }
 
@@ -1149,13 +951,13 @@ function ChecklistItem({ label, checked, onChange, onClick }: ChecklistItemProps
   return (
     <div className="flex items-center justify-between gap-3 text-xs p-1.5 hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-lg transition-colors">
       <div className="flex items-center gap-2">
-        <input 
-          type="checkbox" 
-          checked={checked} 
+        <input
+          type="checkbox"
+          checked={checked}
           onChange={onChange}
           className="h-3.5 w-3.5 text-brand rounded border-slate-300 focus:ring-brand accent-brand cursor-pointer"
         />
-        <button 
+        <button
           onClick={onClick}
           className={`font-semibold hover:text-brand transition-colors text-left ${checked ? 'line-through text-slate-400' : 'text-slate-700 dark:text-slate-300'}`}
         >
@@ -1165,23 +967,6 @@ function ChecklistItem({ label, checked, onChange, onClick }: ChecklistItemProps
       <button onClick={onClick} className="text-[10px] font-bold text-slate-400 hover:text-brand transition-colors">
         Ir
       </button>
-    </div>
-  );
-}
-
-// Subcomponent: Funnel Step
-function FunnelStep({ label, value, desc }: { label: string, value: string, desc: string }) {
-  const numericValue = parseInt(value);
-  return (
-    <div className="space-y-1.5 text-left">
-      <div className="flex justify-between items-baseline text-xs">
-        <div>
-          <span className="font-bold text-slate-800 dark:text-slate-100">{label}</span>
-          <span className="text-[10px] text-slate-450 dark:text-slate-400 ml-2 font-medium">({desc})</span>
-        </div>
-        <span className="font-bold text-slate-900 dark:text-slate-200 font-mono">{value}</span>
-      </div>
-      <Progress value={numericValue} />
     </div>
   );
 }
