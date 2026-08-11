@@ -1,10 +1,34 @@
 import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Card, Button, Badge } from '../../components/design-system';
-import { 
-  Settings, Brain, Mic, Database, Wrench, Shield, Activity, 
-  GitBranch, PlaySquare, ArrowLeft, Save, Rocket, Zap, MessageSquare
+import {
+  Settings, Brain, Mic, Database, Wrench, Shield, Activity,
+  GitBranch, PlaySquare, ArrowLeft, Save, Rocket, Zap, MessageSquare, FlaskConical
 } from 'lucide-react';
+
+// Version Control, Playground preview and Health & Analytics below render illustrative content —
+// no endpoint backs deploy history, a live playground transcript or per-agent health/CSAT/cost
+// yet. AGENTS.md §14 forbids presenting a fabricated metric as real; gate it clearly instead
+// (see pages/Dashboard/Analytics.tsx for the same pattern) rather than showing invented numbers
+// unlabeled in production.
+const SHOW_DEMO_DATA = import.meta.env.DEV || import.meta.env.VITE_SHOW_DEMO_ANALYTICS === 'true';
+
+function DemoDataBanner() {
+  return (
+    <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-[10px] font-bold uppercase tracking-wider bg-amber-50 text-amber-700 border border-amber-200 mb-4">
+      <FlaskConical className="h-3 w-3" /> Dados de exemplo — sem integração real ainda
+    </div>
+  );
+}
+
+function DemoDataEmptyState({ message }: { message: string }) {
+  return (
+    <div className="flex-1 flex flex-col items-center justify-center text-slate-400 text-center p-12">
+      <Activity className="h-8 w-8 mb-3 opacity-40" />
+      <p className="font-semibold text-slate-600 dark:text-slate-300">{message}</p>
+    </div>
+  );
+}
 
 export default function AgentOS() {
   const { id } = useParams();
@@ -205,6 +229,7 @@ Consultivo, profissional, calmo e seguro.`}
         {activeTab === 'versioning' && (
           <div className="flex-1 p-8 overflow-y-auto">
             <div className="max-w-4xl mx-auto space-y-6">
+              <DemoDataBanner />
               <div className="flex justify-between items-center mb-6">
                 <div>
                   <h3 className="text-xl font-bold text-slate-900 dark:text-white">Version Control</h3>
@@ -250,7 +275,10 @@ Consultivo, profissional, calmo e seguro.`}
           <div className="flex-1 flex overflow-hidden">
             <div className="flex-1 flex flex-col p-6">
               <div className="flex justify-between items-center mb-4">
-                <h3 className="font-bold text-slate-900 dark:text-white">Playground Enterprise</h3>
+                <div>
+                  <h3 className="font-bold text-slate-900 dark:text-white">Playground Enterprise</h3>
+                  <DemoDataBanner />
+                </div>
                 <div className="flex gap-2">
                   <Button variant="outline" size="sm"><Mic className="h-4 w-4 mr-2" /> Falar</Button>
                   <Button variant="outline" size="sm">Limpar</Button>
@@ -319,7 +347,14 @@ Consultivo, profissional, calmo e seguro.`}
           <div className="flex-1 p-8 overflow-y-auto">
             <div className="max-w-5xl mx-auto space-y-6">
               <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-6">Agent Health & Analytics</h3>
-              
+
+              {!SHOW_DEMO_DATA ? (
+                <Card className="p-0">
+                  <DemoDataEmptyState message="Health score, CSAT e custo real deste agente ainda não estão conectados a dados reais." />
+                </Card>
+              ) : (
+              <>
+              <DemoDataBanner />
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <Card className="p-5 flex flex-col justify-center items-center text-center">
                   <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Health Score</span>
@@ -353,6 +388,8 @@ Consultivo, profissional, calmo e seguro.`}
                   </div>
                 </div>
               </Card>
+              </>
+              )}
             </div>
           </div>
         )}

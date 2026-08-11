@@ -1,13 +1,19 @@
 import React from 'react';
 import { Card, Button, Badge } from '../../components/design-system';
-import { Sparkles, DownloadCloud, Star } from 'lucide-react';
+import { Sparkles, DownloadCloud, Star, FlaskConical } from 'lucide-react';
 
+// Template catalog and ratings/downloads below are illustrative — there is no marketplace backend
+// yet (no endpoint lists/installs a template), so these are labeled as example data per
+// AGENTS.md §14 instead of presented unlabeled as if they were real published templates.
 export default function AgentMarketplace() {
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Agent Marketplace</h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Agent Marketplace</h1>
+            <Badge variant="warning" className="normal-case"><FlaskConical className="h-2.5 w-2.5 mr-1 inline" />Dados de exemplo</Badge>
+          </div>
           <p className="text-sm text-slate-500">Instale templates corporativos de agentes pré-treinados e otimizados.</p>
         </div>
       </div>
