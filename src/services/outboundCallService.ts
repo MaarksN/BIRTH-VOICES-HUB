@@ -41,14 +41,9 @@ export async function initiateOutboundCall(params: OutboundCallRequest): Promise
     throw new AgentNotFoundError('Agente não encontrado para este tenant.');
   }
 
-  const inFlight = await sessionRepository.findActiveOutboundSessionToNumber(params.tenantId, params.targetNumber);
-  if (inFlight) {
-    throw new DuplicateCallError('Já existe uma chamada em andamento para este número.');
-  }
-
   const provider = getTelephonyProvider();
   // Checked before the session is created so a misconfigured deployment fails without leaving an
-  // orphaned "active" session behind — which the duplicate guard above would then treat as a real
+  // orphaned "active" session behind — which the duplicate guard below would then treat as a real
   // call in flight, blocking this number indefinitely.
   provider.assertConfigured();
 
@@ -63,7 +58,34 @@ export async function initiateOutboundCall(params: OutboundCallRequest): Promise
     turns: [],
   };
 
-  const session = await sessionRepository.createPhoneSession(agent.tenantId, agent.id, metadata);
+  // Double-submit / retry-of-queue guard: the "is a call already active for this number" check and
+  // the session creation happen in one Serializable DB transaction (see
+  // createOutboundPhoneSessionIfNoneInFlight) so two near-simultaneous requests for the same
+  // tenant+number can never both slip through and dial the same lead twice. A losing concurrent
+  // request surfaces here as a Postgres serialization failure (Prisma P2034), not as `inFlight`.
+  let claim: Awaited<ReturnType<typeof sessionRepository.createOutboundPhoneSessionIfNoneInFlight>>;
+  try {
+    claim = await sessionRepository.createOutboundPhoneSessionIfNoneInFlight(
+      agent.tenantId,
+      agent.id,
+      params.targetNumber,
+      metadata,
+    );
+  } catch (err) {
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2034') {
+      logger.warn('[OutboundCall] Concurrent dial to the same number lost the double-submit race', {
+        tenantId: agent.tenantId,
+        to: params.targetNumber,
+      });
+      throw new DuplicateCallError('Já existe uma chamada em andamento para este número.');
+    }
+    throw err;
+  }
+
+  if (claim.inFlight || !claim.session) {
+    throw new DuplicateCallError('Já existe uma chamada em andamento para este número.');
+  }
+  const session = claim.session;
 
   try {
     const call = await provider.placeCall({ to: params.targetNumber, sessionId: session.id });
