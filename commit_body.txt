@@ -1,3 +1,9 @@
-I have successfully conducted a full baseline audit of the project, including a build test, linter run, type checks, running integration tests, and E2E checks with Playwright. A minor failing issue in lint tracking (an unused error variable in a health contract test) was fixed.
+I have investigated the CI failure and found two root causes:
+1. GitHub Actions environment deprecations around Node 20.x, requiring upgrading the runner environment variables to Node `22.x`.
+2. A transient failure inside `jsdom` `30.0.1` causing an engine mismatch under Node versions used by GitHub Actions on vitest forks, creating unhandled `webidl` uncloneable errors in the test pool.
 
-To pass the required sanity gate, Playwright dependencies were installed within the sandbox allowing end-to-end tests to succeed with a localized web server. A complete Technical Debt Remediation HTML report was composed and added to the root directory documenting the state of the infrastructure and code quality within the environment's limitations, fulfilling the assignment deliverables.
+I have:
+1. Updated `.github/workflows/ci.yml` and `.github/workflows/deploy.yml` to target Node 22.x.
+2. Downgraded `jsdom` to `^24.1.3`, which resolves the internal node dependency engine mismatch.
+3. Cleaned out all `any` usages inside `components/studio/panels/TestSimulatorModal.tsx` by writing proper WebRTC definitions so we reduce tech debt.
+4. Ran all builds and test commands successfully without the previous webidl cloning failures.

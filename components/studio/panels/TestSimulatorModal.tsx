@@ -1,3 +1,34 @@
+
+// Definições necessárias
+interface SpeechRecognitionEvent {
+  results: {
+    [index: number]: {
+      [index: number]: {
+        transcript: string;
+      };
+    };
+  };
+}
+
+interface SpeechRecognition {
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  start(): void;
+  stop(): void;
+  onstart: (() => void) | null;
+  onresult: ((event: SpeechRecognitionEvent) => void) | null;
+  onerror: (() => void) | null;
+  onend: (() => void) | null;
+}
+
+declare global {
+  interface Window {
+    SpeechRecognition: { new(): SpeechRecognition };
+    webkitSpeechRecognition: { new(): SpeechRecognition };
+  }
+}
+
 import React, { useState, useRef, useEffect } from 'react';
 import { X, Mic, MicOff, PhoneOff, User, Bot, Loader2 } from 'lucide-react';
 import { logger } from '../../../lib/logger';
@@ -12,7 +43,7 @@ export function TestSimulatorModal({ onClose }: TestSimulatorModalProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [, setTranscript] = useState('');
   
-  const recognitionRef = useRef<any>(null);
+  const recognitionRef = useRef<SpeechRecognition | null>(null);
   
   // Audio waveform refs
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -80,7 +111,7 @@ export function TestSimulatorModal({ onClose }: TestSimulatorModalProps) {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       streamRef.current = stream;
       
-      const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+      const AudioContextClass = window.AudioContext || ((window as unknown) as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
       const audioContext = new AudioContextClass();
       audioContextRef.current = audioContext;
       
@@ -158,7 +189,7 @@ export function TestSimulatorModal({ onClose }: TestSimulatorModalProps) {
       return;
     }
 
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     const recognition = new SpeechRecognition();
     recognition.continuous = false;
     recognition.interimResults = false;
@@ -170,7 +201,7 @@ export function TestSimulatorModal({ onClose }: TestSimulatorModalProps) {
       startAudioWave();
     };
     
-    recognition.onresult = (event: any) => {
+    recognition.onresult = (event: SpeechRecognitionEvent) => {
       const text = event.results[0][0].transcript;
       setTranscript(text);
       handleSendText(text);
