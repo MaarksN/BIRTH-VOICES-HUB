@@ -82,3 +82,23 @@ export async function deleteUser(targetId: string, tenantId: string, requesterId
 
   await userRepository.softDeleteUser(targetId);
 }
+
+// LGPD data-subject erasure/anonymization request. Self-service (a titular exercising their own
+// right to erasure) or admin-initiated on their behalf — same authorization shape as
+// updateUserProfile, since both are actions a user is allowed to take on their own account.
+export async function anonymizeUserData(
+  targetId: string,
+  tenantId: string,
+  requester: { id: string; role: string }
+) {
+  if (requester.role !== 'admin' && requester.id !== targetId) {
+    throw new UserServiceError('Você não tem permissão para solicitar a exclusão dos dados deste titular.', 403);
+  }
+
+  const target = await userRepository.findUserById(targetId);
+  if (!target || target.tenantId !== tenantId) {
+    throw new UserServiceError('Usuário não encontrado.', 404);
+  }
+
+  await userRepository.anonymizeUser(targetId);
+}

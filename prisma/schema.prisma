@@ -208,6 +208,17 @@ model Setting {
   @@index([userId])
 }
 
+// SECURITY.md states every model except "core global models" carries a tenantId. APIKey and
+// Integration break that invariant today. They are currently dead schema — grep finds zero
+// references to `prisma.aPIKey` / `prisma.integration` anywhere in src/ or lib/ — so there is no
+// live cross-tenant leak yet. But both are clearly meant to hold tenant-owned data (a tenant's own
+// API key, a tenant's configured provider credentials per AGENTS.md's Agent 06/Integrations scope)
+// once wired up. Whichever agent implements them MUST add a required `tenantId` (with the same
+// `@relation(fields: [tenantId], references: [id], onDelete: Cascade)` + `@@index([tenantId])`
+// shape used by every other tenant-scoped model above) as part of that work — not bolt it on after
+// the first cross-tenant report. Flagged by Agent 01 (schema owner) during the Onda 1 tenancy
+// audit; not fixed preemptively here because the correct shape (nullable vs required, one row per
+// tenant vs many) depends on product decisions those agents haven't made yet.
 model APIKey {
   id        String   @id @default(uuid())
   keyHash   String   @unique
@@ -228,6 +239,11 @@ model Integration {
   updatedAt DateTime @updatedAt
 }
 
+// Notification.userId is present but there is no tenantId. Since a User already belongs to exactly
+// one Tenant, filtering by userId alone is tenant-safe as long as every query also derives userId
+// from req.user (never from client input) — same pattern already used by Session/Metric/Setting
+// per-user queries elsewhere in this schema. Currently unused (zero references to
+// `prisma.notification` in src/) — noted for whichever agent wires it up.
 model Notification {
   id        String   @id @default(uuid())
   userId    String
@@ -238,6 +254,11 @@ model Notification {
   createdAt DateTime @default(now())
 }
 
+// Same missing-tenantId caveat as APIKey/Integration above if this ends up holding tenant-specific
+// provider configuration (e.g. per-tenant LLM API keys) rather than a system-wide catalog of
+// supported providers. Currently unused (zero references to `prisma.aIProvider` in src/ or
+// lib/voice-runtime/). Agent 04 owns lib/voice-runtime/** — resolve the intended shape with a
+// handoff to Agent 01 before writing to this model for the first time.
 model AIProvider {
   id        String   @id @default(uuid())
   name      String
