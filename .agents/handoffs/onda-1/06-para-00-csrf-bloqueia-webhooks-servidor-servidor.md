@@ -1,7 +1,7 @@
 - De: Agente 06 (Integrações Externas)
 - Para: Agente 00 (Coordenador) — mudança em `server.ts` exige aprovação explícita dele (AGENTS.md §11)
 - Onda: 1
-- Status: aberto
+- Status: resolvido
 - Prioridade: bloqueador
 
 ## Problema
@@ -82,3 +82,27 @@ Ver também `.agents/handoffs/onda-1/06-para-01-persistir-resultado-bland.md` e 
 do Agente 06 para o achado relacionado de que `/api/webhook/atlasgr/outbound` parece não ser mais
 chamado pelo repositório AtlasGR hoje (que migrou para `/api/voice/outbound`) — o que não reduz a
 gravidade deste item, já que a rota continua montada e exposta em produção.
+
+## Resolução
+
+Aplicado pelo Coordenador em `integracao/onda-1` (commit `e9a80e2`), com confirmação explícita do
+usuário antes de editar `src/middlewares/index.ts` por ser arquivo de segurança sensível:
+
+1. `atlasgrRoutes` removido de `src/routes/index.ts` (`apiRoutes`) e montado diretamente em
+   `server.ts` **antes** de `app.use(csrfProtection)`, no mesmo bloco/padrão do `telephonyRoutes`,
+   com comentário explicando o motivo.
+2. `src/features/prospecting/routes/atlasgr.routes.ts` ganhou `router.use(express.json())` local,
+   necessário porque o router passou a rodar antes do `express.json()` global.
+3. `csrfProtection` (`src/middlewares/index.ts`) passou a pular a checagem de `Origin` quando a
+   requisição já está autenticada por `Authorization: Bearer ...` — resolve também o caso de
+   `/api/voice/outbound` citado neste handoff, sem precisar mover essa rota para antes do CSRF (ela
+   também é usada pelo navegador com cookie de sessão, então precisa continuar protegida por CSRF
+   nesse caminho).
+
+Validado: `npm run typecheck`/`lint`/`build` verdes em `integracao/onda-1`; `npm run test` sem
+nenhuma falha nova atribuível a esta mudança (as 5 falhas presentes em
+`__tests__/outboundCallService.test.ts` são pré-existentes ao commit de resolução, tratadas no
+handoff `05-para-08-outboundCallService-test-update.md`, não relacionadas a CSRF).
+
+Não foi adicionado teste automatizado por este commit — `__tests__/**` é propriedade exclusiva do
+Agente 08. Handoff de teste aberto: `.agents/handoffs/onda-1/00-para-08-teste-csrf-bearer-exemption.md`.
