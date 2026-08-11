@@ -1,12 +1,27 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { X, Mic, MicOff, PhoneOff, User, Bot, Loader2 } from 'lucide-react';
+import { X, Mic, MicOff, PhoneOff, User, Bot, Loader2, AlertTriangle } from 'lucide-react';
 import { logger } from '../../../lib/logger';
+import { useStudioStore } from '../../../store/useStudioStore';
+import { validationEngine } from '../../../lib/studio/ValidationEngine';
 
 interface TestSimulatorModalProps {
   onClose: () => void;
 }
 
 export function TestSimulatorModal({ onClose }: TestSimulatorModalProps) {
+  // This modal is a rule-based text/voice demo chat (see handleSendText -> /api/chat below), NOT
+  // an execution of the graph being edited: the Voice Runtime (Agente 04) doesn't consume
+  // Workflow.nodes/edges yet (see .agents/handoffs/onda-2/07-para-04-contrato-execucao-workflow.md),
+  // and /api/chat is a fixed keyword-matcher with zero awareness of this workflow's prompt/LLM
+  // nodes. It must never be presented as if it reflects real graph behavior — hence the mock
+  // banner and the node-driven title/subtitle below instead of a hardcoded bot name.
+  const { nodes, edges } = useStudioStore();
+  const startNode = nodes.find(n => n.type === 'start');
+  const promptNode = nodes.find(n => n.type === 'prompt');
+  const botLabel = promptNode?.data.label || startNode?.data.label || 'Fluxo sem nome';
+  const validation = validationEngine.validate(nodes, edges);
+  const errorCount = validation.issues.filter(i => i.type === 'error').length;
+
   const [messages, setMessages] = useState<{role: 'user'|'agent', text: string}[]>([]);
   const [isListening, setIsListening] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -24,7 +39,7 @@ export function TestSimulatorModal({ onClose }: TestSimulatorModalProps) {
 
   useEffect(() => {
     // Initial welcome message
-    setMessages([{ role: 'agent', text: 'Olá! A simulação de voz está ativa. Clique no microfone e diga algo.' }]);
+    setMessages([{ role: 'agent', text: 'Olá! Este é um chat de demonstração (mock) para testar a UI de teste de voz. Clique no microfone e diga algo.' }]);
     
     return () => {
       stopAudioWave();
@@ -204,10 +219,10 @@ export function TestSimulatorModal({ onClose }: TestSimulatorModalProps) {
               <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-slate-900 rounded-full"></div>
             </div>
             <div>
-              <h3 className="text-white font-semibold leading-none mb-1">Customer Service Bot</h3>
-              <p className="text-green-400 text-xs font-medium flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse"></span>
-                Conectado (Simulação Local)
+              <h3 className="text-white font-semibold leading-none mb-1">{botLabel}</h3>
+              <p className="text-amber-400 text-xs font-medium flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
+                Modo Demo (mock) — não usa o prompt/LLM deste fluxo
               </p>
             </div>
           </div>
@@ -216,8 +231,18 @@ export function TestSimulatorModal({ onClose }: TestSimulatorModalProps) {
           </button>
         </div>
 
+        {/* Mock disclosure banner: this is not the Voice Runtime, and never claims to be. */}
+        <div className="px-4 py-2 bg-amber-500/10 border-b border-amber-500/20 text-amber-300 text-[11px] leading-snug">
+          Este chat responde com regras fixas de demonstração (endpoint /api/chat), não com o LLM/prompt configurado no Canvas. Use o "Runtime Simulator" no painel inferior para uma simulação que percorre os nós reais deste fluxo.
+          {errorCount > 0 && (
+            <div className="mt-1 flex items-center gap-1.5 text-red-300 font-semibold">
+              <AlertTriangle className="w-3 h-3 shrink-0" /> Este fluxo tem {errorCount} erro(s) de validação — mesmo respostas "corretas" aqui não significam que o fluxo real funcionaria.
+            </div>
+          )}
+        </div>
+
         {/* Chat Area */}
-        <div className="h-[350px] overflow-y-auto p-4 flex flex-col gap-4 bg-slate-900/50 scrollbar-thin scrollbar-thumb-slate-700">
+        <div className="h-[314px] overflow-y-auto p-4 flex flex-col gap-4 bg-slate-900/50 scrollbar-thin scrollbar-thumb-slate-700">
           {messages.map((m, i) => (
             <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'} gap-2`}>
               {m.role === 'agent' && (

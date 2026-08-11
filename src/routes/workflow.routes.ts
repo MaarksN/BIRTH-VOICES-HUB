@@ -1,6 +1,6 @@
 import express from 'express';
 import { requireTenant } from '../middlewares/rbac.js';
-import { getWorkflowHandler, saveWorkflowHandler, updateWorkflowHandler, deleteWorkflowHandler, getWorkflowHistoryHandler, restoreWorkflowVersionHandler, duplicateWorkflowHandler } from '../controllers/workflow.controller.js';
+import { getWorkflowHandler, saveWorkflowHandler, updateWorkflowHandler, deleteWorkflowHandler, getWorkflowHistoryHandler, restoreWorkflowVersionHandler, duplicateWorkflowHandler, publishWorkflowHandler } from '../controllers/workflow.controller.js';
 
 const router = express.Router();
 
@@ -12,6 +12,9 @@ router.delete('/workflow', requireTenant, deleteWorkflowHandler);
 router.get('/workflow/history', requireTenant, getWorkflowHistoryHandler);
 router.post('/workflow/restore', requireTenant, restoreWorkflowVersionHandler);
 router.post('/workflow/duplicate', requireTenant, duplicateWorkflowHandler);
+// The only route that can flip Workflow.status to 'active' — gated server-side by
+// workflowService.publishWorkflow() -> ValidationEngine (see AGENTS.md blocker #13).
+router.post('/workflow/publish', requireTenant, publishWorkflowHandler);
 
 
 import { addCommentHandler, resolveCommentHandler, lockNodeHandler, unlockNodeHandler } from '../controllers/workflowCollab.controller.js';
