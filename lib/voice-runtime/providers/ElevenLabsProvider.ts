@@ -20,15 +20,11 @@ export class ElevenLabsProvider extends BaseProvider {
     const start = Date.now();
 
     if (!this.client) {
-      // Mock for missing API key / tests
-      return {
-        audio: {
-          data: new Uint8Array(1024),
-          timestamp: Date.now(),
-          isSpeech: true
-        },
-        latencyMs: Date.now() - start
-      };
+      // Must throw, not fabricate 1024 bytes of fake "speech" — a silent success here would
+      // mean FailoverEngine never falls back to Voicebox, and the caller would play back
+      // synthetic silence to a real caller believing TTS succeeded. See GeminiProvider.process
+      // for the same rule applied to the LLM side of the chain.
+      throw new Error('ElevenLabs API key não configurada.');
     }
 
     try {
@@ -51,15 +47,9 @@ export class ElevenLabsProvider extends BaseProvider {
         stream: responseStream
       };
     } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
       logger.error(`[${this.name}] Error processing TTS`, err);
-      return {
-        audio: {
-          data: new Uint8Array(0),
-          timestamp: Date.now(),
-          isSpeech: false
-        },
-        latencyMs: Date.now() - start
-      };
+      throw new Error(`ElevenLabs API Error: ${msg}`);
     }
   }
 

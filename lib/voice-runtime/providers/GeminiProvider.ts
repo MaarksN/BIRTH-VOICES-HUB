@@ -14,7 +14,12 @@ export class GeminiLiveProvider extends BaseProvider {
   public async process(input: ProviderInput, context?: ProviderContext): Promise<ProviderResponse> {
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
-      return { text: 'Chave do Gemini não configurada.', latencyMs: 0 };
+      // Gemini is the guaranteed final link in the LLM failover chain (see FailoverEngine /
+      // AGENTS.md bloqueador #6): it must THROW on failure like every other provider, never
+      // return a fabricated "success" response. Swallowing this as a normal ProviderResponse
+      // would make FailoverEngine treat a misconfigured guaranteed provider as a completed
+      // call, hiding the failure from observability instead of surfacing it.
+      throw new Error('Chave do Gemini não configurada.');
     }
 
     const start = Date.now();
@@ -36,16 +41,18 @@ export class GeminiLiveProvider extends BaseProvider {
           },
         });
 
+        if (!response.text) {
+          throw new Error('Gemini retornou resposta vazia.');
+        }
+
         return {
-          text: response.text || 'Desculpe, não consegui gerar uma resposta.',
+          text: response.text,
           latencyMs: Date.now() - start
         };
     } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
-        return {
-          text: `Erro: ${msg}`,
-          latencyMs: Date.now() - start
-        };
+        logger.error(`[${this.name}] Error processing LLM request`, err);
+        throw new Error(`Gemini API Error: ${msg}`);
     }
   }
 

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Key, Webhook, Copy, Eye, EyeOff, Plus, Trash2, Check, RefreshCw, X } from 'lucide-react';
+import { Key, Webhook, Copy, Eye, EyeOff, Plus, Trash2, Check, RefreshCw, X, AlertTriangle } from 'lucide-react';
 import { useDeveloperSettings } from '../../hooks/useDeveloperSettings';
 
 export default function DevelopersPage() {
@@ -30,6 +30,17 @@ export default function DevelopersPage() {
                 <h1 className="text-2xl font-bold text-slate-900 font-sans">Configurações de Desenvolvedores</h1>
                 <p className="text-sm text-slate-500 mt-1">Gerencie suas credenciais de acesso, integrações e webhooks.</p>
             </div>
+        </div>
+
+        {/* No backend issues or validates these keys/webhooks yet (see
+            hooks/useDeveloperSettings.ts) — labeled so this reads as a UI preview, not a live
+            credential management surface. */}
+        <div className="p-4 bg-amber-50 border border-amber-200 text-amber-800 rounded-lg text-sm font-medium flex items-start gap-2">
+            <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+            <span>
+              Pré-visualização de layout. Chaves e webhooks criados aqui existem apenas nesta sessão do navegador —
+              nenhuma API real reconhece essas credenciais ainda.
+            </span>
         </div>
 
         <div className="space-y-8">
@@ -114,36 +125,25 @@ export default function DevelopersPage() {
                         </h3>
                         <p className="text-sm text-slate-500">Receba notificações de eventos em tempo real no seu servidor.</p>
                     </div>
-                    <button className="flex items-center gap-2 px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 text-sm font-medium transition-colors">
+                    <button
+                        disabled
+                        title="Cadastro real de endpoints de webhook ainda não implementado"
+                        className="flex items-center gap-2 px-4 py-2 border border-slate-200 text-slate-400 rounded-lg text-sm font-medium cursor-not-allowed"
+                    >
                         <Plus className="h-4 w-4" /> Adicionar Endpoint
                     </button>
                 </div>
 
                 <div className="space-y-3">
-                    <div className="p-4 border border-slate-200 rounded-lg flex flex-col md:flex-row md:items-center justify-between gap-4">
-                        <div className="flex items-start md:items-center gap-4">
-                            <div className="w-2.5 h-2.5 bg-green-500 rounded-full animate-pulse shrink-0 mt-1 md:mt-0"></div>
-                            <div>
-                                <div className="font-mono text-sm text-slate-700">https://api.myapp.com/webhooks/voice</div>
-                                <div className="flex flex-wrap gap-2 mt-2">
-                                    <span className="px-2 py-0.5 bg-brand-50 text-brand text-[10px] font-bold rounded border border-brand-100">call.completed</span>
-                                    <span className="px-2 py-0.5 bg-brand-50 text-brand text-[10px] font-bold rounded border border-brand-100">call.analyzed</span>
-                                </div>
-                            </div>
-                        </div>
-                        <div className="text-left md:text-right flex items-center md:items-end flex-col gap-2">
-                            <div>
-                                <div className="text-xs text-slate-400">Última entrega: 2 min atrás</div>
-                                <div className="text-xs font-mono text-green-600 mt-0.5 font-bold">200 OK</div>
-                            </div>
-                            <button 
-                                onClick={() => setTestWebhookModal("https://api.myapp.com/webhooks/voice")}
-                                className="px-3 py-1 bg-white border border-slate-200 text-slate-600 text-[10px] font-bold uppercase rounded hover:text-brand hover:border-brand shadow-sm transition-colors"
-                            >
-                                Testar Endpoint
-                            </button>
-                        </div>
+                    <div className="p-4 border border-dashed border-slate-200 rounded-lg text-sm text-slate-400 text-center">
+                        Nenhum endpoint de webhook cadastrado ainda. Você pode simular uma entrega de teste abaixo.
                     </div>
+                    <button
+                        onClick={() => setTestWebhookModal('https://example.com/webhooks/voice')}
+                        className="px-3 py-1.5 bg-white border border-slate-200 text-slate-600 text-xs font-bold rounded hover:text-brand hover:border-brand shadow-sm transition-colors"
+                    >
+                        Simular envio de teste
+                    </button>
                 </div>
             </div>
         </div>

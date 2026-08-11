@@ -13,6 +13,11 @@ export type SessionState =
 export interface VoiceSession {
   sessionId: string;
   agentId: string;
+  // Real tenant that owns this session. Every downstream consumer (AI consent gating,
+  // observability tagging, tool permission scoping) keys off this field — never off
+  // workspaceId/organizationId/projectId, which are legacy placeholder identifiers this
+  // module has never actually resolved from a real caller (see SessionManager.createSession).
+  tenantId: string;
   workspaceId: string;
   organizationId: string;
   projectId: string;
@@ -87,6 +92,13 @@ export interface LatencyMetrics {
   ttsMs: number;
   streamingMs: number;
   totalMs: number;
+  // The provider that actually produced the LLM/TTS result for this session, which after a
+  // failover is NOT necessarily the one originally requested (session.provider / 'Voicebox').
+  // Populated by LatencyMonitor.recordProviderUsed — undefined until the first successful call.
+  llmProviderUsed?: string;
+  ttsProviderUsed?: string;
+  llmUsedFallback?: boolean;
+  ttsUsedFallback?: boolean;
 }
 
 export interface HealthMetrics {
@@ -116,5 +128,9 @@ export interface KnowledgeConfidence {
   version: string;
   snippetUsed: string;
   embeddingsScore: number;
+  // Explicit signal so callers (controller, UI, and the voice agent's own response phrasing)
+  // never present a low-confidence RAG match as if it were a certain fact. See
+  // KnowledgeConfidenceEngine.CONFIDENCE_THRESHOLD for the cutoff.
+  isLowConfidence: boolean;
 }
 

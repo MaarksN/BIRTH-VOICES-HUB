@@ -1,4 +1,4 @@
-import { StudioNode, StudioEdge, ValidationResult, ValidationIssue, FlowHealthScore } from './types';
+import type { StudioNode, StudioEdge, ValidationResult, ValidationIssue, FlowHealthScore } from './types';
 
 export class ValidationEngine {
   public validate(nodes: StudioNode[], edges: StudioEdge[]): ValidationResult {

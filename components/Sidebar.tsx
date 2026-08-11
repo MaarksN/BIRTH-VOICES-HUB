@@ -7,12 +7,17 @@ import {
   Activity, Shield, StarOff
 } from 'lucide-react';
 import { auth } from '../lib/auth';
+import { useSessionStore } from '../store/useSessionStore';
 import { useTheme } from './design-system/ThemeContext';
 import { useToast, AtlasLogo } from './design-system';
 
 export function Sidebar() {
   const location = useLocation();
-  const user = auth.getUser();
+  // Real session user (id/email/role/tenantId) from GET /api/auth/me, populated by
+  // DashboardLayout on mount. No server route has ever set a `user_info` cookie, so reading one
+  // here previously always resolved to a fabricated fallback name/email — see lib/auth.ts.
+  const user = useSessionStore((state) => state.user);
+  const sessionStatus = useSessionStore((state) => state.sessionStatus);
   const { theme, setTheme } = useTheme();
   const { showToast } = useToast();
 
@@ -56,8 +61,10 @@ export function Sidebar() {
         const filtered = prev.filter(p => p !== currentPath);
         const updated = [currentPath, ...filtered].slice(0, 4);
         
+        // PUT merges into the existing settings blob server-side; POST replaces it wholesale
+        // and would silently wipe out favorites/theme/other keys saved by other calls.
         fetch('/api/settings', {
-          method: 'POST',
+          method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ settings: { recentRoutes: updated } })
         }).catch(() => {});
@@ -81,7 +88,7 @@ export function Sidebar() {
     setFavorites(updated);
     
     fetch('/api/settings', {
-      method: 'POST',
+      method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ settings: { favorites: updated } })
     }).catch(() => {});
@@ -330,17 +337,27 @@ export function Sidebar() {
       {/* User profile & Workspace settings */}
       <div className="mt-auto pt-3 border-t border-slate-850">
         <div className="px-2 py-1">
-          <div className="flex items-center gap-2.5 text-left">
-            <div className="w-8 h-8 rounded-full bg-brand flex items-center justify-center text-sm font-bold text-white shrink-0">
-              {user?.name?.[0] || 'M'}
+          {sessionStatus === 'loading' && !user ? (
+            <div className="flex items-center gap-2.5 text-left animate-pulse">
+              <div className="w-8 h-8 rounded-full bg-slate-800 shrink-0" />
+              <div className="space-y-1.5 flex-1">
+                <div className="h-2.5 w-24 rounded bg-slate-800" />
+                <div className="h-2 w-32 rounded bg-slate-800" />
+              </div>
             </div>
-            <div className="text-xs overflow-hidden">
-              <p className="text-white font-bold truncate">{user?.name || 'Marcelin Mark'}</p>
-              <p className="text-slate-500 truncate">{user?.company || 'marcelinmark@gmail.com'}</p>
+          ) : (
+            <div className="flex items-center gap-2.5 text-left">
+              <div className="w-8 h-8 rounded-full bg-brand flex items-center justify-center text-sm font-bold text-white shrink-0">
+                {user?.email?.[0]?.toUpperCase() || '?'}
+              </div>
+              <div className="text-xs overflow-hidden">
+                <p className="text-white font-bold truncate">{user?.email || 'Sessão não identificada'}</p>
+                <p className="text-slate-500 truncate capitalize">{user?.role || '—'}</p>
+              </div>
             </div>
-          </div>
-          <button 
-            onClick={() => auth.logout()} 
+          )}
+          <button
+            onClick={() => auth.logout()}
             className="text-[10px] text-slate-500 hover:text-white mt-2 w-full text-left font-bold block"
           >
             Sair do Workspace
@@ -355,8 +372,14 @@ export function Sidebar() {
             <div className="flex items-center gap-1.5">
               <Bell className="h-4.5 w-4.5 text-brand" />
               <h3 className="font-bold text-sm">Painel de Alertas</h3>
+              {/* No notification backend exists yet (no model/route emits real alerts) — labeled
+                  so this reads as illustrative content, not live system events. See handoff
+                  02-para-00-notificacoes-backend.md. */}
+              <span className="px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-wide bg-slate-800 text-slate-400 border border-slate-700">
+                Exemplo
+              </span>
             </div>
-            <button 
+            <button
               onClick={() => setNotifOpen(false)}
               className="text-xs text-slate-400 hover:text-white font-bold"
             >

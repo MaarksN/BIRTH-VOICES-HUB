@@ -5,11 +5,19 @@ export function findWorkflowForTenant(tenantId: string) {
   return prisma.workflow.findFirst({ where: { tenantId, deletedAt: null }, orderBy: { updatedAt: 'desc' } });
 }
 
+// Only workflow the voice runtime (Agente 04) is meant to execute for a tenant: one that has
+// been through workflowService.publishWorkflow() and therefore passed ValidationEngine. Any
+// edit after publish flips status back to 'draft' (see workflowService.saveWorkflow/
+// updateWorkflow), so this never returns a row whose nodes/edges drifted from what was validated.
+export function findActiveWorkflowForTenant(tenantId: string) {
+  return prisma.workflow.findFirst({ where: { tenantId, deletedAt: null, status: 'active' }, orderBy: { updatedAt: 'desc' } });
+}
+
 export function upsertWorkflow(
   tenantId: string,
   userId: string,
   existingId: string | null,
-  data: { name?: string; nodes?: unknown; edges?: unknown; metadata?: unknown; version?: number }
+  data: { name?: string; nodes?: unknown; edges?: unknown; metadata?: unknown; version?: number; status?: string }
 ) {
   if (existingId) {
     return prisma.workflow.update({
@@ -20,6 +28,7 @@ export function upsertWorkflow(
         edges: data.edges !== undefined ? (data.edges as Prisma.InputJsonValue) : undefined,
         metadata: data.metadata !== undefined ? (data.metadata as Prisma.InputJsonValue) : undefined,
         version: data.version ?? undefined,
+        status: data.status ?? undefined,
         updatedBy: userId,
       },
     });
@@ -35,6 +44,7 @@ export function upsertWorkflow(
       edges: (data.edges ?? []) as Prisma.InputJsonValue,
       metadata: (data.metadata ?? {}) as Prisma.InputJsonValue,
       version: data.version ?? 1,
+      status: data.status ?? undefined,
     },
   });
 }

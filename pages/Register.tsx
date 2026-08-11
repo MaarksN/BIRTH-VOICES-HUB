@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { ArrowRight } from 'lucide-react';
 import { auth } from '../lib/auth';
 import { AtlasLogo } from '../components/design-system';
+import { useSessionStore } from '../store/useSessionStore';
 
 export default function RegisterPage() {
   const [companyName, setCompanyName] = useState('');
@@ -11,6 +12,7 @@ export default function RegisterPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const navigate = useNavigate();
+  const fetchSession = useSessionStore((state) => state.fetchSession);
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -32,6 +34,10 @@ export default function RegisterPage() {
       }
 
       auth.setToken(data.token, data.user);
+      // Populate the real session (id/email/role/tenantId) before navigating so the shell
+      // renders the real user — and the onboarding checklist for this brand-new tenant —
+      // correctly on the very first dashboard paint.
+      await fetchSession();
       navigate('/dashboard');
     } catch (err: unknown) {
       setError((err instanceof Error && err.message) || 'Erro de conexão.');
@@ -67,6 +73,7 @@ export default function RegisterPage() {
                 onChange={e => setCompanyName(e.target.value)}
                 className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand outline-none"
                 required
+                minLength={2}
               />
             </div>
             <div>
@@ -87,6 +94,7 @@ export default function RegisterPage() {
                 onChange={e => setPassword(e.target.value)}
                 className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand outline-none"
                 required
+                minLength={6}
               />
             </div>
             <button

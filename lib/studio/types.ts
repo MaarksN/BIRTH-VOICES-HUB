@@ -1,4 +1,10 @@
-import { Node, Edge } from '@xyflow/react';
+// `import type` (not a plain runtime import) is deliberate: this module is imported both from
+// the browser bundle (components/studio/**) and, for server-side publish-gate validation, from
+// the Express backend (src/services/workflowService.ts). A runtime import of `@xyflow/react`
+// here would drag a browser-oriented React component library into the Node.js server bundle.
+// Erasing it at compile time keeps this file (and ValidationEngine.ts, which only imports types
+// from here) safe to import from either environment.
+import type { Node, Edge } from '@xyflow/react';
 
 export type NodeType =
   | 'start'

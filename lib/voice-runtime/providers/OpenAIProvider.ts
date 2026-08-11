@@ -13,7 +13,9 @@ export class OpenAIRealtimeProvider extends BaseProvider {
   public async process(input: ProviderInput, context?: ProviderContext): Promise<ProviderResponse> {
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) {
-      return { text: 'Chave da OpenAI não configurada.', latencyMs: 0 };
+      // Must throw, not return a fake success — see GeminiProvider.process for why. A swallowed
+      // failure here means FailoverEngine never tries the next provider in the chain.
+      throw new Error('Chave da OpenAI não configurada.');
     }
 
     const start = Date.now();
@@ -41,7 +43,10 @@ export class OpenAIRealtimeProvider extends BaseProvider {
       }
 
       const data = await res.json();
-      const text = data.choices?.[0]?.message?.content || 'Sem resposta.';
+      const text = data.choices?.[0]?.message?.content;
+      if (!text) {
+        throw new Error('OpenAI retornou resposta vazia.');
+      }
 
       return {
         text,
@@ -50,7 +55,7 @@ export class OpenAIRealtimeProvider extends BaseProvider {
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       logger.error(`[${this.name}] Error processing LLM request`, err);
-      return { text: `Erro: ${msg}`, latencyMs: Date.now() - start };
+      throw new Error(`OpenAI API Error: ${msg}`);
     }
   }
 

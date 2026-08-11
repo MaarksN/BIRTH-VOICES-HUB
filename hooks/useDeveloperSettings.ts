@@ -20,24 +20,12 @@ interface WebhookLog {
   body: string;
 }
 
-const INITIAL_KEYS: ApiKey[] = [
-  {
-    id: '1',
-    name: 'Production Key LIVE',
-    value: 'pk_live_8g72hjksdfh839fj78hjs923xyz',
-    maskedValue: 'pk_live_****************xyz',
-    visible: false,
-    createdAt: '2026-01-10'
-  },
-  {
-    id: '2',
-    name: 'Development Key TEST',
-    value: 'pk_test_1ab23cd45ef67gh89ij0klmnopqrst',
-    maskedValue: 'pk_test_****************qrst',
-    visible: false,
-    createdAt: '2026-02-15'
-  },
-];
+// No backend API-key issuance exists yet (prisma has an unused `APIKey` model but no
+// route/controller/service reads or writes it — see handoff 02-para-09-api-key-backend.md).
+// Starting from an empty list — rather than two pre-seeded keys that looked exactly like real
+// live/test secret values sitting in source — avoids both (a) presenting fabricated credentials
+// as if issued by a real backend, and (b) a string shaped like a real secret living in the repo.
+const INITIAL_KEYS: ApiKey[] = [];
 
 export function useDeveloperSettings() {
   const [keys, setKeys] = useState<ApiKey[]>(INITIAL_KEYS);

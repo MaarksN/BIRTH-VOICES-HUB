@@ -1,5 +1,6 @@
 import { create } from 'zustand';
-import { StudioNode, StudioEdge, NodeType } from '../lib/studio/types';
+import { StudioNode, StudioEdge, NodeType, ValidationIssue } from '../lib/studio/types';
+import { validationEngine } from '../lib/studio/ValidationEngine';
 import { addEdge, Connection } from '@xyflow/react';
 import { logger } from '../lib/logger';
 
@@ -110,6 +111,14 @@ export interface StudioState {
   generateWorkflowFromPrompt: (prompt: string) => Promise<void>;
   loadWorkflowFromServer: () => Promise<void>;
   saveWorkflowToServer: () => Promise<void>;
+
+  // Publish / activation gate. `publishWorkflowToServer` is the only store action that can make
+  // the backend flip Workflow.status to 'active' (via POST /api/workflow/publish), and the
+  // backend re-validates independently — this client-side check only avoids a pointless round
+  // trip and gives immediate feedback, it is never trusted as the actual gate.
+  publishState: 'idle' | 'publishing' | 'success' | 'error';
+  publishIssues: ValidationIssue[];
+  publishWorkflowToServer: () => Promise<void>;
 }
 
 // Global node registry
@@ -579,7 +588,10 @@ export const useStudioStore = create<StudioState>((set, get) => ({
   },
   isSimulationPaused: false,
   simulationSpeedMs: 1500,
-  
+
+  publishState: 'idle',
+  publishIssues: [],
+
   // Node State mutators
   setNodes: (nodes) => set((state) => ({
     nodes: typeof nodes === 'function' ? nodes(state.nodes) : nodes
@@ -776,44 +788,82 @@ export const useStudioStore = create<StudioState>((set, get) => ({
   
   startSimulation: () => {
     if (simulationInterval) clearInterval(simulationInterval);
-    
+
+    // IMPORTANT: this is a local, client-only walk of the current nodes/edges graph — it never
+    // calls the real Voice Runtime (lib/voice-runtime, owned by Agente 04), which today doesn't
+    // even consume Workflow.nodes/edges yet (see handoff 07-para-04). It exists to let an author
+    // preview branching/config without a real call, and it must never claim success for a node
+    // that ValidationEngine would flag as broken — see the per-step check in runStep() below.
+    const { nodes: startNodes } = get();
+    const startNode = startNodes.find(n => n.type === 'start');
+
+    if (!startNode) {
+      get().addSimulationLog({
+        type: 'error',
+        message: 'Não é possível simular: nenhum nó Start encontrado no fluxo. Adicione um nó Start e conecte-o ao restante do fluxo.'
+      });
+      return;
+    }
+
     set({
       isDebugging: true,
       simulationStepIndex: 0,
-      activeSimulationNodeId: 'start-1',
+      activeSimulationNodeId: startNode.id,
       isSimulationPaused: false,
       simulationLogs: []
     });
-    
+
     get().addSimulationLog({
-      nodeId: 'start-1',
-      nodeLabel: 'Inbound Call',
+      nodeId: startNode.id,
+      nodeLabel: startNode.data.label,
       type: 'info',
-      message: 'Iniciando Voice Runtime Session (Inbound Call Triggered)'
+      message: 'Iniciando simulação local (mock) — não é uma chamada real de voz nem invoca o Voice Runtime em produção.'
     });
-    
-    get().setNodeLifecycle('start-1', 'Executing');
-    
+
+    get().setNodeLifecycle(startNode.id, 'Executing');
+
     const runStep = () => {
       const { activeSimulationNodeId, nodes, edges, isSimulationPaused, simulationVariables } = get();
       if (isSimulationPaused) return;
       if (!activeSimulationNodeId) return;
-      
+
       const currentNode = nodes.find(n => n.id === activeSimulationNodeId);
       if (!currentNode) {
+        get().addSimulationLog({
+          type: 'error',
+          message: `Simulação interrompida: nó "${activeSimulationNodeId}" não existe mais no fluxo (foi removido durante a simulação?).`
+        });
         get().stopSimulation();
         return;
       }
-      
+
+      // Never claim success for a node ValidationEngine would reject at publish time (e.g. an
+      // empty prompt, a Tool node with no endpoint, an LLM node with no provider). Simulating
+      // past a broken node would be exactly the kind of "fingir sucesso" the runtime contract
+      // forbids — surface the real error and halt instead.
+      const { issues: liveIssues } = validationEngine.validate(nodes, edges);
+      const blockingIssues = liveIssues.filter(i => i.nodeId === currentNode.id && i.type === 'error');
+      if (blockingIssues.length > 0) {
+        get().setNodeLifecycle(currentNode.id, 'Failed');
+        get().addSimulationLog({
+          nodeId: currentNode.id,
+          nodeLabel: currentNode.data.label,
+          type: 'error',
+          message: `Falha em ${currentNode.data.label}: ${blockingIssues.map(i => i.message).join(' ')}`
+        });
+        get().stopSimulation();
+        return;
+      }
+
       // Node execution completed
       get().setNodeLifecycle(currentNode.id, 'Completed');
       get().addSimulationLog({
         nodeId: currentNode.id,
         nodeLabel: currentNode.data.label,
         type: 'success',
-        message: `Node ${currentNode.data.label} executado com sucesso. Latência: ${currentNode.data.metrics?.latencyMs || 15}ms`
+        message: `Node ${currentNode.data.label} executado com sucesso (simulação local). Latência estimada: ${currentNode.data.metrics?.latencyMs || 15}ms`
       });
-      
+
       // Determine next node
       let nextNodeId: string | null = null;
       let matchingEdge: StudioEdge | null = null;
@@ -975,9 +1025,25 @@ export const useStudioStore = create<StudioState>((set, get) => ({
     
     const currentNode = nodes.find(n => n.id === activeSimulationNodeId);
     if (!currentNode) return;
-    
+
+    // Same rule as the automatic playback loop in startSimulation: don't advance past a node
+    // that ValidationEngine flags as an error, and don't silently mark it "Completed".
+    const { issues: liveIssues } = validationEngine.validate(nodes, edges);
+    const blockingIssues = liveIssues.filter(i => i.nodeId === currentNode.id && i.type === 'error');
+    if (blockingIssues.length > 0) {
+      get().setNodeLifecycle(currentNode.id, 'Failed');
+      get().addSimulationLog({
+        nodeId: currentNode.id,
+        nodeLabel: currentNode.data.label,
+        type: 'error',
+        message: `Falha em ${currentNode.data.label}: ${blockingIssues.map(i => i.message).join(' ')}`
+      });
+      get().stopSimulation();
+      return;
+    }
+
     get().setNodeLifecycle(currentNode.id, 'Completed');
-    
+
     let nextNodeId: string | null = null;
     const outgoingEdges = edges.filter(e => e.source === currentNode.id);
     
@@ -1183,6 +1249,54 @@ export const useStudioStore = create<StudioState>((set, get) => ({
       });
     } catch (err) {
       logger.error('Error saving workflow to server', { err });
+    }
+  },
+
+  publishWorkflowToServer: async () => {
+    const { nodes, edges } = get();
+
+    // Fast local pre-check so an obviously-broken flow doesn't even round-trip: purely a UX
+    // shortcut, NOT the enforcement point. The server independently re-runs ValidationEngine
+    // against the persisted row and is the only thing allowed to set status: 'active'.
+    const localResult = validationEngine.validate(nodes, edges);
+    if (!localResult.isValid) {
+      set({ publishState: 'error', publishIssues: localResult.issues });
+      get().addSimulationLog({
+        type: 'error',
+        message: `Publicação bloqueada: ${localResult.issues.filter(i => i.type === 'error').length} erro(s) de validação precisam ser corrigidos antes de ativar este fluxo.`
+      });
+      return;
+    }
+
+    set({ publishState: 'publishing' });
+    try {
+      const res = await fetch('/api/workflow/publish', { method: 'POST' });
+      const data = await res.json().catch(() => ({}));
+
+      if (res.ok) {
+        set({ publishState: 'success', publishIssues: [] });
+        get().addSimulationLog({
+          type: 'success',
+          message: 'Fluxo validado e publicado com sucesso. Status: ativo.'
+        });
+        return;
+      }
+
+      // 422 (ValidationFailedError) carries structured issues from the server-side re-check;
+      // any other non-OK status is a generic failure with no issues to display.
+      const issues: ValidationIssue[] = Array.isArray(data.issues) ? data.issues : [];
+      set({ publishState: 'error', publishIssues: issues });
+      get().addSimulationLog({
+        type: 'error',
+        message: `Falha ao publicar: ${data.error || res.statusText || 'erro desconhecido no servidor'}`
+      });
+    } catch (err) {
+      logger.error('Error publishing workflow to server', { err });
+      set({ publishState: 'error', publishIssues: [] });
+      get().addSimulationLog({
+        type: 'error',
+        message: 'Falha ao publicar: não foi possível contatar o servidor.'
+      });
     }
   }
 }));

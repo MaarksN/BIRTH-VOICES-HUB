@@ -1,13 +1,20 @@
 import React from 'react';
-import { Card, Button } from '../../components/design-system';
-import { Plug, Plus, Settings } from 'lucide-react';
+import { Card, Button, Badge } from '../../components/design-system';
+import { Plug, Plus, Settings, FlaskConical } from 'lucide-react';
 
+// ToolEngine (lib/voice-runtime/ToolEngine.ts) has no live tool registered yet in production
+// (verified: no call site invokes registerTool outside its own module), so the usage/latency
+// figures below are illustrative, not real telemetry — labeled per AGENTS.md §14 instead of
+// presented unlabeled as if a real tool were handling 14.2k calls/day.
 export default function ToolRegistry() {
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Tool Registry</h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Tool Registry</h1>
+            <Badge variant="warning" className="normal-case"><FlaskConical className="h-2.5 w-2.5 mr-1 inline" />Dados de exemplo</Badge>
+          </div>
           <p className="text-sm text-slate-500">Integrações de API, CRMs e webhooks que os agentes podem executar.</p>
         </div>
         <div className="flex gap-2">

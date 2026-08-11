@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { Activity, Server, Users, Database } from 'lucide-react';
+import { Activity, Server, Users, RefreshCw } from 'lucide-react';
+import { logger } from '../../lib/logger';
 
 type Session = {
   id: string;
@@ -16,38 +17,65 @@ interface CallLogEntry {
   status?: string;
 }
 
+interface AgentSummary {
+  id: string;
+}
+
 export default function AdminPage() {
   const [sessions, setSessions] = useState<Session[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
 
-  useEffect(() => {
+  const [agentCount, setAgentCount] = useState<number | null>(null);
+  const [agentCountError, setAgentCountError] = useState(false);
+
+  const loadSessions = () => {
+    setLoading(true);
     fetch('/api/call-logs')
       .then(res => {
         if (res.ok) return res.json();
         throw new Error('Failed to fetch');
       })
       .then(data => {
-        const logs = Array.isArray(data) ? data : [];
-        const mapped: Session[] = logs.map((log: CallLogEntry, i: number) => ({
+        const logs: CallLogEntry[] = Array.isArray(data.callLogs) ? data.callLogs : [];
+        const mapped: Session[] = logs.map((log, i) => ({
           id: log.id || `sess_${100 + i}`,
           summary: `Chamada realizada com ${log.contactName || 'contato não identificado'}. Duração: ${log.duration || '00:00'}.`,
-          agent: log.agent || 'Catarina Atendimento',
+          agent: log.agent || 'Agente não identificado',
           status: log.status === 'Concluído' ? 'completed' : 'qualified'
         }));
         setSessions(mapped);
         setError(false);
         setLoading(false);
       })
-      .catch(() => {
+      .catch((err) => {
+        logger.error('Failed to load call logs for admin dashboard', { err });
         setError(true);
-        setSessions([
-            { id: 'sess_001', summary: 'Candidato aprovado na triagem inicial. Boa comunicação.', agent: 'Catarina (RH)', status: 'completed' },
-            { id: 'sess_002', summary: 'Cliente satisfeito com a resolução do problema de rede.', agent: 'Suporte Técnico', status: 'completed' },
-            { id: 'sess_003', summary: 'Lead qualificado. Orçamento confirmado para Q3.', agent: 'Catarina (Vendas)', status: 'qualified' },
-        ]);
+        setSessions([]);
         setLoading(false);
       });
+  };
+
+  const loadAgentCount = () => {
+    fetch('/api/agents')
+      .then(res => {
+        if (res.ok) return res.json();
+        throw new Error('Failed to fetch');
+      })
+      .then(data => {
+        const agents: AgentSummary[] = Array.isArray(data.agents) ? data.agents : [];
+        setAgentCount(agents.length);
+        setAgentCountError(false);
+      })
+      .catch((err) => {
+        logger.error('Failed to load agent count for admin dashboard', { err });
+        setAgentCountError(true);
+      });
+  };
+
+  useEffect(() => {
+    loadSessions();
+    loadAgentCount();
   }, []);
 
   return (
@@ -55,32 +83,40 @@ export default function AdminPage() {
         <div className="flex justify-between items-center">
             <div>
                 <h1 className="text-2xl font-bold text-slate-900">Dashboard Administrativo</h1>
-                <p className="text-slate-500">Monitoramento de sessões e infraestrutura</p>
+                <p className="text-slate-500">Monitoramento de sessões e infraestrutura desta organização</p>
             </div>
             {error && (
                 <div className="px-3 py-1 bg-yellow-100 text-yellow-800 rounded-full text-xs font-medium border border-yellow-200">
-                    Backend Disconnected (Mock Mode)
+                    Não foi possível carregar dados do servidor
                 </div>
             )}
         </div>
 
-        {/* Stats Row */}
-        <div className="grid grid-cols-4 gap-4 mb-8">
-            <StatCard icon={Activity} label="Sessões Ativas" value="12" color="blue" />
-            <StatCard icon={Server} label="Status da API" value={error ? "Offline" : "Online"} color={error ? "red" : "green"} />
-            <StatCard icon={Users} label="Total Agentes" value="5" color="purple" />
-            <StatCard icon={Database} label="Integrações" value="Active" color="orange" />
+        {/* Stats Row — real counts, not fixed placeholders */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+            <StatCard icon={Activity} label="Sessões Registradas" value={loading ? '…' : error ? '—' : String(sessions.length)} color="blue" />
+            <StatCard icon={Server} label="Status da API" value={error ? 'Offline' : 'Online'} color={error ? 'red' : 'green'} />
+            <StatCard icon={Users} label="Total de Agentes" value={agentCount === null ? (agentCountError ? '—' : '…') : String(agentCount)} color="purple" />
         </div>
 
         {/* Sessions List */}
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
             <div className="p-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center">
                 <h2 className="font-bold text-slate-800">Sessões Recentes</h2>
-                <button className="text-sm text-brand hover:text-brand-700 font-medium">Ver todas</button>
+                <button onClick={loadSessions} className="text-sm text-brand hover:text-brand-700 font-medium flex items-center gap-1.5">
+                    <RefreshCw className="h-3.5 w-3.5" /> Atualizar
+                </button>
             </div>
 
             {loading ? (
                 <div className="p-8 text-center text-slate-500">Carregando...</div>
+            ) : error ? (
+                <div className="p-8 text-center text-slate-500">
+                    Não foi possível carregar as sessões.{' '}
+                    <button onClick={loadSessions} className="text-brand font-semibold hover:underline">Tentar novamente</button>
+                </div>
+            ) : sessions.length === 0 ? (
+                <div className="p-8 text-center text-slate-400">Nenhuma sessão registrada ainda.</div>
             ) : (
                 <div className="divide-y divide-slate-100">
                     {sessions.map((s) => (
@@ -92,9 +128,6 @@ export default function AdminPage() {
                                     <StatusBadge status={s.status} />
                                 </div>
                                 <p className="text-sm text-slate-600">{s.summary}</p>
-                            </div>
-                            <div className="text-right pl-4">
-                                <button className="text-xs font-medium text-slate-400 hover:text-brand">Detalhes &rarr;</button>
                             </div>
                         </div>
                     ))}

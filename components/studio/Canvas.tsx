@@ -65,7 +65,10 @@ function CanvasInner() {
     connectNodes,
     nodeLifecycles,
     loadWorkflowFromServer,
-    saveWorkflowToServer
+    saveWorkflowToServer,
+    publishWorkflowToServer,
+    publishState,
+    publishIssues
   } = useStudioStore();
 
   useEffect(() => {
@@ -81,7 +84,17 @@ function CanvasInner() {
       return () => clearTimeout(timer);
     }
   }, [nodes, edges, saveWorkflowToServer]);
-  
+
+  useEffect(() => {
+    // Auto-dismiss the publish result banner; the outcome is still visible afterwards via the
+    // Errors & Validation tab (BottomDrawer) and the persistent simulation log, so nothing is
+    // silently lost — this just keeps a stale "published" toast from sitting on screen forever.
+    if (publishState === 'success' || publishState === 'error') {
+      const timer = setTimeout(() => useStudioStore.setState({ publishState: 'idle' }), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [publishState]);
+
   const { zoomIn, zoomOut, fitView } = useReactFlow();
 
   useOnSelectionChange({
@@ -130,13 +143,16 @@ function CanvasInner() {
 
   return (
     <div className="flex flex-col flex-1 min-h-0 bg-[#0B0D14]">
-      <TopBar 
-        health={health} 
-        issues={issues} 
+      <TopBar
+        health={health}
+        issues={issues}
         onZoomIn={() => zoomIn({ duration: 300 })}
         onZoomOut={() => zoomOut({ duration: 300 })}
         onFitView={() => fitView({ duration: 500, padding: 0.2 })}
         onSimulate={() => setIsSimulatorOpen(true)}
+        onPublish={() => publishWorkflowToServer()}
+        publishState={publishState}
+        publishIssues={publishIssues}
       />
       
       {isSimulatorOpen && (

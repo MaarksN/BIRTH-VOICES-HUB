@@ -1,15 +1,23 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Save, UserPlus, Upload, Shield, Video, Loader2 } from 'lucide-react';
-import { auth } from '../../lib/auth';
+import { Save, Upload, Shield, Video, Loader2, AlertTriangle, Lock } from 'lucide-react';
 import { useSessionStore } from '../../store/useSessionStore';
 import { logger } from '../../lib/logger';
+import { Badge, EmptyState, Skeleton } from '../../components/design-system';
+
+interface TenantUser {
+  id: string;
+  email: string;
+  role: string;
+}
 
 export default function OrganizationPage() {
   const [activeTab, setActiveTab] = useState('branding');
   const brandColor = useSessionStore((state) => state.brandColor);
   const setBrandColor = useSessionStore((state) => state.setBrandColor);
+  const sessionUser = useSessionStore((state) => state.user);
   const [branding, setBranding] = useState({ color: brandColor, name: '' });
-  
+  const [orgNameStatus, setOrgNameStatus] = useState<'loading' | 'ready' | 'error'>('loading');
+
   // Video Generation States
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [videoPrompt, setVideoPrompt] = useState('Um agente amigável sorrindo em um escritório moderno, com iluminação suave.');
@@ -19,13 +27,53 @@ export default function OrganizationPage() {
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [videoError, setVideoError] = useState<string | null>(null);
 
+  // Team tab: GET /api/users is admin-only server-side — only fetched/shown when the real
+  // session role is admin, matching what the backend would authorize anyway.
+  const isAdmin = sessionUser?.role === 'admin';
+  const [members, setMembers] = useState<TenantUser[] | null>(null);
+  const [membersError, setMembersError] = useState(false);
+
   useEffect(() => {
-      // Load org data and set current branding color from global store
-      setBranding({
-          name: auth.getUser()?.company || 'My Company',
-          color: brandColor
+    // Real organization name from GET /api/organizations (tenant-scoped), replacing what used
+    // to be a client-only fallback ("My Company") that never reflected the actual tenant.
+    let cancelled = false;
+    setOrgNameStatus('loading');
+    fetch('/api/organizations')
+      .then((res) => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.json();
+      })
+      .then((data) => {
+        if (cancelled) return;
+        const name = Array.isArray(data.organizations) && data.organizations[0]?.name;
+        setBranding((prev) => ({ ...prev, name: name || '' }));
+        setOrgNameStatus('ready');
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        logger.error('Failed to load organization name', { err });
+        setOrgNameStatus('error');
       });
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    setBranding((prev) => ({ ...prev, color: brandColor }));
   }, [brandColor]);
+
+  useEffect(() => {
+    if (!isAdmin) return;
+    fetch('/api/users')
+      .then((res) => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.json();
+      })
+      .then((data) => setMembers(Array.isArray(data.users) ? data.users : []))
+      .catch((err) => {
+        logger.error('Failed to load tenant members', { err });
+        setMembersError(true);
+      });
+  }, [isAdmin]);
 
   useEffect(() => {
     let interval: ReturnType<typeof setInterval> | undefined;
@@ -119,7 +167,20 @@ export default function OrganizationPage() {
                     <div className="max-w-xl space-y-6">
                         <div>
                             <label className="block text-sm font-medium text-slate-700 mb-2">Nome da Organização</label>
-                            <input type="text" value={branding.name} onChange={e => setBranding({...branding, name: e.target.value})} className="w-full p-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand" />
+                            {orgNameStatus === 'loading' ? (
+                                <div className="h-[42px]"><Skeleton className="h-full w-full" /></div>
+                            ) : (
+                                // Read-only: there is no backend write path for the organization
+                                // name yet (GET /api/organizations exists, no PUT/PATCH). An
+                                // editable field here used to silently discard the edit on save.
+                                <input type="text" value={branding.name} readOnly disabled className="w-full p-2 border border-slate-300 rounded-lg bg-slate-50 text-slate-500 cursor-not-allowed" />
+                            )}
+                            {orgNameStatus === 'error' && (
+                                <p className="text-xs text-red-500 mt-1.5 flex items-center gap-1"><AlertTriangle className="h-3 w-3" /> Não foi possível carregar o nome real da organização.</p>
+                            )}
+                            {orgNameStatus === 'ready' && (
+                                <p className="text-xs text-slate-400 mt-1.5">Edição de nome ainda não disponível nesta versão.</p>
+                            )}
                         </div>
                         <div>
                             <label className="block text-sm font-medium text-slate-700 mb-2">Cor da Marca</label>
@@ -244,52 +305,58 @@ export default function OrganizationPage() {
                     <div>
                         <div className="flex justify-between items-center mb-6">
                             <h3 className="font-bold text-slate-800">Membros do Time</h3>
-                            <button className="flex items-center gap-2 px-4 py-2 border border-brand text-brand rounded-lg hover:bg-brand-50 font-medium transition-colors">
-                                <UserPlus className="h-4 w-4" /> Convidar Membro
-                            </button>
                         </div>
-                        <div className="space-y-4">
-                             <div className="flex items-center justify-between p-4 border border-slate-200 rounded-lg">
-                                 <div className="flex items-center gap-3">
-                                     <div className="w-10 h-10 bg-brand-50 text-brand rounded-full flex items-center justify-center font-bold">JD</div>
-                                     <div>
-                                         <div className="font-bold text-slate-900">John Doe</div>
-                                         <div className="text-xs text-slate-500">john@company.com</div>
-                                     </div>
-                                 </div>
-                                 <div className="flex items-center gap-4">
-                                     <span className="px-2 py-1 bg-purple-100 text-purple-700 text-xs font-bold rounded">OWNER</span>
-                                 </div>
-                             </div>
-                        </div>
+                        {!isAdmin ? (
+                            <EmptyState
+                                icon={<Lock className="h-8 w-8" />}
+                                title="Acesso restrito"
+                                description="A lista de membros exige o papel de administrador nesta organização."
+                            />
+                        ) : membersError ? (
+                            <EmptyState
+                                icon={<AlertTriangle className="h-8 w-8" />}
+                                title="Não foi possível carregar os membros"
+                                description="Tente novamente em alguns instantes."
+                            />
+                        ) : members === null ? (
+                            <div className="space-y-3">
+                                <Skeleton className="h-16 w-full" />
+                                <Skeleton className="h-16 w-full" />
+                            </div>
+                        ) : members.length === 0 ? (
+                            <EmptyState
+                                icon={<Shield className="h-8 w-8" />}
+                                title="Nenhum membro encontrado"
+                                description="Esta organização ainda não tem usuários cadastrados."
+                            />
+                        ) : (
+                            <div className="space-y-4">
+                                {members.map((m) => (
+                                    <div key={m.id} className="flex items-center justify-between p-4 border border-slate-200 rounded-lg">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-10 h-10 bg-brand-50 text-brand rounded-full flex items-center justify-center font-bold">
+                                                {m.email[0]?.toUpperCase()}
+                                            </div>
+                                            <div>
+                                                <div className="font-bold text-slate-900">{m.email}</div>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center gap-4">
+                                            <Badge variant="secondary" className="uppercase">{m.role}</Badge>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
                     </div>
                 )}
 
                 {activeTab === 'audit' && (
-                    <div>
-                         <div className="flex items-center gap-2 mb-4 text-slate-500 text-sm">
-                             <Shield className="h-4 w-4" />
-                             Mostrando últimos 30 dias
-                         </div>
-                         <table className="w-full text-sm text-left">
-                             <thead className="bg-slate-50 text-slate-500 font-medium">
-                                 <tr>
-                                     <th className="p-3">Data</th>
-                                     <th className="p-3">Usuário</th>
-                                     <th className="p-3">Ação</th>
-                                     <th className="p-3">Recurso</th>
-                                 </tr>
-                             </thead>
-                             <tbody className="divide-y divide-slate-100">
-                                 <tr>
-                                     <td className="p-3 text-slate-500">Hoje, 14:30</td>
-                                     <td className="p-3 font-medium">John Doe</td>
-                                     <td className="p-3">Alterou Prompt</td>
-                                     <td className="p-3 text-mono text-slate-500">agent_sales_v2</td>
-                                 </tr>
-                             </tbody>
-                         </table>
-                    </div>
+                    <EmptyState
+                        icon={<Shield className="h-8 w-8" />}
+                        title="Consulta de auditoria ainda não disponível"
+                        description="Cada ação sensível já é registrada no servidor (AuditLog), mas ainda não existe um endpoint para listá-las nesta tela. Ver handoff 02-para-01-audit-log-listagem.md."
+                    />
                 )}
             </div>
         </div>

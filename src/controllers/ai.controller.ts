@@ -1,6 +1,8 @@
 import { Request, Response } from 'express';
 import { GoogleGenAI, GenerateVideosOperation } from '@google/genai';
 import { logger } from '../lib/logger.js';
+import { llmProviderGateway } from '../../lib/voice-runtime/providers/LLMGateway.js';
+import { getAiConsent, grantAiConsent, revokeAiConsent } from '../services/settingService.js';
 
 function getGeminiClient(): GoogleGenAI | null {
   const apiKey = process.env.GEMINI_API_KEY;
@@ -12,32 +14,56 @@ function getErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : 'Internal server error';
 }
 
+interface PlaygroundMessage {
+  role: 'user' | 'agent';
+  text: string;
+}
+
 export async function chatHandler(req: Request, res: Response) {
-  const { currentMessages } = req.body;
-  const lastMsg = currentMessages?.[currentMessages.length - 1]?.text?.toLowerCase() || '';
+  try {
+    const { prompt, currentMessages } = req.body as { prompt?: string; currentMessages?: PlaygroundMessage[] };
+    const lastUserMessage = [...(currentMessages || [])].reverse().find(m => m.role === 'user');
 
-  let reply = "Olá! Como posso ajudar você hoje?";
+    if (!lastUserMessage?.text) {
+      return res.status(400).json({ error: 'currentMessages deve conter ao menos uma mensagem do usuário.' });
+    }
 
-  if (lastMsg.includes('orçamento') || lastMsg.includes('preço') || lastMsg.includes('valor')) {
-    reply = "Entendo, posso te passar as condições comerciais. Vou priorizar seu caso para nossa equipe de vendas. Qual o tamanho da sua empresa hoje?";
-  } else if (lastMsg.includes('agendar') || lastMsg.includes('marcar') || lastMsg.includes('reunião')) {
-    reply = "Perfeito, posso te ajudar a agendar uma reunião. Você tem preferência por manhã ou tarde?";
-  } else if (lastMsg.includes('horário') || lastMsg.includes('tarde') || lastMsg.includes('manhã')) {
-    reply = "Certo, temos horários disponíveis nesta quarta-feira. Quer que eu confirme para você?";
-  } else if (lastMsg.includes('sim') || lastMsg.includes('confirma') || lastMsg.includes('quero')) {
-    reply = "Excelente! Sua solicitação foi confirmada e salva no nosso sistema CRM.";
-  } else if (lastMsg.length > 3 && !lastMsg.includes('olá') && !lastMsg.includes('ola')) {
-    reply = "Entendi o que você disse. Como este é um teste em modo offline sem chave de API da Google, estou simulando o entendimento da sua frase.";
+    // Real LLM Gateway call — goes through the same provider failover chain (guaranteed to end
+    // in GoogleGemini) and the same AI-consent gate (LGPD) as every other AI Gateway caller.
+    // Previously this handler never called any provider at all; it matched keywords against a
+    // hardcoded Portuguese script and always reported providerUsed: "MockProvider", so the
+    // Playground — the primary surface operators use to test an agent's real behavior — never
+    // actually exercised the AI Gateway.
+    const gatewayResponse = await llmProviderGateway.processRequest(
+      lastUserMessage.text,
+      'GoogleGemini',
+      prompt || undefined,
+      req.tenantId!
+    );
+
+    res.json(gatewayResponse);
+  } catch (error: unknown) {
+    logger.error('Chat handler error:', error);
+    res.status(500).json({ error: getErrorMessage(error) });
+  }
+}
+
+export async function getAiConsentHandler(req: Request, res: Response) {
+  const consent = await getAiConsent(req.tenantId!);
+  res.json({ consent });
+}
+
+export async function setAiConsentHandler(req: Request, res: Response) {
+  const { granted } = req.body as { granted?: boolean };
+  if (typeof granted !== 'boolean') {
+    return res.status(400).json({ error: '"granted" deve ser um booleano.' });
   }
 
-  res.json({
-    text: reply,
-    providerUsed: "MockProvider",
-    latencyMs: 150,
-    tokensUsed: 15,
-    costUSD: 0,
-    fromFallback: true,
-  });
+  const consent = granted
+    ? await grantAiConsent(req.tenantId!, req.user!.id)
+    : await revokeAiConsent(req.tenantId!, req.user!.id);
+
+  res.json({ success: true, consent });
 }
 
 export async function ttsHandler(req: Request, res: Response) {

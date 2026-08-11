@@ -126,9 +126,15 @@ export function BottomDrawer() {
             ENGINE: ACTIVE_VOICE_v1
           </div>
           <div className="h-3 w-px bg-white/10" />
-          <div className="text-[10px] font-semibold text-green-400 bg-green-500/10 px-1.5 py-0.5 rounded border border-green-500/20 shadow-[0_0_5px_rgba(34,197,94,0.2)]">
-            COMPILER OK
-          </div>
+          {issues.filter(i => i.type === 'error').length === 0 ? (
+            <div className="text-[10px] font-semibold text-green-400 bg-green-500/10 px-1.5 py-0.5 rounded border border-green-500/20 shadow-[0_0_5px_rgba(34,197,94,0.2)]">
+              COMPILER OK
+            </div>
+          ) : (
+            <div className="text-[10px] font-semibold text-red-400 bg-red-500/10 px-1.5 py-0.5 rounded border border-red-500/20 shadow-[0_0_5px_rgba(239,68,68,0.2)]">
+              COMPILER ERROR ({issues.filter(i => i.type === 'error').length})
+            </div>
+          )}
         </div>
       </div>
 
@@ -259,6 +265,9 @@ export function BottomDrawer() {
                 <div className="text-slate-500 border-b border-white/5 pb-2 mb-2 flex items-center justify-between">
                   <span>CONSOLE STREAM LOGS (v1.0.4)</span>
                   <span className="text-[10px] text-indigo-400">STATE: {isDebugging ? 'RUNNING' : 'IDLE'}</span>
+                </div>
+                <div className="text-slate-600 text-[10px] italic -mt-1 mb-1">
+                  {"// Simulação local (mock): percorre os nós/arestas reais deste fluxo no navegador, mas não invoca o Voice Runtime em produção nem provedores de LLM/TTS reais."}
                 </div>
                 {simulationLogs.length === 0 && (
                   <div className="text-slate-600 italic py-8 text-center">
