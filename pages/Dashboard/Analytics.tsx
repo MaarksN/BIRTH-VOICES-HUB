@@ -1,12 +1,36 @@
 import React from 'react';
-import { BarChart3, PieChart, Activity, Users } from 'lucide-react';
+import { BarChart3, PieChart, Activity, Users, FlaskConical } from 'lucide-react';
 import LineChart from '../../components/D3Chart';
+
+// This page has no real backend aggregation wired yet (no endpoint rolls up CallLog/Metric rows
+// into call volume, conversion funnel or per-agent cost/CSAT). AGENTS.md §14 is explicit that a
+// dashboard must never fabricate a metric to fill space — "se o dado real ainda não existe,
+// mostre estado vazio, nunca número inventado" — so the illustrative numbers below are gated
+// behind an explicit dev-only flag and always carry a visible "dados de exemplo" label, instead
+// of rendering unlabeled in production as if they were real. Enable with
+// VITE_SHOW_DEMO_ANALYTICS=true locally, or by running a dev build (import.meta.env.DEV).
+const SHOW_DEMO_DATA = import.meta.env.DEV || import.meta.env.VITE_SHOW_DEMO_ANALYTICS === 'true';
 
 export default function AnalyticsPage() {
   return (
     <div className="space-y-8">
-        <h1 className="text-2xl font-bold text-slate-900 mb-6">Analytics & Performance</h1>
+        <div className="flex items-center justify-between mb-6">
+          <h1 className="text-2xl font-bold text-slate-900">Analytics & Performance</h1>
+          {SHOW_DEMO_DATA && (
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-[10px] font-bold uppercase tracking-wider bg-amber-50 text-amber-700 border border-amber-200">
+              <FlaskConical className="h-3 w-3" /> Dados de exemplo — sem integração real ainda
+            </span>
+          )}
+        </div>
 
+        {!SHOW_DEMO_DATA ? (
+          <div className="bg-white p-10 rounded-xl border border-slate-200 shadow-sm text-center text-slate-400">
+            <BarChart3 className="h-10 w-10 mx-auto mb-3 opacity-40" />
+            <p className="font-semibold text-slate-600">Nenhum dado de analytics disponível ainda.</p>
+            <p className="text-sm mt-1">A agregação de chamadas, conversão e custo por agente ainda não está conectada a dados reais.</p>
+          </div>
+        ) : (
+        <>
         <div className="grid grid-cols-4 gap-4 mb-8">
             <StatCard icon={BarChart3} label="Total de Chamadas" value="1,240" color="blue" />
             <StatCard icon={PieChart} label="Taxa de Conversão" value="18.5%" color="green" />
@@ -63,6 +87,8 @@ export default function AnalyticsPage() {
                 </tbody>
             </table>
         </div>
+        </>
+        )}
     </div>
   );
 }

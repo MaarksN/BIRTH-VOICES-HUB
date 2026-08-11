@@ -1,13 +1,21 @@
 import React from 'react';
 import { Card, Button, Badge } from '../../components/design-system';
-import { UploadCloud, RefreshCw, Database } from 'lucide-react';
+import { UploadCloud, RefreshCw, Database, FlaskConical } from 'lucide-react';
 
+// The knowledge bases below are illustrative — real ingestion today is per-agent, one document at
+// a time, via POST /api/agents/:id/knowledge (src/controllers/knowledge.controller.ts), with no
+// upload pipeline (and therefore no antivirus scan) wired to this page's "Upload de Documentos"
+// button yet. See .agents/handoffs/onda-2/04-para-06-knowledge-upload-antivirus.md — labeled per
+// AGENTS.md §14 instead of presented unlabeled as if these were real synced knowledge bases.
 export default function KnowledgeManager() {
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Knowledge Base (RAG)</h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Knowledge Base (RAG)</h1>
+            <Badge variant="warning" className="normal-case"><FlaskConical className="h-2.5 w-2.5 mr-1 inline" />Dados de exemplo</Badge>
+          </div>
           <p className="text-sm text-slate-500">Centralize documentos e manuais corporativos para seus agentes consultarem.</p>
         </div>
         <div className="flex gap-2">

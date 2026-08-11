@@ -51,16 +51,12 @@ export class VoiceboxProvider extends BaseProvider {
         latencyMs: Date.now() - start
       };
     } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
       logger.error(`[${this.name}] Error processing TTS`, err);
-      return {
-        audio: {
-          data: new Uint8Array(0),
-          timestamp: Date.now(),
-          isSpeech: false
-        },
-        latencyMs: Date.now() - start,
-        error: err
-      };
+      // Must throw, not return silent empty/non-speech audio — a swallowed failure here means
+      // FailoverEngine never tries the next TTS provider. See ElevenLabsProvider.process for
+      // the same rule.
+      throw new Error(`Voicebox API Error: ${msg}`);
     }
   }
 
