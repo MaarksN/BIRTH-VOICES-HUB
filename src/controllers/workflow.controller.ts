@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { saveWorkflowSchema } from '../validators/index.js';
-import { getWorkflow, saveWorkflow, updateWorkflow, removeWorkflow, getWorkflowHistory, restoreWorkflowVersion, duplicateWorkflow, NotFoundError } from '../services/workflowService.js';
+import { getWorkflow, saveWorkflow, updateWorkflow, removeWorkflow, getWorkflowHistory, restoreWorkflowVersion, duplicateWorkflow, publishWorkflow, NotFoundError, ValidationFailedError } from '../services/workflowService.js';
 import { writeAuditLog } from '../services/audit.js';
 
 export async function getWorkflowHandler(req: Request, res: Response) {
@@ -57,6 +57,23 @@ export async function restoreWorkflowVersionHandler(req: Request, res: Response)
     writeAuditLog(req.tenantId, req.user!.id, 'WORKFLOW_RESTORE', { workflowId: workflow.id, restoredVersion: version });
     res.json({ success: true, workflow });
   } catch (err) {
+    if (err instanceof NotFoundError) return res.status(404).json({ error: err.message });
+    throw err;
+  }
+}
+
+export async function publishWorkflowHandler(req: Request, res: Response) {
+  try {
+    const workflow = await publishWorkflow(req.tenantId!, req.user!.id);
+    writeAuditLog(req.tenantId, req.user!.id, 'WORKFLOW_PUBLISH', { workflowId: workflow.id, version: workflow.version });
+    res.json({ success: true, workflow });
+  } catch (err) {
+    if (err instanceof ValidationFailedError) {
+      // 422: request was well-formed, but the workflow content fails ValidationEngine. The
+      // frontend (TopBar/Inspector) must surface `issues` verbatim, never treat this as a
+      // generic failure and never retry-as-success.
+      return res.status(422).json({ error: err.message, issues: err.issues });
+    }
     if (err instanceof NotFoundError) return res.status(404).json({ error: err.message });
     throw err;
   }
