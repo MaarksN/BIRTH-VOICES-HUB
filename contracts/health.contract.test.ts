@@ -22,7 +22,7 @@ describe('contrato HTTP do BIRTH Voices Hub', () => {
           expect(response.status).toBe(200);
           expect(await response.json()).toEqual({ status: 'ok' });
         });
-    } catch (err) {
+    } catch {
       // Quando os binários nativos de FFI do Pact não estiverem compilados/presentes na plataforma hospedeira (ex.: Windows local)
       expect(true).toBe(true);
     }
