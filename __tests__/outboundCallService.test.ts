@@ -8,6 +8,7 @@ vi.mock('../src/repositories/sessionRepository.js', () => ({
   createPhoneSession: vi.fn(),
   updateSession: vi.fn(),
   findActiveOutboundSessionToNumber: vi.fn(),
+  createOutboundPhoneSessionIfNoneInFlight: vi.fn(),
 }));
 
 vi.mock('../src/services/telephonyProvider.js', async () => {
@@ -22,6 +23,7 @@ import {
   createPhoneSession,
   updateSession,
   findActiveOutboundSessionToNumber,
+  createOutboundPhoneSessionIfNoneInFlight,
 } from '../src/repositories/sessionRepository.js';
 import { getTelephonyProvider } from '../src/services/telephonyProvider.js';
 import { TwilioNotConfiguredError } from '../src/services/twilioClient.js';
@@ -35,6 +37,7 @@ const mockGetAgent = vi.mocked(getAgent);
 const mockCreatePhoneSession = vi.mocked(createPhoneSession);
 const mockUpdateSession = vi.mocked(updateSession);
 const mockFindActiveOutbound = vi.mocked(findActiveOutboundSessionToNumber);
+const mockCreateOutboundPhoneSession = vi.mocked(createOutboundPhoneSessionIfNoneInFlight);
 const mockGetTelephonyProvider = vi.mocked(getTelephonyProvider);
 
 const mockPlaceCall = vi.fn();
@@ -85,8 +88,6 @@ function request(overrides: Partial<Parameters<typeof initiateOutboundCall>[0]> 
 }
 
 beforeEach(() => {
-  // clearAllMocks resets recorded calls but keeps implementations, so a test that makes
-  // assertConfigured throw would otherwise poison every test after it.
   vi.clearAllMocks();
   mockAssertConfigured.mockImplementation(() => {});
   mockGetTelephonyProvider.mockReturnValue({
@@ -97,6 +98,7 @@ beforeEach(() => {
   mockGetAgent.mockResolvedValue(agent());
   mockFindActiveOutbound.mockResolvedValue(null);
   mockCreatePhoneSession.mockResolvedValue(session());
+  mockCreateOutboundPhoneSession.mockResolvedValue({ session: session(), inFlight: false });
   mockPlaceCall.mockResolvedValue({ callId: 'CA999', status: 'queued', from: '+5511333333333' });
 });
 
@@ -106,11 +108,11 @@ describe('outboundCallService.initiateOutboundCall', () => {
 
     await expect(initiateOutboundCall(request())).rejects.toBeInstanceOf(AgentNotFoundError);
     expect(mockPlaceCall).not.toHaveBeenCalled();
-    expect(mockCreatePhoneSession).not.toHaveBeenCalled();
+    expect(mockCreateOutboundPhoneSession).not.toHaveBeenCalled();
   });
 
   it('refuses to dial a number that already has a call in flight', async () => {
-    mockFindActiveOutbound.mockResolvedValue(session({ id: 'sess-earlier' }));
+    mockCreateOutboundPhoneSession.mockResolvedValue({ session: session({ id: 'sess-earlier' }), inFlight: true });
 
     await expect(initiateOutboundCall(request())).rejects.toBeInstanceOf(DuplicateCallError);
     expect(mockPlaceCall).not.toHaveBeenCalled();
@@ -122,7 +124,7 @@ describe('outboundCallService.initiateOutboundCall', () => {
     });
 
     await expect(initiateOutboundCall(request())).rejects.toBeInstanceOf(TwilioNotConfiguredError);
-    expect(mockCreatePhoneSession).not.toHaveBeenCalled();
+    expect(mockCreateOutboundPhoneSession).not.toHaveBeenCalled();
   });
 
   it('asks the provider to dial, threading the session id through for the media callback', async () => {
@@ -135,9 +137,10 @@ describe('outboundCallService.initiateOutboundCall', () => {
   it('stores the session with the call context and callback URL before dialing', async () => {
     await initiateOutboundCall(request({ context: { leadId: 'lead-9' }, callbackUrl: 'https://crm.example.com/hook' }));
 
-    expect(mockCreatePhoneSession).toHaveBeenCalledWith(
+    expect(mockCreateOutboundPhoneSession).toHaveBeenCalledWith(
       'tenant-1',
       'agent-1',
+      '+5511999998888',
       expect.objectContaining({
         direction: 'outbound',
         to: '+5511999998888',
@@ -147,8 +150,6 @@ describe('outboundCallService.initiateOutboundCall', () => {
     );
   });
 
-  // Without this the status callback cannot resolve the session, and an unanswered call would
-  // never be reported back to the caller.
   it('persists the call id and caller ID as soon as the provider accepts the call', async () => {
     await initiateOutboundCall(request());
 

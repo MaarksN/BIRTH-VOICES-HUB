@@ -21,6 +21,13 @@ export const atlasGROutboundPayloadSchema = z
     name: z.string().trim().min(1, 'name é obrigatório').max(200),
     company: z.string().trim().min(1, 'company é obrigatório').max(200),
     lead_id: z.string().trim().min(1).max(200).optional(),
+    from: z
+      .string()
+      .trim()
+      .min(8, 'from deve ter ao menos 8 caracteres')
+      .max(20, 'from deve ter no máximo 20 caracteres')
+      .regex(/^\+?[0-9()\-\s]+$/, 'from contém caracteres inválidos')
+      .optional(),
   })
   .strict();
 

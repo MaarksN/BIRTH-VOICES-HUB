@@ -78,28 +78,46 @@ export class VoiceProspectingService {
     });
 
     try {
+      const fromNumber = payload.from || process.env.BLAND_FROM_NUMBER;
+
+      const callPayload: Record<string, any> = {
+        phone_number: payload.phone_number,
+        first_sentence: `Opa, ${payload.name}! Tudo bem com você? Aqui é o Gabriel do time de inteligência comercial da AtlasGR, como você está?`,
+        task: `Você é o Gabriel, consultor de vendas sênior da AtlasGR. Fale OBRIGATORIAMENTE e EXCLUSIVAMENTE em Português do Brasil (pt-BR) com sotaque brasileiro natural. Você está conversando com ${payload.name} da empresa ${payload.company}. Seu tom deve ser EXTREMAMENTE humano, caloroso, natural, simpático e informal (como dois profissionais brasileiros conversando no café). Use expressões naturais do português como 'Ah legal!', 'Entendi perfeitamente', 'Com certeza', 'Faz total sentido'. NUNCA pareça um robô de telemarketing. Apresente as soluções da AtlasGR (Inteligência Comercial, CRM inteligente, BI de vendas e automação). Faça perguntas curtas e dê bastante espaço para a pessoa responder.`,
+        language: 'pt-BR',
+        voice: 'nat',
+        model: 'enhanced',
+        temperature: 0.7,
+        interruption_threshold: 100,
+        answered_by_enabled: true,
+        reduce_latency: true,
+        record: true,
+        retry: {
+          max_attempts: 2,
+        },
+        webhook: `${(process.env.WEBHOOK_BASE_URL || 'https://seu-dominio.com').replace(/\/$/, '')}/api/webhooks/bland/${callbackToken}`,
+      };
+
+      if (fromNumber) {
+        callPayload.from = fromNumber;
+      }
+
       const response = await fetch('https://api.bland.ai/v1/calls', {
         method: 'POST',
         headers: {
           'Authorization': apiKey,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          phone_number: payload.phone_number,
-          first_sentence: `Opa, ${payload.name}! Tudo bem com você? Aqui é o Gabriel do time de inteligência comercial da AtlasGR, como você está?`,
-          task: `Você é o Gabriel, consultor de vendas sênior da AtlasGR. Fale OBRIGATORIAMENTE e EXCLUSIVAMENTE em Português do Brasil (pt-BR) com sotaque brasileiro natural. Você está conversando com ${payload.name} da empresa ${payload.company}. Seu tom deve ser EXTREMAMENTE humano, caloroso, natural, simpático e informal (como dois profissionais brasileiros conversando no café). Use expressões naturais do português como 'Ah legal!', 'Entendi perfeitamente', 'Com certeza', 'Faz total sentido'. NUNCA pareça um robô de telemarketing. Apresente as soluções da AtlasGR (Inteligência Comercial, CRM inteligente, BI de vendas e automação). Faça perguntas curtas e dê bastante espaço para a pessoa responder.`,
-          language: 'pt-BR',
-          voice: 'nat',
-          model: 'enhanced',
-          temperature: 0.7,
-          interruption_threshold: 100,
-          reduce_latency: true,
-          record: true,
-          webhook: `${(process.env.WEBHOOK_BASE_URL || 'https://seu-dominio.com').replace(/\/$/, '')}/api/webhooks/bland/${callbackToken}`,
-        }),
+        body: JSON.stringify(callPayload),
       });
 
-      const data = await response.json();
+      let data: any = {};
+      const responseText = await response.text();
+      try {
+        data = JSON.parse(responseText);
+      } catch {
+        data = { message: responseText };
+      }
 
       if (!response.ok) {
         // `data` may contain the request we just sent echoed back, but never the API key — safe

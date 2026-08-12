@@ -37,7 +37,7 @@ describe('VoiceProspectingService.triggerOutboundCall', () => {
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
-      json: async () => ({ call_id: 'call-abc', status: 'queued' }),
+      text: async () => JSON.stringify({ call_id: 'call-abc', status: 'queued' }),
     });
     vi.stubGlobal('fetch', fetchMock);
 
@@ -52,8 +52,6 @@ describe('VoiceProspectingService.triggerOutboundCall', () => {
       status: 'queued',
     });
 
-    // The request itself carries the key (Bland AI requires it) — but nothing written to logs
-    // should ever contain it.
     const [, options] = fetchMock.mock.calls[0] as [string, RequestInit];
     expect((options.headers as Record<string, string>).Authorization).toBe('test-bland-key');
 
@@ -61,10 +59,10 @@ describe('VoiceProspectingService.triggerOutboundCall', () => {
     expect(allLoggedText).not.toContain('test-bland-key');
   });
 
-  it('embeds the callback token in the webhook URL sent to Bland AI', async () => {
+  it('includes AMD, latency reduction, and retry configuration in Bland AI payload', async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
-      json: async () => ({ call_id: 'call-abc', status: 'queued' }),
+      text: async () => JSON.stringify({ call_id: 'call-abc', status: 'queued' }),
     });
     vi.stubGlobal('fetch', fetchMock);
 
@@ -73,7 +71,32 @@ describe('VoiceProspectingService.triggerOutboundCall', () => {
 
     const [, options] = fetchMock.mock.calls[0] as [string, RequestInit];
     const body = JSON.parse(options.body as string);
+
+    expect(body.answered_by_enabled).toBe(true);
+    expect(body.reduce_latency).toBe(true);
+    expect(body.retry).toEqual({ max_attempts: 2 });
     expect(body.webhook).toBe('https://hub.example.com/api/webhooks/bland/test-callback-token');
+  });
+
+  it('supports optional Brazilian national caller ID from payload or environment', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      text: async () => JSON.stringify({ call_id: 'call-abc', status: 'queued' }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const service = new VoiceProspectingService();
+
+    // 1. With payload.from
+    await service.triggerOutboundCall({ ...basePayload, from: '+551133334444' });
+    let body = JSON.parse((fetchMock.mock.calls[0] as [string, RequestInit])[1].body as string);
+    expect(body.from).toBe('+551133334444');
+
+    // 2. With BLAND_FROM_NUMBER env variable as fallback
+    process.env.BLAND_FROM_NUMBER = '+551155556666';
+    await service.triggerOutboundCall(basePayload);
+    body = JSON.parse((fetchMock.mock.calls[1] as [string, RequestInit])[1].body as string);
+    expect(body.from).toBe('+551155556666');
   });
 
   it('short-circuits and never calls Bland AI when the idempotency key was already claimed', async () => {
@@ -93,12 +116,24 @@ describe('VoiceProspectingService.triggerOutboundCall', () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: false,
       status: 502,
-      json: async () => ({ message: 'Upstream provider error' }),
+      text: async () => JSON.stringify({ message: 'Upstream provider error' }),
     });
     vi.stubGlobal('fetch', fetchMock);
 
     const service = new VoiceProspectingService();
     await expect(service.triggerOutboundCall(basePayload)).rejects.toThrow('Upstream provider error');
+  });
+
+  it('handles non-JSON error response gracefully', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 503,
+      text: async () => 'Service Unavailable HTML Body',
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const service = new VoiceProspectingService();
+    await expect(service.triggerOutboundCall(basePayload)).rejects.toThrow('Service Unavailable HTML Body');
   });
 
   it('throws BlandConfigurationError instead of calling Bland AI when BLAND_API_KEY is missing', async () => {
@@ -109,8 +144,6 @@ describe('VoiceProspectingService.triggerOutboundCall', () => {
     const service = new VoiceProspectingService();
     await expect(service.triggerOutboundCall(basePayload)).rejects.toBeInstanceOf(BlandConfigurationError);
     expect(fetchMock).not.toHaveBeenCalled();
-    // Config-check failures must not consume the idempotency key (see comment in voice.service.ts) —
-    // a later, correctly configured retry for the same lead must still be able to place the call.
     expect(mockClaim).not.toHaveBeenCalled();
   });
 
