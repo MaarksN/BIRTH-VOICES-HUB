@@ -96,7 +96,7 @@ router.post('/webhook/atlasgr/outbound', validateAtlasGRSecret, async (req, res)
   }
 });
 
-router.post('/webhooks/bland/:token', validateBlandCallbackToken, (req, res) => {
+router.post('/webhooks/bland/:token', validateBlandCallbackToken, async (req, res) => {
   const parsed = blandCallResultSchema.safeParse(req.body);
   if (!parsed.success) {
     logger.warn('Bland AI callback rejected: invalid payload', { issues: parsed.error.issues });
@@ -104,15 +104,37 @@ router.post('/webhooks/bland/:token', validateBlandCallbackToken, (req, res) => 
     return;
   }
 
-  // There is currently no durable persistence path in this codebase for Bland AI call results
-  // (no CallLog/Lead record tying back to the originating AtlasGR lead) — logged for observability
-  // rather than silently discarded. See
-  // .agents/handoffs/onda-1/06-para-01-persistir-resultado-bland.md for the schema/service work
-  // needed to persist this durably.
+  const data = parsed.data as any;
   logger.info('Received Bland AI call result callback', {
-    callId: parsed.data.call_id,
-    status: parsed.data.status,
+    callId: data.call_id,
+    status: data.status,
   });
+
+  // Encaminha a transcrição, resumo e gravação para a AtlasGR
+  const atlasBaseUrl = process.env.ATLASGR_BASE_URL || 'http://localhost:3005';
+  const webhookSecret = process.env.ATLASGR_WEBHOOK_SECRET || 'segredo_compartilhado_atlasgr_123';
+
+  try {
+    await fetch(`${atlasBaseUrl}/api/webhooks/voice-result`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-atlasgr-webhook-secret': webhookSecret,
+      },
+      body: JSON.stringify({
+        call_id: data.call_id,
+        phone_number: data.to || data.variables?.phone_number,
+        concatenated_transcript: data.concatenated_transcript || '',
+        summary: data.summary || '',
+        recording_url: data.recording_url || '',
+        call_length: data.call_length || 0,
+        completed: data.completed ?? true,
+      }),
+    });
+    logger.info('Successfully forwarded voice call transcript to AtlasGR');
+  } catch (err) {
+    logger.error('Failed to forward voice call result to AtlasGR CRM', err);
+  }
 
   res.status(200).json({ received: true });
 });
