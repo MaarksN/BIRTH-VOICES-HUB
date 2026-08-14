@@ -1,3 +1,4 @@
+import type { Prisma } from '@prisma/client';
 import type { StudioEdge, StudioNode, ValidationIssue } from '../../lib/studio/types.js';
 import * as workflowRepository from '../repositories/workflowRepository.js';
 import { logger } from '../lib/logger.js';
@@ -5,13 +6,15 @@ import { logger } from '../lib/logger.js';
 export type RuntimeProvider = 'GoogleGemini' | 'OpenAI' | 'Claude';
 export type RuntimeNodeType = 'start' | 'llm' | 'prompt' | 'question' | 'condition' | 'switch' | 'memory' | 'end';
 
-interface RuntimeNode {
+type RuntimeConfig = Record<string, Prisma.JsonValue>;
+
+interface RuntimeNode extends Record<string, Prisma.JsonValue> {
   id: string;
   type: RuntimeNodeType;
-  config: Record<string, unknown>;
+  config: RuntimeConfig;
 }
 
-interface RuntimeEdge {
+interface RuntimeEdge extends Record<string, Prisma.JsonValue> {
   id: string;
   source: string;
   target: string;
@@ -20,7 +23,12 @@ interface RuntimeEdge {
   priority: number;
 }
 
-export interface WorkflowRuntimeState {
+/**
+ * This snapshot is persisted inside Session.metadata, so its public type deliberately satisfies
+ * Prisma.JsonObject. Keeping the runtime state JSON-safe prevents test-only casts from hiding a
+ * production persistence mismatch and makes the session snapshot portable across workers.
+ */
+export interface WorkflowRuntimeState extends Record<string, Prisma.JsonValue> {
   workflowId: string;
   version: number;
   currentNodeId: string | null;
@@ -60,9 +68,12 @@ const UNSUPPORTED_REASON: Partial<Record<string, string>> = {
   human_handoff: 'A transferência humana ainda não possui bridge de telefonia validada para produção.',
 };
 
-function asRecord(value: unknown): Record<string, unknown> {
+function asRecord(value: unknown): RuntimeConfig {
+  // Workflow config is persisted in a Prisma Json column before it reaches the runtime. This cast
+  // narrows that already-validated JSON boundary; the runtime never accepts arbitrary JS objects
+  // directly from request bodies here.
   return value && typeof value === 'object' && !Array.isArray(value)
-    ? value as Record<string, unknown>
+    ? value as RuntimeConfig
     : {};
 }
 
@@ -106,7 +117,7 @@ export function mapRuntimeProvider(value: unknown): RuntimeProvider | null {
 }
 
 /**
- * Server-side capability gate for the *runtime*, complementary to ValidationEngine's graph-shape
+ * Server-side capability gate for the runtime, complementary to ValidationEngine's graph-shape
  * validation. A workflow may be visually valid yet still contain a node that the production
  * telephony executor cannot honestly execute. Those graphs fail closed at publish time instead
  * of being marked active and silently ignored during a real call.
@@ -272,7 +283,7 @@ function normalizeComparable(value: string): string {
   return value.trim().toLocaleLowerCase('pt-BR');
 }
 
-function evaluateCondition(config: Record<string, unknown>, variables: Record<string, string>): boolean {
+function evaluateCondition(config: RuntimeConfig, variables: Record<string, string>): boolean {
   const variable = asString(config.variable);
   const operator = asString(config.operator).toLowerCase() || 'equals';
   const actual = variables[variable] ?? '';
@@ -298,7 +309,7 @@ function evaluateCondition(config: Record<string, unknown>, variables: Record<st
   }
 }
 
-function applyMemoryNode(config: Record<string, unknown>, variables: Record<string, string>): void {
+function applyMemoryNode(config: RuntimeConfig, variables: Record<string, string>): void {
   const operation = asString(config.operation).toLowerCase();
   const variableName = asString(config.variableName);
 
