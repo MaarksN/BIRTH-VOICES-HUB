@@ -53,6 +53,8 @@ export const DEFAULT_IDEMPOTENCY_TTL_SECONDS = Number(
   process.env.ATLASGR_WEBHOOK_IDEMPOTENCY_TTL_SECONDS ?? 24 * 60 * 60,
 );
 
+const CALLBACK_PROCESSING_TTL_SECONDS = 60;
+
 /**
  * Derives a stable dedup key for an AtlasGR outbound-call webhook delivery.
  *
@@ -101,16 +103,47 @@ export async function claimIdempotencyKey(
   }
 }
 
+export type CallbackProcessingState = 'acquired' | 'duplicate' | 'in_progress';
+
 /**
- * Releases a claim only when its downstream side effect did not complete. This is intentionally
- * separate from `claimIdempotencyKey`: outbound-call dispatch keeps its claim on ambiguous Bland
- * network failures because the provider may have accepted the call even if our HTTP response was
- * lost. Result forwarding to AtlasGR is different — if AtlasGR returned a non-2xx response (or
- * fetch threw), we know the delivery was not acknowledged and must let Bland retry it.
+ * Callback forwarding needs a two-phase dedup state instead of the one-shot outbound claim.
+ * `processing` is deliberately short-lived: if the worker dies after claiming but before AtlasGR
+ * acknowledges the result, a provider retry can take over after one minute. `done` is kept for the
+ * normal 24h dedup window and makes repeated successful callbacks cheap no-ops.
  */
-export async function releaseIdempotencyKey(key: string): Promise<void> {
+export async function beginBlandCallbackProcessing(callId: string): Promise<CallbackProcessingState> {
+  const key = buildBlandCallbackIdempotencyKey(callId);
   try {
-    await getClient().del(key);
+    const client = getClient();
+    const claimed = await client.set(key, 'processing', 'EX', CALLBACK_PROCESSING_TTL_SECONDS, 'NX');
+    if (claimed === 'OK') return 'acquired';
+
+    const current = await client.get(key);
+    return current === 'done' ? 'duplicate' : 'in_progress';
+  } catch (error) {
+    throw new IdempotencyCheckFailedError(error);
+  }
+}
+
+/** Marks a forwarded callback as durably completed for the regular dedup window. */
+export async function completeBlandCallbackProcessing(
+  callId: string,
+  ttlSeconds: number = DEFAULT_IDEMPOTENCY_TTL_SECONDS,
+): Promise<void> {
+  try {
+    await getClient().set(buildBlandCallbackIdempotencyKey(callId), 'done', 'EX', ttlSeconds);
+  } catch (error) {
+    throw new IdempotencyCheckFailedError(error);
+  }
+}
+
+/**
+ * Releases a callback processing lock when AtlasGR definitely did not acknowledge the delivery.
+ * That lets a provider retry attempt the forwarding again instead of silently losing the result.
+ */
+export async function releaseBlandCallbackProcessing(callId: string): Promise<void> {
+  try {
+    await getClient().del(buildBlandCallbackIdempotencyKey(callId));
   } catch (error) {
     throw new IdempotencyCheckFailedError(error);
   }
