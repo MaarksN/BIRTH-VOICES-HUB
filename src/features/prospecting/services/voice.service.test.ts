@@ -6,10 +6,16 @@ vi.mock('../lib/webhookIdempotency.js', () => ({
   claimIdempotencyKey: vi.fn(),
 }));
 
+vi.mock('../../../services/settingService.js', () => ({
+  getAiConsent: vi.fn(),
+}));
+
 import { claimIdempotencyKey } from '../lib/webhookIdempotency.js';
+import { getAiConsent } from '../../../services/settingService.js';
 import { BlandConfigurationError, VoiceProspectingService } from './voice.service.js';
 
 const mockClaim = vi.mocked(claimIdempotencyKey);
+const mockGetAiConsent = vi.mocked(getAiConsent);
 
 const basePayload: AtlasGROutboundPayload = {
   phone_number: '+5511999998888',
@@ -24,7 +30,14 @@ beforeEach(() => {
   process.env.BLAND_API_KEY = 'test-bland-key';
   process.env.BLAND_WEBHOOK_TOKEN = 'test-callback-token';
   process.env.WEBHOOK_BASE_URL = 'https://hub.example.com';
+  process.env.ATLASGR_TENANT_ID = 'tenant-atlas-test';
   mockClaim.mockResolvedValue(true);
+  mockGetAiConsent.mockResolvedValue({
+    granted: true,
+    grantedAt: '2026-08-14T12:00:00.000Z',
+    revokedAt: null,
+    grantedByUserId: 'test-user',
+  });
 });
 
 afterEach(() => {
@@ -51,6 +64,7 @@ describe('VoiceProspectingService.triggerOutboundCall', () => {
       callId: 'call-abc',
       status: 'queued',
     });
+    expect(mockGetAiConsent).toHaveBeenCalledWith('tenant-atlas-test');
 
     const [, options] = fetchMock.mock.calls[0] as [string, RequestInit];
     expect((options.headers as Record<string, string>).Authorization).toBe('test-bland-key');
@@ -76,6 +90,7 @@ describe('VoiceProspectingService.triggerOutboundCall', () => {
     expect(body.reduce_latency).toBe(true);
     expect(body.retry).toEqual({ max_attempts: 2 });
     expect(body.webhook).toBe('https://hub.example.com/api/webhooks/bland/test-callback-token');
+    expect(body.record).toBe(false);
   });
 
   it('supports optional Brazilian national caller ID from payload or environment', async () => {
@@ -87,12 +102,10 @@ describe('VoiceProspectingService.triggerOutboundCall', () => {
 
     const service = new VoiceProspectingService();
 
-    // 1. With payload.from
     await service.triggerOutboundCall({ ...basePayload, from: '+551133334444' });
     let body = JSON.parse((fetchMock.mock.calls[0] as [string, RequestInit])[1].body as string);
     expect(body.from).toBe('+551133334444');
 
-    // 2. With BLAND_FROM_NUMBER env variable as fallback
     process.env.BLAND_FROM_NUMBER = '+551155556666';
     await service.triggerOutboundCall(basePayload);
     body = JSON.parse((fetchMock.mock.calls[1] as [string, RequestInit])[1].body as string);
@@ -145,6 +158,7 @@ describe('VoiceProspectingService.triggerOutboundCall', () => {
     await expect(service.triggerOutboundCall(basePayload)).rejects.toBeInstanceOf(BlandConfigurationError);
     expect(fetchMock).not.toHaveBeenCalled();
     expect(mockClaim).not.toHaveBeenCalled();
+    expect(mockGetAiConsent).not.toHaveBeenCalled();
   });
 
   it('throws BlandConfigurationError instead of calling Bland AI when BLAND_WEBHOOK_TOKEN is missing', async () => {
