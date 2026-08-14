@@ -6,9 +6,9 @@ import { logger } from '../../../lib/logger.js';
 /**
  * Thrown when we cannot determine whether a webhook delivery is a duplicate (e.g. Redis is
  * unreachable). Callers MUST treat this as "fail closed" — reject the request — rather than
- * proceeding as if the delivery were new. This mirrors the antivirus "fail closed" policy: an
- * outbound call to a real lead via Bland AI is exactly the kind of side effect that must never
- * fire twice just because our dedup store happened to be down for one request.
+ * proceeding as if the delivery were new. This mirrors the antivirus "fail closed" policy: a
+ * real outbound call or a CRM result update must never be replayed just because our dedup store
+ * happened to be down for one request.
  */
 export class IdempotencyCheckFailedError extends Error {
   constructor(cause: unknown) {
@@ -43,6 +43,7 @@ export function __setIdempotencyClientForTests(client: Redis | null): void {
 }
 
 export const ATLASGR_OUTBOUND_IDEMPOTENCY_PREFIX = 'idempotency:atlasgr-outbound-call:';
+export const BLAND_CALLBACK_IDEMPOTENCY_PREFIX = 'idempotency:bland-call-result:';
 
 /** Default dedup window: long enough to absorb realistic webhook-retry storms (most providers give
  * up retrying well within a day), short enough that a genuinely new call to the same lead/number
@@ -74,6 +75,11 @@ export function buildAtlasGROutboundIdempotencyKey(payload: {
   return `${ATLASGR_OUTBOUND_IDEMPOTENCY_PREFIX}hash:${hash}`;
 }
 
+/** Bland callbacks carry a provider-generated immutable call id, which is the ideal dedup key. */
+export function buildBlandCallbackIdempotencyKey(callId: string): string {
+  return `${BLAND_CALLBACK_IDEMPOTENCY_PREFIX}${callId.trim()}`;
+}
+
 /**
  * Atomically claims a dedup key. Returns `true` the first time a given key is claimed (caller
  * should proceed), `false` if the key was already claimed within the TTL window (caller must treat
@@ -90,6 +96,21 @@ export async function claimIdempotencyKey(
     const client = getClient();
     const result = await client.set(key, '1', 'EX', ttlSeconds, 'NX');
     return result === 'OK';
+  } catch (error) {
+    throw new IdempotencyCheckFailedError(error);
+  }
+}
+
+/**
+ * Releases a claim only when its downstream side effect did not complete. This is intentionally
+ * separate from `claimIdempotencyKey`: outbound-call dispatch keeps its claim on ambiguous Bland
+ * network failures because the provider may have accepted the call even if our HTTP response was
+ * lost. Result forwarding to AtlasGR is different — if AtlasGR returned a non-2xx response (or
+ * fetch threw), we know the delivery was not acknowledged and must let Bland retry it.
+ */
+export async function releaseIdempotencyKey(key: string): Promise<void> {
+  try {
+    await getClient().del(key);
   } catch (error) {
     throw new IdempotencyCheckFailedError(error);
   }
