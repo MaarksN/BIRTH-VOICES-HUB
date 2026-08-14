@@ -112,7 +112,7 @@ describe('outboundCallService.initiateOutboundCall', () => {
   });
 
   it('refuses to dial a number that already has a call in flight', async () => {
-    mockCreateOutboundPhoneSession.mockResolvedValue({ session: session({ id: 'sess-earlier' }), inFlight: true });
+    mockCreateOutboundPhoneSession.mockResolvedValue({ session: null, inFlight: true });
 
     await expect(initiateOutboundCall(request())).rejects.toBeInstanceOf(DuplicateCallError);
     expect(mockPlaceCall).not.toHaveBeenCalled();
