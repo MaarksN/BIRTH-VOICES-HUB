@@ -1,97 +1,153 @@
-# Birth Voices Hub - Enterprise Platform
+# Birth Voices Hub
 
-Welcome to the Birth Voices Hub. This platform is a fully multi-tenant, enterprise-grade system designed with Clean Architecture, leveraging Node.js, PostgreSQL (via Prisma), Redis, BullMQ, and React.
+Plataforma multi-tenant de agentes de voz e texto com React, Node.js/Express, PostgreSQL/Prisma, Redis/BullMQ, telefonia Twilio e gateway de IA com fallback entre provedores.
 
-## Documentation Index
+## Estado do produto
 
-The documentation has been structured to support developers, partners, and integrations. Please refer to the specific sections below:
+A linha de produção é protegida por CI e por gates server-side. Um commit elegível a release precisa passar por:
 
-- [Architecture Overview](./ARCHITECTURE.md)
-- [API Reference](./API_REFERENCE.md)
-- [Development Guide](./DEVELOPMENT.md)
-- [Deployment Guide](./DEPLOYMENT.md)
-- [Security Guidelines](./SECURITY.md)
-- [Testing Strategy](./TESTING.md)
-- [Troubleshooting](./TROUBLESHOOTING.md)
-- [Production Runbook](./docs/RUNBOOK.md)
-- [Secrets Guide](./docs/secrets-guide.md)
-- [Roadmap](./ROADMAP.md)
-- [Contributing](./CONTRIBUTING.md)
-
-### Detailed Documentation Folders
-- [ADRs (Architecture Decision Records)](./docs/adr)
-- [API Specs (OpenAPI, Postman, Insomnia)](./docs/api)
-- [SDKs](./docs/sdk)
-- [Code Examples](./docs/examples)
-- [Webhooks](./docs/webhooks)
-- [CLI Docs](./docs/cli)
-- [AI Capabilities](./docs/ai)
-- [Design Patterns](./docs/patterns)
-- [Diagrams](./docs/diagrams)
-- [Developer Experience (DX)](./docs/dx)
-- [Tests](./docs/tests)
-
----
-
-## Environment Variables
-
-| Name | Required? | DEV | CI | STAGING/PROD | Used in | Impact if missing |
-|---|---|---|---|---|---|---|
-| `DATABASE_URL` | **Required** | `.env` (docker-compose) | Fixed CI value (`ci.yml`) | GitHub Secret `PRODUCTION_DATABASE_URL` | `prisma/schema.prisma` | Prisma Client fails to connect on first query |
-| `REDIS_URL` | **Required** | `.env` (docker-compose) | Fixed CI value (`ci.yml`) | GitHub Secret `PRODUCTION_REDIS_URL` | `server.ts`, `src/services/audit.ts` (via `src/lib/env.ts`) | **Fails fast at startup** in production (`NODE_ENV=production`) if unset; falls back to `redis://localhost:6379` only in dev/test |
-| `JWT_SECRET` | **Required** | `.env` | Fixed CI value (`ci.yml`) | GitHub Secret `JWT_SECRET` | `src/lib/auth-tokens.ts` | Throws at the first login/token operation |
-| `REFRESH_TOKEN_SECRET` | **Required** | `.env` | Fixed CI value (`ci.yml`) | GitHub Secret `REFRESH_TOKEN_SECRET` | `src/lib/auth-tokens.ts` | Throws at the first refresh-token operation |
-| `GEMINI_API_KEY` | **Required** | `.env` | Not set (AI routes untested in CI) | GitHub Secret `GEMINI_API_KEY` | `src/controllers/ai.controller.ts`, `lib/voice-runtime/providers/LLMGateway.ts` | AI features throw at call time; Gemini is the guaranteed fallback for the LLM chain, so its absence blocks all AI functionality |
-| `ALLOWED_ORIGINS` | Optional | `.env` | Fixed CI value (`ci.yml`) | GitHub Variable `ALLOWED_ORIGINS` | `server.ts` | Falls back to `http://localhost:${PORT}`; in production this would reject the real frontend's CORS origin |
-| `OPENAI_API_KEY` | Optional | `.env` | — | GitHub Secret (if used) | `lib/voice-runtime/providers/LLMGateway.ts` | Only the OpenAI leg of the LLM fallback chain is unavailable (falls back to Gemini) |
-| `ANTHROPIC_API_KEY` | Optional | `.env` | — | GitHub Secret (if used) | `lib/voice-runtime/providers/LLMGateway.ts` | Only the Claude leg of the LLM fallback chain is unavailable (falls back to Gemini) |
-| `PORT` | Optional | `.env` | — | — | `server.ts` | Falls back to `3000` |
-| `GCP_PROJECT_ID` | **Required for deploy** | — | — | GitHub Secret `GCP_PROJECT_ID` | `.github/workflows/deploy.yml` | Deploy workflow fails (empty project ID for Artifact Registry/Cloud Run) |
-| `GCP_SA_KEY` | **Required for deploy** | — | — | GitHub Secret `GCP_SA_KEY` | `.github/workflows/deploy.yml` | Deploy workflow fails at the "Authenticate to Google Cloud" step |
-
-See [`docs/security/secrets-guide.md`](./docs/security/secrets-guide.md) for where to configure each of these in GitHub. Never commit real values — `.env.example` only contains placeholders.
-
----
-
-## Infrastructure
-
-The project is fully containerized and production-ready for deployment to Google Cloud Run or any Docker-compatible infrastructure.
-
-### Local Development
-
-1. Setup environment variables:
-   ```bash
-   cp .env.example .env
-   ```
-
-2. Start the persistent services (PostgreSQL & Redis):
-   ```bash
-   docker-compose up -d postgres redis
-   ```
-
-3. Initialize the database schema:
-   ```bash
-   npx prisma migrate dev
-   ```
-
-4. Start the application in development mode:
-   ```bash
-   npm run dev
-   ```
-   *(For a production-style run: `npm run build && npm start`)*
-
-### Full Stack Execution
-
-To run the complete application stack (Node.js, PostgreSQL, Redis) locally:
-```bash
-docker-compose up --build -d
+```text
+Prisma migrate → seed → lint → typecheck → Vitest → build → Playwright/Chromium → Docker build
 ```
 
-### Environment Variables
+O deploy do Cloud Run só é disparado após CI bem-sucedido e usa **o mesmo SHA testado**, com `prisma migrate deploy` antes da promoção da imagem.
 
-See [.env.example](./.env.example) for the full list. `DATABASE_URL`, `REDIS_URL`,
-`JWT_SECRET`, and `REFRESH_TOKEN_SECRET` are required for the server to start
-serving authenticated requests; `GEMINI_API_KEY`/`OPENAI_API_KEY`/
-`ANTHROPIC_API_KEY`/`ELEVENLABS_API_KEY` are optional and only gate their
-respective AI provider features. For the GitHub Actions secrets required to run
-CI and deploy to Cloud Run, see [DEPLOYMENT.md](./DEPLOYMENT.md#secrets-management).
+### Studio e runtime de voz
+
+Workflows publicados são executados no caminho telefônico real. O runtime de produção desta versão suporta:
+
+- `start`
+- `llm`
+- `prompt`
+- `question`
+- `condition`
+- `switch`
+- `memory`
+- `end`
+
+O servidor bloqueia a publicação de grafos que usam semântica ainda não executável com segurança. `voice`, `knowledge`, `tool` e `human_handoff` permanecem como recursos de evolução/preview do Studio até receberem executor de produção e testes correspondentes.
+
+### Privacidade e consentimento
+
+Chamadas a provedores externos de IA são tenant-scoped e exigem consentimento registrado para o tenant quando carregam dados de clientes/contatos. A integração AtlasGR/Bland também aplica essa regra. Gravação de chamadas Bland é **opt-in** e fica desligada por padrão.
+
+## Primeiro uso local
+
+Requisitos:
+
+- Node.js 22+
+- Docker / Docker Compose
+- PostgreSQL e Redis, normalmente via `docker-compose.yml`
+
+```bash
+npm ci
+cp .env.example .env
+docker compose up -d postgres redis
+npx prisma generate
+npx prisma migrate dev
+npx prisma db seed
+npm run dev
+```
+
+Para executar no modo equivalente ao artefato de produção:
+
+```bash
+npm run build
+npm start
+```
+
+A aplicação usa cookies seguros para sessão. O endpoint `GET /api/auth/me` é a fonte de verdade da identidade autenticada no frontend.
+
+## Validação antes de abrir PR/release
+
+```bash
+npm run lint
+npm run typecheck
+npm run test
+npm run build
+npm run test:e2e
+```
+
+Os testes E2E sobem o build de produção e cobrem, além de health/landing, o ciclo de autenticação `register → /auth/me → logout → login`.
+
+## Configuração de produção
+
+Não copie valores de exemplos para produção e nunca versione `.env` real.
+
+### Núcleo obrigatório
+
+O preflight de `.github/workflows/deploy.yml` exige:
+
+**GitHub Secrets**
+
+- `GCP_PROJECT_ID`
+- `GCP_SA_KEY` **ou** `GCP_CREDENTIALS`
+- `PRODUCTION_DATABASE_URL`
+- `PRODUCTION_REDIS_URL`
+- `JWT_SECRET`
+- `REFRESH_TOKEN_SECRET`
+- `GEMINI_API_KEY`
+- `TWILIO_ACCOUNT_SID`
+- `TWILIO_AUTH_TOKEN`
+- `TWILIO_FROM_NUMBER`
+- `WEBHOOK_SIGNING_SECRET`
+
+**GitHub Variables do environment `production`**
+
+- `PUBLIC_BASE_URL`
+- `ALLOWED_ORIGINS`
+
+`PUBLIC_BASE_URL` deve ser a origem HTTPS exata usada na configuração dos webhooks Twilio, porque participa da validação da assinatura da requisição.
+
+OpenAI e Anthropic são opcionais. Os modelos também podem ser definidos por `GEMINI_MODEL`, `OPENAI_MODEL` e `ANTHROPIC_MODEL`.
+
+### AtlasGR / Bland AI
+
+A integração é opcional para o núcleo Twilio, mas é tratada como **bloco atômico**. Ao habilitá-la, configure todo o conjunto:
+
+- `BLAND_API_KEY`
+- `BLAND_WEBHOOK_TOKEN`
+- `ATLASGR_WEBHOOK_SECRET`
+- `ATLASGR_TENANT_ID`
+- `ATLASGR_BASE_URL`
+
+Opcionalmente:
+
+- `BLAND_RECORD_CALLS=false` por padrão
+- `ATLASGR_WEBHOOK_IDEMPOTENCY_TTL_SECONDS=86400`
+
+O tenant apontado por `ATLASGR_TENANT_ID` precisa ter consentimento de IA registrado antes de dados de lead serem enviados ao provedor externo.
+
+## Segurança de secrets
+
+Se uma credencial apareceu em histórico Git, removê-la do `HEAD` **não a torna segura novamente**. Rotacione a credencial no sistema de origem, invalide o valor antigo e salve o valor novo apenas no environment/secret manager apropriado.
+
+Consulte [`docs/secrets-guide.md`](./docs/secrets-guide.md) para o checklist operacional completo.
+
+## Documentação
+
+- [Arquitetura](./ARCHITECTURE.md)
+- [API](./API_REFERENCE.md)
+- [Desenvolvimento](./DEVELOPMENT.md)
+- [Deploy](./DEPLOYMENT.md)
+- [Segurança](./SECURITY.md)
+- [Testes](./TESTING.md)
+- [Troubleshooting](./TROUBLESHOOTING.md)
+- [Runbook de produção](./docs/RUNBOOK.md)
+- [Secrets e variáveis](./docs/secrets-guide.md)
+- [Roadmap](./ROADMAP.md)
+- [Contribuição](./CONTRIBUTING.md)
+
+### Pastas técnicas
+
+- [ADRs](./docs/adr)
+- [OpenAPI e integrações](./docs/api)
+- [SDKs](./docs/sdk)
+- [Exemplos](./docs/examples)
+- [Webhooks](./docs/webhooks)
+- [CLI](./docs/cli)
+- [IA](./docs/ai)
+- [Padrões](./docs/patterns)
+- [Diagramas](./docs/diagrams)
+- [DX](./docs/dx)
+- [Testes](./docs/tests)
