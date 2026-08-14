@@ -9,9 +9,9 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock('@google/genai', () => ({
-  GoogleGenAI: vi.fn(() => ({
-    models: { generateContent: mocks.generateContent },
-  })),
+  GoogleGenAI: class FakeGoogleGenAI {
+    models = { generateContent: mocks.generateContent };
+  },
 }));
 
 vi.mock('../src/services/settingService.js', () => ({
