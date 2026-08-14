@@ -14,7 +14,11 @@ export default defineConfig({
     timeout: 120_000,
     env: {
       ...process.env,
-      NODE_ENV: 'production',
+      // Exercise the compiled Vite artifact over the local HTTP origin without introducing any
+      // switch that can disable Secure cookies in production. Production still derives cookie
+      // security solely from NODE_ENV=production.
+      NODE_ENV: 'e2e',
+      SERVE_STATIC_BUILD: 'true',
       PORT: '3000',
     },
   },
