@@ -1,17 +1,18 @@
 name: Deploy to Google Cloud Run
 
 on:
-  push:
+  workflow_run:
+    workflows: ["CI/CD Pipeline"]
+    types: [completed]
     branches:
       - main
-      - release/*
-  workflow_dispatch:
+      - 'release/**'
 
 permissions:
   contents: read
 
 concurrency:
-  group: deploy-${{ github.workflow }}-${{ github.ref }}
+  group: deploy-${{ github.event.workflow_run.head_branch }}
   cancel-in-progress: false
 
 env:
@@ -21,18 +22,22 @@ env:
   GAR_LOCATION: us-central1-docker.pkg.dev
   REPOSITORY: birthvoices-repo
   IMAGE_NAME: birthvoices-app
+  TARGET_SHA: ${{ github.event.workflow_run.head_sha }}
 
 jobs:
   deploy:
-    name: Build & Deploy to Cloud Run
+    name: Migrate, Build & Deploy to Cloud Run
+    if: github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     environment: production
     permissions:
       contents: read
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - name: Checkout tested commit
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ env.TARGET_SHA }}
 
       - name: Verify required secrets are configured
         run: |
@@ -44,7 +49,7 @@ jobs:
           [ -z "${{ secrets.JWT_SECRET }}" ] && missing+=("JWT_SECRET")
           [ -z "${{ secrets.REFRESH_TOKEN_SECRET }}" ] && missing+=("REFRESH_TOKEN_SECRET")
           if [ ${#missing[@]} -ne 0 ]; then
-            echo "::error::Missing required GitHub Actions secrets: ${missing[*]}. Configure them in Settings > Secrets and variables > Actions before this workflow can deploy. See docs/security/secrets-guide.md if present, or the PR/audit report for details."
+            echo "::error::Missing required GitHub Actions secrets: ${missing[*]}. Configure them before production deployment."
             exit 1
           fi
 
@@ -62,19 +67,26 @@ jobs:
       - name: Configure Docker for GAR
         run: gcloud auth configure-docker ${{ env.GAR_LOCATION }} --quiet
 
-      - name: Build and Push Docker Image
+      - name: Build and push immutable Docker image
         run: |
-          IMAGE_PATH="${{ env.GAR_LOCATION }}/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}"
+          IMAGE_PATH="${{ env.GAR_LOCATION }}/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.IMAGE_NAME }}:${{ env.TARGET_SHA }}"
           docker build -t "$IMAGE_PATH" .
           docker push "$IMAGE_PATH"
 
-      - name: Deploy to Cloud Run
+      - name: Apply production database migrations
+        run: |
+          IMAGE_PATH="${{ env.GAR_LOCATION }}/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.IMAGE_NAME }}:${{ env.TARGET_SHA }}"
+          docker run --rm \
+            -e DATABASE_URL="${{ secrets.PRODUCTION_DATABASE_URL }}" \
+            "$IMAGE_PATH" npx prisma migrate deploy
+
+      - name: Deploy tested image to Cloud Run
         id: deploy
         uses: google-github-actions/deploy-cloudrun@v2
         with:
           service: ${{ env.SERVICE_NAME }}
           region: ${{ env.REGION }}
-          image: ${{ env.GAR_LOCATION }}/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+          image: ${{ env.GAR_LOCATION }}/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.IMAGE_NAME }}:${{ env.TARGET_SHA }}
           env_vars: |
             NODE_ENV=production
             DATABASE_URL=${{ secrets.PRODUCTION_DATABASE_URL }}
