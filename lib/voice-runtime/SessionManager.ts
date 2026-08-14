@@ -209,7 +209,9 @@ export class SessionManager {
     observability.logEvent(sessionId, 'SESSION_ENDED');
 
     if (session) {
-      webhookService.dispatch(session.organizationId, 'call.completed', {
+      // `webhookService.dispatch` is tenant-scoped. The legacy organizationId/workspaceId/projectId
+      // fields are placeholders and must never be used as an ownership key for external delivery.
+      webhookService.dispatch(session.tenantId, 'call.completed', {
         sessionId,
         durationMs: session.durationMs,
         agentId: session.agentId,
