@@ -1,25 +1,48 @@
 import express from 'express';
 import { logger } from '../../../lib/logger.js';
-import { voiceProspectingService, BlandConfigurationError } from '../services/voice.service.js';
+import {
+  voiceProspectingService,
+  BlandConfigurationError,
+  ExternalAiConsentRequiredError,
+} from '../services/voice.service.js';
 import { atlasGROutboundPayloadSchema, blandCallResultSchema } from '../validators/atlasgr.schema.js';
 import { safeEqual } from '../lib/safeCompare.js';
-import { IdempotencyCheckFailedError } from '../lib/webhookIdempotency.js';
+import {
+  beginBlandCallbackProcessing,
+  completeBlandCallbackProcessing,
+  IdempotencyCheckFailedError,
+  releaseBlandCallbackProcessing,
+} from '../lib/webhookIdempotency.js';
 
 const router = express.Router();
 
-// This router is now mounted before the global express.json() (see server.ts — it also needs to
-// run before csrfProtection, since both routes below are server-to-server webhooks authenticated
-// by their own secret, not by session cookie/Origin). It needs its own JSON body parser, the same
-// way telephony.routes.ts brings its own express.urlencoded() for the same reason.
+// This router is mounted before the global express.json() (see server.ts — it also needs to run
+// before csrfProtection, since both routes below are server-to-server webhooks authenticated by
+// their own secret, not by session cookie/Origin). It therefore owns its JSON body parser.
 router.use(express.json());
+
+function asRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : {};
+}
+
+function asString(value: unknown): string {
+  return typeof value === 'string' ? value : '';
+}
+
+function asNumber(value: unknown): number {
+  return typeof value === 'number' && Number.isFinite(value) ? value : 0;
+}
+
+function asBoolean(value: unknown, fallback: boolean): boolean {
+  return typeof value === 'boolean' ? value : fallback;
+}
 
 /**
  * Authenticates the AtlasGR CRM as the caller via a pre-shared secret sent in a custom header.
- *
- * Before this middleware existed, `POST /webhook/atlasgr/outbound` had NO authentication at all —
- * anyone who knew (or guessed) the URL could trigger a real, billed outbound call via Bland AI to
- * any phone number. That is AGENTS.md bloqueador #5/#11 territory. Fails closed: if the secret
- * isn't configured server-side, every request is rejected rather than silently accepted.
+ * Fails closed: if the secret isn't configured server-side, every request is rejected rather than
+ * silently accepted.
  */
 function validateAtlasGRSecret(req: express.Request, res: express.Response, next: express.NextFunction) {
   const expectedSecret = process.env.ATLASGR_WEBHOOK_SECRET;
@@ -44,8 +67,7 @@ function validateAtlasGRSecret(req: express.Request, res: express.Response, next
 /**
  * Authenticates the Bland AI call-result callback via a token embedded in the callback URL itself
  * (Bland AI's outbound-call API takes a plain `webhook` URL with no custom-header support, so a
- * shared secret has to travel in the path). The token is generated from `BLAND_WEBHOOK_TOKEN` and
- * embedded when the call is dispatched in `voice.service.ts`.
+ * shared secret has to travel in the path).
  */
 function validateBlandCallbackToken(req: express.Request, res: express.Response, next: express.NextFunction) {
   const expectedToken = process.env.BLAND_WEBHOOK_TOKEN;
@@ -77,6 +99,14 @@ router.post('/webhook/atlasgr/outbound', validateAtlasGRSecret, async (req, res)
     const result = await voiceProspectingService.triggerOutboundCall(parsed.data);
     res.status(200).json(result);
   } catch (error) {
+    if (error instanceof ExternalAiConsentRequiredError) {
+      logger.warn('AtlasGR webhook rejected: external AI consent is not granted for the configured tenant');
+      res.status(403).json({
+        error: 'Consentimento para processamento por provedor externo de IA é obrigatório.',
+        code: 'AI_PROVIDER_CONSENT_REQUIRED',
+      });
+      return;
+    }
     if (error instanceof IdempotencyCheckFailedError) {
       logger.error('AtlasGR webhook: idempotency check failed, rejecting to avoid a duplicate call', {
         error: error.message,
@@ -104,39 +134,97 @@ router.post('/webhooks/bland/:token', validateBlandCallbackToken, async (req, re
     return;
   }
 
-  const data = parsed.data as any;
+  const data = parsed.data as typeof parsed.data & Record<string, unknown>;
+  const callId = data.call_id;
   logger.info('Received Bland AI call result callback', {
-    callId: data.call_id,
+    callId,
     status: data.status,
   });
 
-  // Encaminha a transcrição, resumo e gravação para a AtlasGR
-  const atlasBaseUrl = process.env.ATLASGR_BASE_URL || 'http://localhost:3005';
-  const webhookSecret = process.env.ATLASGR_WEBHOOK_SECRET || 'segredo_compartilhado_atlasgr_123';
+  // There must never be a built-in credential or localhost destination in this production path.
+  // Both values are external configuration and the callback fails closed when either is absent.
+  const atlasBaseUrl = process.env.ATLASGR_BASE_URL?.trim();
+  const webhookSecret = process.env.ATLASGR_WEBHOOK_SECRET?.trim();
+  if (!atlasBaseUrl || !webhookSecret) {
+    logger.error('Bland AI callback cannot be forwarded: AtlasGR destination or signing secret is missing', {
+      callId,
+      hasBaseUrl: Boolean(atlasBaseUrl),
+      hasSecret: Boolean(webhookSecret),
+    });
+    res.status(503).json({ error: 'Integração de retorno com AtlasGR não está configurada.' });
+    return;
+  }
+
+  let processingState: Awaited<ReturnType<typeof beginBlandCallbackProcessing>>;
+  try {
+    processingState = await beginBlandCallbackProcessing(callId);
+  } catch (error) {
+    logger.error('Bland AI callback rejected because idempotency storage is unavailable', {
+      callId,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    res.status(503).json({ error: 'Não foi possível verificar idempotência do callback.' });
+    return;
+  }
+
+  if (processingState === 'duplicate') {
+    res.status(200).json({ received: true, duplicate: true });
+    return;
+  }
+
+  if (processingState === 'in_progress') {
+    // Ask the provider to retry later instead of executing the same CRM side effect concurrently.
+    res.status(503).json({ error: 'Callback já está sendo processado. Tente novamente.' });
+    return;
+  }
+
+  const variables = asRecord(data.variables);
+  const forwardPayload = {
+    call_id: callId,
+    phone_number: asString(data.to) || asString(variables.phone_number),
+    concatenated_transcript: asString(data.concatenated_transcript),
+    summary: asString(data.summary),
+    recording_url: asString(data.recording_url),
+    call_length: asNumber(data.call_length),
+    completed: asBoolean(data.completed, true),
+  };
 
   try {
-    await fetch(`${atlasBaseUrl}/api/webhooks/voice-result`, {
+    const response = await fetch(`${atlasBaseUrl.replace(/\/$/, '')}/api/webhooks/voice-result`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'x-atlasgr-webhook-secret': webhookSecret,
+        // Lets the receiving CRM make its own update idempotent even if this service crashes after
+        // AtlasGR accepts the request but before Redis is marked `done`.
+        'x-idempotency-key': `bland-call-result:${callId}`,
       },
-      body: JSON.stringify({
-        call_id: data.call_id,
-        phone_number: data.to || data.variables?.phone_number,
-        concatenated_transcript: data.concatenated_transcript || '',
-        summary: data.summary || '',
-        recording_url: data.recording_url || '',
-        call_length: data.call_length || 0,
-        completed: data.completed ?? true,
-      }),
+      body: JSON.stringify(forwardPayload),
     });
-    logger.info('Successfully forwarded voice call transcript to AtlasGR');
-  } catch (err) {
-    logger.error('Failed to forward voice call result to AtlasGR CRM', err);
-  }
 
-  res.status(200).json({ received: true });
+    if (!response.ok) {
+      throw new Error(`AtlasGR voice-result returned HTTP ${response.status}`);
+    }
+
+    await completeBlandCallbackProcessing(callId);
+    logger.info('Successfully forwarded voice call result to AtlasGR', { callId });
+    res.status(200).json({ received: true, duplicate: false });
+  } catch (error) {
+    try {
+      await releaseBlandCallbackProcessing(callId);
+    } catch (releaseError) {
+      logger.error('Failed to release Bland callback processing lock after forwarding failure', {
+        callId,
+        error: releaseError instanceof Error ? releaseError.message : String(releaseError),
+      });
+    }
+
+    logger.error('Failed to forward voice call result to AtlasGR CRM', {
+      callId,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    res.status(502).json({ error: 'Falha ao encaminhar resultado da chamada para AtlasGR.' });
+  }
 });
 
 export default router;

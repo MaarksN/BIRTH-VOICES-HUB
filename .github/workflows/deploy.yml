@@ -1,17 +1,19 @@
 name: Deploy to Google Cloud Run
 
 on:
-  push:
-    branches:
-      - main
-      - release/*
   workflow_dispatch:
+    inputs:
+      target_sha:
+        description: 'Commit SHA already validated by CI and present on main'
+        required: true
+        type: string
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
-  group: deploy-${{ github.workflow }}-${{ github.ref }}
+  group: deploy-production
   cancel-in-progress: false
 
 env:
@@ -21,20 +23,52 @@ env:
   GAR_LOCATION: us-central1-docker.pkg.dev
   REPOSITORY: birthvoices-repo
   IMAGE_NAME: birthvoices-app
+  TARGET_SHA: ${{ inputs.target_sha }}
 
 jobs:
   deploy:
-    name: Build & Deploy to Cloud Run
+    name: Migrate, Build & Deploy to Cloud Run
     runs-on: ubuntu-latest
     environment: production
     permissions:
       contents: read
+      actions: read
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - name: Checkout tested commit
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ env.TARGET_SHA }}
+          fetch-depth: 0
 
-      - name: Verify required secrets are configured
+      - name: Verify target belongs to main
+        shell: bash
+        run: |
+          git fetch origin main
+          if ! git merge-base --is-ancestor "${TARGET_SHA}" origin/main; then
+            echo "::error::TARGET_SHA must already be present on main."
+            exit 1
+          fi
+
+      - name: Verify exact target SHA passed CI
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          response="$(curl --fail --silent --show-error \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/runs?head_sha=${TARGET_SHA}&status=completed&per_page=100")"
+
+          successful_runs="$(printf '%s' "$response" | jq --arg sha "$TARGET_SHA" '[.workflow_runs[] | select(.name == "CI/CD Pipeline" and .head_sha == $sha and .conclusion == "success")] | length')"
+          if [ "$successful_runs" -lt 1 ]; then
+            echo "::error::No successful CI/CD Pipeline run found for TARGET_SHA=${TARGET_SHA}."
+            exit 1
+          fi
+
+      - name: Verify required production configuration
+        shell: bash
         run: |
           missing=()
           [ -z "${{ secrets.GCP_PROJECT_ID }}" ] && missing+=("GCP_PROJECT_ID")
@@ -43,8 +77,28 @@ jobs:
           [ -z "${{ secrets.PRODUCTION_REDIS_URL }}" ] && missing+=("PRODUCTION_REDIS_URL")
           [ -z "${{ secrets.JWT_SECRET }}" ] && missing+=("JWT_SECRET")
           [ -z "${{ secrets.REFRESH_TOKEN_SECRET }}" ] && missing+=("REFRESH_TOKEN_SECRET")
+          [ -z "${{ secrets.GEMINI_API_KEY }}" ] && missing+=("GEMINI_API_KEY")
+          [ -z "${{ secrets.TWILIO_ACCOUNT_SID }}" ] && missing+=("TWILIO_ACCOUNT_SID")
+          [ -z "${{ secrets.TWILIO_AUTH_TOKEN }}" ] && missing+=("TWILIO_AUTH_TOKEN")
+          [ -z "${{ secrets.TWILIO_FROM_NUMBER }}" ] && missing+=("TWILIO_FROM_NUMBER")
+          [ -z "${{ secrets.WEBHOOK_SIGNING_SECRET }}" ] && missing+=("WEBHOOK_SIGNING_SECRET")
+          [ -z "${{ vars.PUBLIC_BASE_URL }}" ] && missing+=("PUBLIC_BASE_URL (production environment variable)")
+          [ -z "${{ vars.ALLOWED_ORIGINS }}" ] && missing+=("ALLOWED_ORIGINS (production environment variable)")
+
+          # AtlasGR/Bland is optional for the core Twilio product, but partial configuration is
+          # unsafe: callbacks, consent and CRM forwarding depend on the whole set. If any switch in
+          # this block is present, require every field before promotion.
+          atlasgr_requested="${{ secrets.BLAND_API_KEY }}${{ secrets.BLAND_WEBHOOK_TOKEN }}${{ secrets.ATLASGR_WEBHOOK_SECRET }}${{ vars.ATLASGR_TENANT_ID }}${{ vars.ATLASGR_BASE_URL }}"
+          if [ -n "$atlasgr_requested" ]; then
+            [ -z "${{ secrets.BLAND_API_KEY }}" ] && missing+=("BLAND_API_KEY")
+            [ -z "${{ secrets.BLAND_WEBHOOK_TOKEN }}" ] && missing+=("BLAND_WEBHOOK_TOKEN")
+            [ -z "${{ secrets.ATLASGR_WEBHOOK_SECRET }}" ] && missing+=("ATLASGR_WEBHOOK_SECRET")
+            [ -z "${{ vars.ATLASGR_TENANT_ID }}" ] && missing+=("ATLASGR_TENANT_ID (production environment variable)")
+            [ -z "${{ vars.ATLASGR_BASE_URL }}" ] && missing+=("ATLASGR_BASE_URL (production environment variable)")
+          fi
+
           if [ ${#missing[@]} -ne 0 ]; then
-            echo "::error::Missing required GitHub Actions secrets: ${missing[*]}. Configure them in Settings > Secrets and variables > Actions before this workflow can deploy. See docs/security/secrets-guide.md if present, or the PR/audit report for details."
+            printf '::error::Missing required production configuration: %s\n' "${missing[*]}"
             exit 1
           fi
 
@@ -62,27 +116,59 @@ jobs:
       - name: Configure Docker for GAR
         run: gcloud auth configure-docker ${{ env.GAR_LOCATION }} --quiet
 
-      - name: Build and Push Docker Image
+      - name: Build and push immutable Docker image
         run: |
-          IMAGE_PATH="${{ env.GAR_LOCATION }}/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}"
+          IMAGE_PATH="${{ env.GAR_LOCATION }}/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.IMAGE_NAME }}:${{ env.TARGET_SHA }}"
           docker build -t "$IMAGE_PATH" .
           docker push "$IMAGE_PATH"
 
-      - name: Deploy to Cloud Run
+      - name: Apply production database migrations
+        run: |
+          IMAGE_PATH="${{ env.GAR_LOCATION }}/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.IMAGE_NAME }}:${{ env.TARGET_SHA }}"
+          docker run --rm \
+            -e DATABASE_URL="${{ secrets.PRODUCTION_DATABASE_URL }}" \
+            "$IMAGE_PATH" npx prisma migrate deploy
+
+      - name: Deploy tested image to Cloud Run
         id: deploy
         uses: google-github-actions/deploy-cloudrun@v2
         with:
           service: ${{ env.SERVICE_NAME }}
           region: ${{ env.REGION }}
-          image: ${{ env.GAR_LOCATION }}/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+          image: ${{ env.GAR_LOCATION }}/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.IMAGE_NAME }}:${{ env.TARGET_SHA }}
           env_vars: |
             NODE_ENV=production
             DATABASE_URL=${{ secrets.PRODUCTION_DATABASE_URL }}
             REDIS_URL=${{ secrets.PRODUCTION_REDIS_URL }}
-            GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
             JWT_SECRET=${{ secrets.JWT_SECRET }}
             REFRESH_TOKEN_SECRET=${{ secrets.REFRESH_TOKEN_SECRET }}
             ALLOWED_ORIGINS=${{ vars.ALLOWED_ORIGINS }}
+            PUBLIC_BASE_URL=${{ vars.PUBLIC_BASE_URL }}
+            GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
+            GEMINI_MODEL=${{ vars.GEMINI_MODEL }}
+            OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}
+            OPENAI_MODEL=${{ vars.OPENAI_MODEL }}
+            ANTHROPIC_API_KEY=${{ secrets.ANTHROPIC_API_KEY }}
+            ANTHROPIC_MODEL=${{ vars.ANTHROPIC_MODEL }}
+            TWILIO_ACCOUNT_SID=${{ secrets.TWILIO_ACCOUNT_SID }}
+            TWILIO_AUTH_TOKEN=${{ secrets.TWILIO_AUTH_TOKEN }}
+            TWILIO_FROM_NUMBER=${{ secrets.TWILIO_FROM_NUMBER }}
+            DEFAULT_AGENT_ID=${{ vars.DEFAULT_AGENT_ID }}
+            WEBHOOK_URL=${{ vars.WEBHOOK_URL }}
+            WEBHOOK_SIGNING_SECRET=${{ secrets.WEBHOOK_SIGNING_SECRET }}
+            BLAND_API_KEY=${{ secrets.BLAND_API_KEY }}
+            BLAND_WEBHOOK_TOKEN=${{ secrets.BLAND_WEBHOOK_TOKEN }}
+            BLAND_RECORD_CALLS=${{ vars.BLAND_RECORD_CALLS }}
+            WEBHOOK_BASE_URL=${{ vars.PUBLIC_BASE_URL }}
+            ATLASGR_TENANT_ID=${{ vars.ATLASGR_TENANT_ID }}
+            ATLASGR_BASE_URL=${{ vars.ATLASGR_BASE_URL }}
+            ATLASGR_WEBHOOK_SECRET=${{ secrets.ATLASGR_WEBHOOK_SECRET }}
+            ATLASGR_WEBHOOK_IDEMPOTENCY_TTL_SECONDS=${{ vars.ATLASGR_WEBHOOK_IDEMPOTENCY_TTL_SECONDS }}
+            OIDC_ISSUER=${{ vars.OIDC_ISSUER }}
+            OIDC_CLIENT_ID=${{ vars.OIDC_CLIENT_ID }}
+            OIDC_CLIENT_SECRET=${{ secrets.OIDC_CLIENT_SECRET }}
+            OTEL_SERVICE_NAME=${{ vars.OTEL_SERVICE_NAME }}
+            OTEL_EXPORTER_OTLP_ENDPOINT=${{ vars.OTEL_EXPORTER_OTLP_ENDPOINT }}
 
       - name: Show deployed service URL
         run: echo "Service URL => ${{ steps.deploy.outputs.url }}"

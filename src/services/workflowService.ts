@@ -1,13 +1,15 @@
 import * as workflowRepository from '../repositories/workflowRepository.js';
 import { validationEngine } from '../../lib/studio/ValidationEngine.js';
+import { validateRuntimeCompatibility } from './workflowRuntimeService.js';
 import type { StudioNode, StudioEdge, ValidationIssue } from '../../lib/studio/types.js';
 
 export class NotFoundError extends Error {}
 
 /**
- * Thrown by `publishWorkflow` when the workflow's nodes/edges don't pass `ValidationEngine`.
- * This is the ONLY error type an "activate/publish" caller should ever see for a rejected
- * workflow — there is no other successful code path that marks a workflow `status: 'active'`.
+ * Thrown by `publishWorkflow` when the workflow's nodes/edges don't pass the visual graph
+ * validator or the production-runtime capability gate. This is the ONLY error type an
+ * "activate/publish" caller should ever see for a rejected workflow — there is no other
+ * successful code path that marks a workflow `status: 'active'`.
  */
 export class ValidationFailedError extends Error {
   issues: ValidationIssue[];
@@ -20,10 +22,9 @@ export class ValidationFailedError extends Error {
 
 /**
  * `Workflow.nodes`/`edges` are persisted as Prisma `Json` (see prisma/schema.prisma), so at the
- * type level they're `unknown` until read back. Studio (this agent's domain) is the only writer
- * of that column, so it's safe to assume the shape matches StudioNode[]/StudioEdge[] — but we
- * still guard against non-array garbage (e.g. a row created before this column existed, or a
- * manual DB edit) rather than letting ValidationEngine throw on `.filter`/`.forEach`.
+ * type level they're `unknown` until read back. Studio is the only normal writer of that column,
+ * but we still guard against non-array garbage (old rows/manual DB edits) rather than letting
+ * validators throw on `.filter`/`.forEach`.
  */
 function toStudioGraph(nodes: unknown, edges: unknown): { nodes: StudioNode[]; edges: StudioEdge[] } {
   return {
@@ -43,9 +44,8 @@ export interface WorkflowVersionSnapshot {
 }
 
 /**
- * Shape of the Workflow.metadata Prisma `Json` field. There's no dedicated
- * WorkflowVersion table (per the "don't alter the Prisma schema" constraint
- * noted below), so version history is kept inline here.
+ * Shape of the Workflow.metadata Prisma `Json` field. There's no dedicated WorkflowVersion table,
+ * so version history is kept inline here.
  */
 export interface WorkflowMetadata {
   history?: WorkflowVersionSnapshot[];
@@ -53,13 +53,10 @@ export interface WorkflowMetadata {
 }
 
 export function getWorkflow(tenantId: string, _version?: number) {
-  // Mock finding specific version, we would normally query the specific version
   return workflowRepository.findWorkflowForTenant(tenantId);
 }
 
 export async function getWorkflowHistory(tenantId: string) {
-  // In a fully normalized schema, we'd query a WorkflowVersion table.
-  // Using JSON metadata for now as per rules to not alter Prisma schema
   const existing = await workflowRepository.findWorkflowForTenant(tenantId);
   if (!existing) return [];
   const metadata = existing.metadata as unknown as WorkflowMetadata;
@@ -84,10 +81,8 @@ export async function saveWorkflow(tenantId: string, userId: string, data: { nam
   metadata.history = metadata.history || [];
   metadata.history.push(snapshot);
 
-  // A committed save is, by definition, unvalidated new content: even if the workflow was
-  // previously `active` (published), this write must downgrade it back to `draft` so the runtime
-  // never picks up nodes/edges that skipped ValidationEngine. Re-activation only happens through
-  // `publishWorkflow` below, which is the sole path allowed to set status: 'active'.
+  // Every structural save is unvalidated new content. Even if the row used to be active, the
+  // write goes back to draft and must cross publishWorkflow again before production can see it.
   return workflowRepository.upsertWorkflow(tenantId, userId, existing?.id ?? null, {
     ...data,
     metadata,
@@ -100,10 +95,6 @@ export async function updateWorkflow(tenantId: string, userId: string, data: { n
   const existing = await workflowRepository.findWorkflowForTenant(tenantId);
   if (!existing) throw new NotFoundError('Workflow não encontrado para atualização.');
 
-  // Any structural edit (nodes/edges) invalidates a prior publish for the same reason as
-  // saveWorkflow above: the row must never stay `active` while carrying content that hasn't
-  // been through ValidationEngine since the edit. A metadata-only update (e.g. rename) leaves
-  // status untouched (`undefined` here means "don't change it", per upsertWorkflow's contract).
   const structuralChange = data.nodes !== undefined || data.edges !== undefined;
 
   return workflowRepository.upsertWorkflow(tenantId, userId, existing.id, {
@@ -115,21 +106,29 @@ export async function updateWorkflow(tenantId: string, userId: string, data: { n
 }
 
 /**
- * The single gate a workflow must pass through to become `active` (i.e. eligible for the voice
- * runtime to execute — see `workflowRepository.findActiveWorkflowForTenant`). Re-reads the
- * tenant's current workflow (never trusts nodes/edges passed by the caller) and runs the same
- * `ValidationEngine` the Studio canvas uses client-side, so a stripped-down/forged request body
- * can't skip validation that the UI happens to enforce only cosmetically.
+ * The single gate a workflow must pass through to become `active`.
+ *
+ * Two independent validations happen server-side against the persisted graph:
+ * 1. `ValidationEngine` checks graph correctness (start node, reachability, dead ends, cycles,
+ *    required node configuration, etc.).
+ * 2. `validateRuntimeCompatibility` checks whether the production telephony runtime can honestly
+ *    execute every node/branch. A visually valid graph is NOT activated if it depends on a node
+ *    whose runtime executor does not exist yet.
+ *
+ * This prevents the Studio from advertising a successful publish for a graph that real calls
+ * would silently ignore.
  */
 export async function publishWorkflow(tenantId: string, userId: string) {
   const existing = await workflowRepository.findWorkflowForTenant(tenantId);
   if (!existing) throw new NotFoundError('Nenhum fluxo encontrado para publicar.');
 
   const { nodes, edges } = toStudioGraph(existing.nodes, existing.edges);
-  const result = validationEngine.validate(nodes, edges);
+  const graphResult = validationEngine.validate(nodes, edges);
+  const runtimeIssues = validateRuntimeCompatibility(nodes, edges);
+  const issues = [...graphResult.issues, ...runtimeIssues];
 
-  if (!result.isValid) {
-    throw new ValidationFailedError(result.issues);
+  if (!graphResult.isValid || runtimeIssues.some((issue) => issue.type === 'error')) {
+    throw new ValidationFailedError(issues);
   }
 
   return workflowRepository.upsertWorkflow(tenantId, userId, existing.id, { status: 'active' });
@@ -160,13 +159,12 @@ export async function removeWorkflow(tenantId: string) {
 }
 
 export async function duplicateWorkflow(tenantId: string, userId: string, _sourceWorkflowId: string) {
-    // In a real app we fetch the specific workflow by id, here we fetch the tenant's single workflow for mockup
-    const existing = await workflowRepository.findWorkflowForTenant(tenantId);
-    if (!existing) throw new NotFoundError('Workflow de origem não encontrado.');
+  const existing = await workflowRepository.findWorkflowForTenant(tenantId);
+  if (!existing) throw new NotFoundError('Workflow de origem não encontrado.');
 
-    return workflowRepository.upsertWorkflow(tenantId, userId, null, {
-        name: `${existing.name} (Cópia)`,
-        nodes: existing.nodes,
-        edges: existing.edges
-    });
+  return workflowRepository.upsertWorkflow(tenantId, userId, null, {
+    name: `${existing.name} (Cópia)`,
+    nodes: existing.nodes,
+    edges: existing.edges
+  });
 }

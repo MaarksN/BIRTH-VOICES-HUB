@@ -104,6 +104,14 @@ export async function gatherHandler(req: Request, res: Response) {
     return sendTwiml(res, twiml);
   }
 
+  // A published Studio `end` node is a real termination boundary. Do not create another Gather
+  // after it; speak the final response once and close the call deterministically.
+  if (result.shouldEnd) {
+    twiml.say({ language: 'pt-BR' }, result.reply);
+    twiml.hangup();
+    return sendTwiml(res, twiml);
+  }
+
   const gather = twiml.gather({
     input: ['speech'],
     action: gatherActionUrl(sessionId),

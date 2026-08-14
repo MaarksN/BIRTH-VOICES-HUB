@@ -3,6 +3,7 @@ import type { Request, Response } from 'express';
 
 vi.mock('../src/services/telephonyService.js', () => ({
   startCall: vi.fn(),
+  startOutboundCall: vi.fn(),
   handleTurn: vi.fn(),
   endCall: vi.fn(),
   messages: { reprompt: 'Pode repetir?', goodbye: 'Até logo.' },
@@ -58,7 +59,7 @@ describe('telephony.controller incomingCallHandler', () => {
 
 describe('telephony.controller gatherHandler', () => {
   it('replies with the LLM answer and keeps the conversation going', async () => {
-    mockHandleTurn.mockResolvedValue({ found: true, reply: 'Vou te ajudar com isso.' });
+    mockHandleTurn.mockResolvedValue({ found: true, reply: 'Vou te ajudar com isso.', shouldEnd: false });
     const req = { query: { sessionId: 'sess-1' }, body: { SpeechResult: 'Tenho uma dúvida' } } as unknown as Request;
     const res = fakeRes();
 
@@ -68,6 +69,20 @@ describe('telephony.controller gatherHandler', () => {
     const xml = res.send.mock.calls[0][0] as string;
     expect(xml).toContain('Vou te ajudar com isso.');
     expect(xml).toContain('<Gather');
+    expect(xml).not.toContain('<Hangup');
+  });
+
+  it('speaks the final workflow reply and hangs up without opening another Gather', async () => {
+    mockHandleTurn.mockResolvedValue({ found: true, reply: 'Obrigado pelo contato. Até logo.', shouldEnd: true });
+    const req = { query: { sessionId: 'sess-1' }, body: { SpeechResult: 'Perfeito' } } as unknown as Request;
+    const res = fakeRes();
+
+    await gatherHandler(req, res);
+
+    const xml = res.send.mock.calls[0][0] as string;
+    expect(xml).toContain('Obrigado pelo contato. Até logo.');
+    expect(xml).toContain('<Hangup');
+    expect(xml).not.toContain('<Gather');
   });
 
   it('re-prompts once instead of hanging up on empty speech', async () => {

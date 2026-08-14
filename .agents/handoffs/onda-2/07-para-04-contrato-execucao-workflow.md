@@ -1,7 +1,7 @@
 - De: Agente 07 (Studio, Workflows e Colaboração)
 - Para: Agente 04 (Voice Runtime e Gateway de IA)
 - Onda: 2
-- Status: aberto
+- Status: resolvido
 - Prioridade: bloqueador
 
 ## Problema
@@ -149,3 +149,36 @@ para não regredir a experiência de edição à toa).
   `publishWorkflow`/`findActiveWorkflowForTenant`/`ValidationEngine` server-side.
 - Handoff irmão para o Agente 09 pedindo para formalizar este contrato em `docs/patterns/`:
   `.agents/handoffs/onda-2/07-para-09-doc-contrato-workflow.md`.
+
+## Resolução — 2026-08-14
+
+Resolvido na branch `codex/production-ready-20260814` / PR #33 com um contrato de execução deliberadamente menor que o catálogo visual do Studio, porém real e fail-closed.
+
+### Runtime efetivamente conectado
+
+Foi adicionado `src/services/workflowRuntimeService.ts`, consumido pelo caminho telefônico real em `src/services/telephonyService.ts`.
+
+- somente `findActiveWorkflowForTenant(tenantId)` é usado para selecionar um fluxo de produção;
+- o snapshot da versão ativa é persistido na sessão telefônica e permanece estável durante a chamada;
+- `start`, `llm`, `prompt`, `question`, `condition`, `switch`, `memory` e `end` possuem execução determinística;
+- `question` aplica regex, variável de saída, retry/fallback e roteamento `out-0` / `out-1`;
+- `condition` e `switch` roteiam por handles explícitos, sem `eval` de texto livre;
+- `end` encerra de fato o TwiML, sem abrir outro `Gather`;
+- chamadas ao LLM recebem o `tenantId` real da sessão, portanto consentimento, rate limit, custo e telemetria respeitam tenancy.
+
+### Publicação agora é também um capability gate
+
+`workflowService.publishWorkflow()` mantém o `ValidationEngine` estrutural e acrescenta `validateRuntimeCompatibility()` no servidor. Um grafo visualmente válido **não** recebe `status: active` se depender de semântica que o runtime telefônico não consegue executar com segurança.
+
+Nesta versão, `voice`, `knowledge`, `tool` e `human_handoff` permanecem no catálogo/preview do Studio, mas **são bloqueados na publicação** com erro explícito. Fan-out não determinístico, provider LLM desconhecido, regex inválida e branches condicionais sem handles válidos também falham fechados.
+
+Isso substitui a situação histórica descrita acima em que a UI conseguia publicar tipos que nenhuma chamada real consumia. A existência de um nó no catálogo continua não significando suporte de runtime; o servidor é a fonte de verdade dessa capacidade.
+
+### Cobertura adicionada
+
+- `__tests__/workflowRuntimeService.test.ts`: workflow ativo/draft, providers, prompt, question, condição, retries e fail-closed de capability.
+- `__tests__/workflowPublishGate.test.ts`: publicação permitida apenas para grafo estruturalmente válido **e** executável.
+- `__tests__/telephonyService.test.ts`: integração do snapshot publicado com turnos telefônicos, tenant/consentimento e cursor.
+- `__tests__/telephony.controller.test.ts`: `end` do workflow produz resposta final + `Hangup` sem novo `Gather`.
+
+Funcionalidades avançadas ainda não executáveis não voltam a ser um bloqueador de produção porque o gate impede que sejam ativadas. Elas seguem como evolução de produto até receberem executor e testes correspondentes.
