@@ -28,23 +28,14 @@ interface ConversationTurn {
 }
 
 export interface PhoneSessionMetadata {
-  /** Null between creating an outbound session and the provider accepting the call. */
   callSid: string | null;
-  /** Null on an outbound session until the provider reports the caller ID it used. */
   from: string | null;
   to: string;
   turns: ConversationTurn[];
-  /** Absent on sessions created before outbound calling existed; treated as inbound. */
   direction?: 'inbound' | 'outbound';
-  /** Caller-supplied facts about the person being dialed; feeds the greeting template. */
   context?: Record<string, unknown>;
-  /** Per-call webhook destination for `agent.call.ended`. */
   callbackUrl?: string | null;
-  /**
-   * Immutable, sanitized execution snapshot of the published Studio graph selected when this call
-   * started. It contains only runtime-supported nodes/config; secret-bearing Tool/Knowledge/
-   * Handoff nodes cannot pass the publish gate and therefore never land here.
-   */
+  /** Immutable runtime snapshot selected when the call starts. */
   workflow?: WorkflowRuntimeState;
 }
 
@@ -56,11 +47,6 @@ function configString(configuration: unknown, key: string, fallback: string): st
   return fallback;
 }
 
-/**
- * Fills `{{placeholders}}` in a greeting from the call context, so an outbound agent can open with
- * "Olá João, da Transportadora X" instead of a generic line. An unknown placeholder collapses to
- * nothing rather than being read aloud as literal `{{nome}}`.
- */
 export function renderTemplate(template: string, context: Record<string, unknown>): string {
   return template
     .replace(/\{\{\s*(\w+)\s*\}\}/g, (_, key: string) => {
@@ -97,32 +83,50 @@ export async function startCall(params: { callSid: string; from: string; to: str
     to: params.to,
   });
 
+  const configuredGreeting = configString(agent.configuration, 'greeting', DEFAULT_GREETING);
+  const openingQuestion = getWorkflowOpeningQuestion(workflow);
+  const greeting = openingQuestion ? `${configuredGreeting} ${openingQuestion}` : configuredGreeting;
+
+  // Persist the opening prompt as part of the transcript. Besides making transcripts complete, it
+  // lets a Twilio retry return the exact same first response from the existing CallSid session.
   const metadata: PhoneSessionMetadata = {
     direction: 'inbound',
     callSid: params.callSid,
     from: params.from,
     to: params.to,
-    turns: [],
+    turns: [{ role: 'assistant', content: greeting, timestamp: Date.now() }],
     ...(workflow ? { workflow } : {}),
   };
-  const session = await sessionRepository.createPhoneSession(agent.tenantId, agent.id, metadata);
 
-  const configuredGreeting = configString(agent.configuration, 'greeting', DEFAULT_GREETING);
-  const openingQuestion = getWorkflowOpeningQuestion(workflow);
-  const greeting = openingQuestion ? `${configuredGreeting} ${openingQuestion}` : configuredGreeting;
+  const result = await sessionRepository.createInboundPhoneSessionIfNoneForCallSid(
+    agent.tenantId,
+    agent.id,
+    params.callSid,
+    metadata,
+  );
+
+  if (!result.created) {
+    const persisted = result.session.metadata as unknown as PhoneSessionMetadata;
+    const persistedGreeting = persisted?.turns?.find((turn) => turn.role === 'assistant')?.content;
+    logger.info('Twilio initial webhook replay reused existing phone session', {
+      callSid: params.callSid,
+      sessionId: result.session.id,
+    });
+    return {
+      configured: true as const,
+      sessionId: result.session.id,
+      greeting: persistedGreeting || greeting,
+    };
+  }
 
   return {
     configured: true as const,
-    sessionId: session.id,
+    sessionId: result.session.id,
     greeting,
   };
 }
 
-/**
- * Opens the conversation on a call *we* placed. The session already exists (outboundCallService
- * created it before asking Twilio to dial), so this resolves the greeting and freezes the active
- * workflow snapshot for the call before the prospect says anything.
- */
+/** Opens the conversation on a call we placed ourselves. */
 export async function startOutboundCall(params: { sessionId: string; callSid: string }) {
   const session = await sessionRepository.findSessionById(params.sessionId);
   if (!session || !session.agentId) return { found: false as const };
@@ -132,6 +136,16 @@ export async function startOutboundCall(params: { sessionId: string; callSid: st
 
   const metadata = (session.metadata as unknown as PhoneSessionMetadata) || ({ turns: [] } as unknown as PhoneSessionMetadata);
   metadata.turns = metadata.turns || [];
+
+  // Twilio may retry the outbound TwiML request. Once this CallSid has already been bound to the
+  // session, reuse the persisted opening line instead of appending it to the transcript twice or
+  // re-freezing a different workflow version mid-call.
+  if (params.callSid && metadata.callSid === params.callSid) {
+    const persistedGreeting = metadata.turns.find((turn) => turn.role === 'assistant')?.content;
+    if (persistedGreeting) {
+      return { found: true as const, greeting: persistedGreeting };
+    }
+  }
 
   const workflow = await initializeWorkflowRuntime(session.tenantId, {
     direction: 'outbound',
@@ -188,8 +202,6 @@ export async function handleTurn(params: { sessionId: string; speechResult: stri
         session.tenantId,
       );
 
-      // Consent refusal is not a successful workflow turn. Keep the cursor on the same node so a
-      // later administrator consent change does not silently skip part of the published flow.
       if (!gatewayResponse.blockedByConsent) {
         metadata.workflow = prepared.state;
         shouldEnd = prepared.shouldEnd;
