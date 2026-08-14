@@ -1,6 +1,10 @@
 import express from 'express';
 import { logger } from '../../../lib/logger.js';
-import { voiceProspectingService, BlandConfigurationError } from '../services/voice.service.js';
+import {
+  voiceProspectingService,
+  BlandConfigurationError,
+  ExternalAiConsentRequiredError,
+} from '../services/voice.service.js';
 import { atlasGROutboundPayloadSchema, blandCallResultSchema } from '../validators/atlasgr.schema.js';
 import { safeEqual } from '../lib/safeCompare.js';
 import {
@@ -95,6 +99,14 @@ router.post('/webhook/atlasgr/outbound', validateAtlasGRSecret, async (req, res)
     const result = await voiceProspectingService.triggerOutboundCall(parsed.data);
     res.status(200).json(result);
   } catch (error) {
+    if (error instanceof ExternalAiConsentRequiredError) {
+      logger.warn('AtlasGR webhook rejected: external AI consent is not granted for the configured tenant');
+      res.status(403).json({
+        error: 'Consentimento para processamento por provedor externo de IA é obrigatório.',
+        code: 'AI_PROVIDER_CONSENT_REQUIRED',
+      });
+      return;
+    }
     if (error instanceof IdempotencyCheckFailedError) {
       logger.error('AtlasGR webhook: idempotency check failed, rejecting to avoid a duplicate call', {
         error: error.message,
