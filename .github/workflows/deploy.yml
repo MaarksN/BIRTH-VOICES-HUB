@@ -56,6 +56,19 @@ jobs:
           [ -z "${{ secrets.WEBHOOK_SIGNING_SECRET }}" ] && missing+=("WEBHOOK_SIGNING_SECRET")
           [ -z "${{ vars.PUBLIC_BASE_URL }}" ] && missing+=("PUBLIC_BASE_URL (production environment variable)")
           [ -z "${{ vars.ALLOWED_ORIGINS }}" ] && missing+=("ALLOWED_ORIGINS (production environment variable)")
+
+          # AtlasGR/Bland is optional for the core Twilio product, but partial configuration is
+          # unsafe: callbacks, consent and CRM forwarding depend on the whole set. If any switch in
+          # this block is present, require every field before promotion.
+          atlasgr_requested="${{ secrets.BLAND_API_KEY }}${{ secrets.BLAND_WEBHOOK_TOKEN }}${{ secrets.ATLASGR_WEBHOOK_SECRET }}${{ vars.ATLASGR_TENANT_ID }}${{ vars.ATLASGR_BASE_URL }}"
+          if [ -n "$atlasgr_requested" ]; then
+            [ -z "${{ secrets.BLAND_API_KEY }}" ] && missing+=("BLAND_API_KEY")
+            [ -z "${{ secrets.BLAND_WEBHOOK_TOKEN }}" ] && missing+=("BLAND_WEBHOOK_TOKEN")
+            [ -z "${{ secrets.ATLASGR_WEBHOOK_SECRET }}" ] && missing+=("ATLASGR_WEBHOOK_SECRET")
+            [ -z "${{ vars.ATLASGR_TENANT_ID }}" ] && missing+=("ATLASGR_TENANT_ID (production environment variable)")
+            [ -z "${{ vars.ATLASGR_BASE_URL }}" ] && missing+=("ATLASGR_BASE_URL (production environment variable)")
+          fi
+
           if [ ${#missing[@]} -ne 0 ]; then
             printf '::error::Missing required production configuration: %s\n' "${missing[*]}"
             exit 1
@@ -104,8 +117,11 @@ jobs:
             ALLOWED_ORIGINS=${{ vars.ALLOWED_ORIGINS }}
             PUBLIC_BASE_URL=${{ vars.PUBLIC_BASE_URL }}
             GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
+            GEMINI_MODEL=${{ vars.GEMINI_MODEL }}
             OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}
+            OPENAI_MODEL=${{ vars.OPENAI_MODEL }}
             ANTHROPIC_API_KEY=${{ secrets.ANTHROPIC_API_KEY }}
+            ANTHROPIC_MODEL=${{ vars.ANTHROPIC_MODEL }}
             TWILIO_ACCOUNT_SID=${{ secrets.TWILIO_ACCOUNT_SID }}
             TWILIO_AUTH_TOKEN=${{ secrets.TWILIO_AUTH_TOKEN }}
             TWILIO_FROM_NUMBER=${{ secrets.TWILIO_FROM_NUMBER }}
@@ -113,9 +129,12 @@ jobs:
             WEBHOOK_URL=${{ vars.WEBHOOK_URL }}
             WEBHOOK_SIGNING_SECRET=${{ secrets.WEBHOOK_SIGNING_SECRET }}
             BLAND_API_KEY=${{ secrets.BLAND_API_KEY }}
-            WEBHOOK_BASE_URL=${{ vars.PUBLIC_BASE_URL }}
-            ATLASGR_WEBHOOK_SECRET=${{ secrets.ATLASGR_WEBHOOK_SECRET }}
             BLAND_WEBHOOK_TOKEN=${{ secrets.BLAND_WEBHOOK_TOKEN }}
+            BLAND_RECORD_CALLS=${{ vars.BLAND_RECORD_CALLS }}
+            WEBHOOK_BASE_URL=${{ vars.PUBLIC_BASE_URL }}
+            ATLASGR_TENANT_ID=${{ vars.ATLASGR_TENANT_ID }}
+            ATLASGR_BASE_URL=${{ vars.ATLASGR_BASE_URL }}
+            ATLASGR_WEBHOOK_SECRET=${{ secrets.ATLASGR_WEBHOOK_SECRET }}
             ATLASGR_WEBHOOK_IDEMPOTENCY_TTL_SECONDS=${{ vars.ATLASGR_WEBHOOK_IDEMPOTENCY_TTL_SECONDS }}
             OIDC_ISSUER=${{ vars.OIDC_ISSUER }}
             OIDC_CLIENT_ID=${{ vars.OIDC_CLIENT_ID }}
