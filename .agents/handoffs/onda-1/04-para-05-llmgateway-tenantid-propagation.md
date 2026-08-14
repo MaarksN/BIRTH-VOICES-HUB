@@ -1,7 +1,7 @@
 - De: Agente 04 (Voice Runtime e Gateway de IA)
 - Para: Agente 05 (Telefonia, Chamadas e Webhooks)
 - Onda: 1
-- Status: aberto
+- Status: resolvido
 - Prioridade: alto (elevada na Onda 2 — ver "Atualização Onda 2" abaixo)
 
 ## Problema
@@ -78,3 +78,15 @@ consentimento passa a valer automaticamente para chamadas de telefonia também, 
 mudança adicional no Agente 04. Por isso a prioridade deste handoff subiu de "normal" para "alto"
 nesta onda — ele agora bloqueia mais do que granularidade de observability, bloqueia o alcance
 real da proteção de LGPD já implementada.
+
+## Resolução — 2026-08-14
+
+Resolvido na branch `codex/production-ready-20260814` / PR #33.
+
+- `src/services/telephonyService.ts` agora passa `session.tenantId` em **todas** as chamadas do caminho telefônico ao `LLMProviderGateway`.
+- O mesmo caminho passou a executar o snapshot do workflow ativo por tenant, sem perder o boundary de ownership da sessão.
+- O gate de consentimento do gateway passou, portanto, a valer para dados de contato processados em chamadas reais, não apenas para o Playground.
+- `__tests__/telephonyService.test.ts` exige explicitamente o quarto argumento `tenant-1` nas chamadas ao gateway e cobre o caso de consentimento bloqueado sem avançar o cursor do workflow.
+- O gateway também passou a registrar `providerUsed: 'NONE'` quando todos os provedores falham, evitando atribuir custo/telemetria a um provider que não respondeu.
+
+O fallback `SYSTEM_TENANT_ID` continua existindo apenas para operações de sistema que não carregam dados de um tenant real. Telefonia não depende mais desse fallback.
