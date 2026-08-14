@@ -4,6 +4,12 @@ import * as sessionRepository from '../repositories/sessionRepository.js';
 import * as callLogService from './callLogService.js';
 import { webhookService } from './webhook.service.js';
 import { llmProviderGateway } from '../../lib/voice-runtime/providers/LLMGateway.js';
+import {
+  getWorkflowOpeningQuestion,
+  initializeWorkflowRuntime,
+  prepareWorkflowTurn,
+  type WorkflowRuntimeState,
+} from './workflowRuntimeService.js';
 import { logger } from '../lib/logger.js';
 
 const DEFAULT_GREETING = 'Olá! Aqui é a assistente virtual do Birth Voices Hub. Como posso ajudar você hoje?';
@@ -34,6 +40,12 @@ export interface PhoneSessionMetadata {
   context?: Record<string, unknown>;
   /** Per-call webhook destination for `agent.call.ended`. */
   callbackUrl?: string | null;
+  /**
+   * Immutable, sanitized execution snapshot of the published Studio graph selected when this call
+   * started. It contains only runtime-supported nodes/config; secret-bearing Tool/Knowledge/
+   * Handoff nodes cannot pass the publish gate and therefore never land here.
+   */
+  workflow?: WorkflowRuntimeState;
 }
 
 function configString(configuration: unknown, key: string, fallback: string): string {
@@ -79,29 +91,37 @@ export async function startCall(params: { callSid: string; from: string; to: str
     return { configured: false as const };
   }
 
+  const workflow = await initializeWorkflowRuntime(agent.tenantId, {
+    direction: 'inbound',
+    from: params.from,
+    to: params.to,
+  });
+
   const metadata: PhoneSessionMetadata = {
     direction: 'inbound',
     callSid: params.callSid,
     from: params.from,
     to: params.to,
     turns: [],
+    ...(workflow ? { workflow } : {}),
   };
   const session = await sessionRepository.createPhoneSession(agent.tenantId, agent.id, metadata);
+
+  const configuredGreeting = configString(agent.configuration, 'greeting', DEFAULT_GREETING);
+  const openingQuestion = getWorkflowOpeningQuestion(workflow);
+  const greeting = openingQuestion ? `${configuredGreeting} ${openingQuestion}` : configuredGreeting;
 
   return {
     configured: true as const,
     sessionId: session.id,
-    greeting: configString(agent.configuration, 'greeting', DEFAULT_GREETING),
+    greeting,
   };
 }
 
 /**
  * Opens the conversation on a call *we* placed. The session already exists (outboundCallService
- * created it before asking Twilio to dial), so this only resolves what the agent should say first.
- *
- * The greeting is appended to the transcript here because, unlike inbound, an outbound call's
- * transcript is shipped to the originating CRM — a transcript that started at the prospect's first
- * words would read as though the agent never introduced itself.
+ * created it before asking Twilio to dial), so this resolves the greeting and freezes the active
+ * workflow snapshot for the call before the prospect says anything.
  */
 export async function startOutboundCall(params: { sessionId: string; callSid: string }) {
   const session = await sessionRepository.findSessionById(params.sessionId);
@@ -113,10 +133,20 @@ export async function startOutboundCall(params: { sessionId: string; callSid: st
   const metadata = (session.metadata as unknown as PhoneSessionMetadata) || ({ turns: [] } as unknown as PhoneSessionMetadata);
   metadata.turns = metadata.turns || [];
 
-  const greeting = renderTemplate(
+  const workflow = await initializeWorkflowRuntime(session.tenantId, {
+    direction: 'outbound',
+    from: metadata.from ?? '',
+    to: metadata.to ?? '',
+    ...(metadata.context ?? {}),
+  });
+  if (workflow) metadata.workflow = workflow;
+
+  const baseGreeting = renderTemplate(
     configString(agent.configuration, 'outboundGreeting', DEFAULT_OUTBOUND_GREETING),
     metadata.context ?? {},
   );
+  const openingQuestion = getWorkflowOpeningQuestion(workflow);
+  const greeting = openingQuestion ? `${baseGreeting} ${openingQuestion}` : baseGreeting;
 
   metadata.turns.push({ role: 'assistant', content: greeting, timestamp: Date.now() });
   if (params.callSid) metadata.callSid = params.callSid;
@@ -137,14 +167,55 @@ export async function handleTurn(params: { sessionId: string; speechResult: stri
   metadata.turns = metadata.turns || [];
   metadata.turns.push({ role: 'user', content: params.speechResult, timestamp: Date.now() });
 
-  const systemInstruction = configString(agent.configuration, 'systemPrompt', DEFAULT_SYSTEM_PROMPT);
-  const gatewayResponse = await llmProviderGateway.processRequest(params.speechResult, 'GoogleGemini', systemInstruction);
+  let reply: string;
+  let shouldEnd = false;
 
-  metadata.turns.push({ role: 'assistant', content: gatewayResponse.text, timestamp: Date.now() });
+  if (metadata.workflow) {
+    const prepared = prepareWorkflowTurn(metadata.workflow, params.speechResult);
+
+    if (prepared.mode === 'direct') {
+      metadata.workflow = prepared.state;
+      reply = prepared.directReply || 'Pode continuar.';
+      shouldEnd = prepared.shouldEnd;
+    } else {
+      const systemInstruction = prepared.systemInstruction
+        || configString(agent.configuration, 'systemPrompt', DEFAULT_SYSTEM_PROMPT);
+      const preferredProvider = prepared.preferredProvider ?? 'GoogleGemini';
+      const gatewayResponse = await llmProviderGateway.processRequest(
+        params.speechResult,
+        preferredProvider,
+        systemInstruction,
+        session.tenantId,
+      );
+
+      // Consent refusal is not a successful workflow turn. Keep the cursor on the same node so a
+      // later administrator consent change does not silently skip part of the published flow.
+      if (!gatewayResponse.blockedByConsent) {
+        metadata.workflow = prepared.state;
+        shouldEnd = prepared.shouldEnd;
+      }
+
+      reply = gatewayResponse.text;
+      if (!gatewayResponse.blockedByConsent && prepared.nextQuestion) {
+        reply = `${reply} ${prepared.nextQuestion}`.trim();
+      }
+    }
+  } else {
+    const systemInstruction = configString(agent.configuration, 'systemPrompt', DEFAULT_SYSTEM_PROMPT);
+    const gatewayResponse = await llmProviderGateway.processRequest(
+      params.speechResult,
+      'GoogleGemini',
+      systemInstruction,
+      session.tenantId,
+    );
+    reply = gatewayResponse.text;
+  }
+
+  metadata.turns.push({ role: 'assistant', content: reply, timestamp: Date.now() });
 
   await sessionRepository.updateSession(session.id, { metadata: metadata as unknown as Prisma.InputJsonValue });
 
-  return { found: true as const, reply: gatewayResponse.text };
+  return { found: true as const, reply, shouldEnd };
 }
 
 function formatDuration(totalSeconds: number): string {
@@ -173,15 +244,12 @@ export async function endCall(params: { callSid: string; status: string; duratio
   const isOutbound = metadata.direction === 'outbound';
 
   await callLogService.createCallLog(session.tenantId, null, {
-    // Outbound calls know who they dialed; inbound ones keep the generic label they always had.
     contactName: isOutbound ? String(metadata.context?.name ?? metadata.to ?? 'Ligação Telefônica') : 'Ligação Telefônica',
     duration: formatDuration(params.durationSeconds),
     status: outcome,
     agent: agent?.name || 'Agente não identificado',
   });
 
-  // The originating system (e.g. a CRM that asked for this call) learns the result only here —
-  // dispatch swallows its own errors, so a webhook problem can never fail the call teardown.
   await webhookService.dispatch(
     session.tenantId,
     'agent.call.ended',
@@ -198,6 +266,8 @@ export async function endCall(params: { callSid: string; status: string; duratio
       agentName: agent?.name ?? null,
       transcript: metadata.turns ?? [],
       context: metadata.context ?? {},
+      workflowId: metadata.workflow?.workflowId ?? null,
+      workflowVersion: metadata.workflow?.version ?? null,
     },
     metadata.callbackUrl ?? undefined,
   );
