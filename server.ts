@@ -245,19 +245,25 @@ async function startServer() {
     res.status(500).json({ error: 'Erro interno no servidor.' });
   });
 
-  if (process.env.NODE_ENV !== "production" && process.env.NODE_ENV !== "test") {
-    const { createServer: createViteServer } = await import("vite");
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
-      appType: "spa",
-    });
-    app.use(vite.middlewares);
-  } else if (process.env.NODE_ENV === "production") {
+  const serveStaticBuild =
+    process.env.NODE_ENV === 'production' || process.env.SERVE_STATIC_BUILD === 'true';
+
+  if (serveStaticBuild) {
+    // Production and local E2E smoke tests serve the exact compiled artifact from dist/. E2E uses
+    // NODE_ENV=e2e so local HTTP cookies are not marked Secure; production still uses
+    // NODE_ENV=production and therefore preserves Secure cookies with no bypass configuration.
     const distPath = path.join(process.cwd(), 'dist');
     app.use(express.static(distPath));
-    app.get('/*splat', (req, res) => {
+    app.get('/*splat', (_req, res) => {
       res.sendFile(path.join(distPath, 'index.html'));
     });
+  } else if (process.env.NODE_ENV !== 'test') {
+    const { createServer: createViteServer } = await import('vite');
+    const vite = await createViteServer({
+      server: { middlewareMode: true },
+      appType: 'spa',
+    });
+    app.use(vite.middlewares);
   }
 
   if (process.env.NODE_ENV !== 'test') {
