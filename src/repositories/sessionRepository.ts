@@ -57,6 +57,60 @@ export function findActivePhoneSessionByCallSid(callSid: string) {
   });
 }
 
+/**
+ * Twilio may redeliver the initial `/voice` webhook if our first response times out. A plain
+ * `findActivePhoneSessionByCallSid` followed by `createPhoneSession` is still race-prone when the
+ * retry overlaps the original request, so the check + insert runs under SERIALIZABLE isolation.
+ *
+ * The provider's CallSid is globally unique within the Twilio account and is already covered by
+ * Twilio request-signature verification at the route boundary. Returning the existing session is
+ * therefore the correct replay behavior: same call, same runtime snapshot, no duplicate session.
+ */
+export async function createInboundPhoneSessionIfNoneForCallSid(
+  tenantId: string,
+  agentId: string,
+  callSid: string,
+  metadata: unknown,
+) {
+  try {
+    return await prisma.$transaction(
+      async (tx) => {
+        const existing = await tx.session.findFirst({
+          where: {
+            channel: 'phone',
+            status: 'active',
+            deletedAt: null,
+            metadata: { path: ['callSid'], equals: callSid },
+          },
+        });
+        if (existing) return { session: existing, created: false as const };
+
+        const session = await tx.session.create({
+          data: {
+            tenantId,
+            userId: null,
+            agentId,
+            channel: 'phone',
+            status: 'active',
+            metadata: (metadata ?? {}) as Prisma.InputJsonValue,
+          },
+        });
+        return { session, created: true as const };
+      },
+      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+    );
+  } catch (error) {
+    // Under a real concurrent replay one serializable transaction may be aborted with P2034 after
+    // the other commits. Re-read the winner rather than turning a harmless provider retry into a
+    // 500. If no winner exists, propagate the database failure.
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2034') {
+      const existing = await findActivePhoneSessionByCallSid(callSid);
+      if (existing) return { session: existing, created: false as const };
+    }
+    throw error;
+  }
+}
+
 // Guard against an automated dialer double-calling the same lead: a retry loop that fires before
 // the first call reaches a terminal status would otherwise ring the same person twice at once.
 //
@@ -83,18 +137,9 @@ export function findActiveOutboundSessionToNumber(tenantId: string, toNumber: st
  * Atomically checks for an outbound call already in flight to this number and creates the new
  * phone session in the same database transaction.
  *
- * Doing the check and the create as two separate round-trips (as this repository used to, and as
- * `findActiveOutboundSessionToNumber` still allows a careless caller to do) is a classic
- * check-then-act race: two near-simultaneous requests for the same tenant+number — a UI
- * double-click, or a caller retrying an outbound-call POST after a timeout without knowing whether
- * the first attempt landed — can both observe "no call in flight" before either has written its
- * own session, and both go on to dial the same lead for real.
- *
- * Running the read and the write inside one `Serializable` transaction closes that window: Postgres
- * detects the conflict between the two concurrent transactions and aborts one of them with a
- * serialization failure (Prisma error code `P2034`) instead of letting both believe the number was
- * free. Callers must treat that error the same as `inFlight: true` — see
- * outboundCallService.initiateOutboundCall.
+ * Doing the check and the create as two separate round-trips is a classic check-then-act race:
+ * two near-simultaneous requests for the same tenant+number can both observe "no call in flight"
+ * before either has written its own session, and both go on to dial the same lead for real.
  */
 export async function createOutboundPhoneSessionIfNoneInFlight(
   tenantId: string,
