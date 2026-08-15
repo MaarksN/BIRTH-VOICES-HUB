@@ -1,17 +1,21 @@
 #!/usr/bin/env node
+/* global fetch, AbortSignal */
+
+import process from 'node:process';
+import { URL } from 'node:url';
 
 const baseUrl = (process.env.UAT_BASE_URL || process.env.PUBLIC_BASE_URL || '').replace(/\/$/, '');
 const email = (process.env.UAT_EMAIL || '').trim();
 const password = process.env.UAT_PASSWORD || '';
 
 if (!baseUrl) {
-  console.error('UAT_BASE_URL or PUBLIC_BASE_URL is required.');
+  process.stderr.write('UAT_BASE_URL or PUBLIC_BASE_URL is required.\n');
   process.exit(1);
 }
 
 const parsed = new URL(baseUrl);
 if (parsed.protocol !== 'https:' && process.env.ALLOW_HTTP_UAT !== 'true') {
-  console.error('Public UAT requires HTTPS. Set ALLOW_HTTP_UAT=true only for local/staging smoke tests.');
+  process.stderr.write('Public UAT requires HTTPS. Set ALLOW_HTTP_UAT=true only for local/staging smoke tests.\n');
   process.exit(1);
 }
 
@@ -20,7 +24,7 @@ async function assertOk(response, label) {
     const body = await response.text().catch(() => '');
     throw new Error(`${label} failed with HTTP ${response.status}: ${body.slice(0, 300)}`);
   }
-  console.log(`${label}: OK`);
+  process.stdout.write(`${label}: OK\n`);
   return response;
 }
 
@@ -35,7 +39,7 @@ if (!['ok', 'healthy'].includes(String(healthBody.status).toLowerCase())) {
 }
 
 if (!email && !password) {
-  console.log('Auth smoke skipped because UAT_EMAIL/UAT_PASSWORD were not provided.');
+  process.stdout.write('Auth smoke skipped because UAT_EMAIL/UAT_PASSWORD were not provided.\n');
   process.exit(0);
 }
 if (!email || !password) {
@@ -84,4 +88,4 @@ await assertOk(await fetch(`${baseUrl}/api/auth/logout`, {
   signal: AbortSignal.timeout(15_000),
 }), 'UAT logout');
 
-console.log('Public UAT smoke PASSED. No tenant data was created or modified.');
+process.stdout.write('Public UAT smoke PASSED. No tenant data was created or modified.\n');
