@@ -65,7 +65,9 @@ jobs:
       run: npm ci
 
     - name: Runtime Dependency Audit
-      run: npm audit --omit=dev --audit-level=high
+      # Audit the same root runtime dependency set copied into the Cloud Run image. Experimental
+      # workspaces such as packages/sip-agent are not shipped by the production Docker stage.
+      run: npm audit --omit=dev --workspaces=false --audit-level=high
 
     - name: Prisma Generate
       run: npx prisma generate
