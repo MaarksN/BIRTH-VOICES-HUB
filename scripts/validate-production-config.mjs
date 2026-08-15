@@ -1,5 +1,8 @@
 #!/usr/bin/env node
 
+import process from 'node:process';
+import { URL } from 'node:url';
+
 const env = process.env;
 const errors = [];
 const warnings = [];
@@ -111,12 +114,12 @@ if (value('BLAND_RECORD_CALLS').toLowerCase() === 'true' && value('BLAND_RECORDI
   errors.push('BLAND_RECORD_CALLS=true requires BLAND_RECORDING_APPROVED=true after legal/privacy approval');
 }
 
-for (const warning of warnings) console.warn(`::warning::${warning}`);
+for (const warning of warnings) process.stderr.write(`::warning::${warning}\n`);
 
 if (errors.length > 0) {
-  for (const error of errors) console.error(`::error::${error}`);
-  console.error(`Production configuration validation failed with ${errors.length} error(s).`);
+  for (const error of errors) process.stderr.write(`::error::${error}\n`);
+  process.stderr.write(`Production configuration validation failed with ${errors.length} error(s).\n`);
   process.exit(1);
 }
 
-console.log('Production configuration validation passed. Secret values were not printed.');
+process.stdout.write('Production configuration validation passed. Secret values were not printed.\n');
