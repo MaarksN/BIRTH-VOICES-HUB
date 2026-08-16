@@ -36,13 +36,31 @@ async function startServer() {
   const demoTelemetryEnabled =
     process.env.NODE_ENV !== 'production' && process.env.ENABLE_DEMO_TELEMETRY === 'true';
 
-  const allowedOrigins = (process.env.ALLOWED_ORIGINS || `http://localhost:${PORT}`)
+  const rawOrigins = (process.env.ALLOWED_ORIGINS || `http://localhost:${PORT}`)
     .split(',')
     .map((o) => o.trim())
     .filter(Boolean);
 
+  const allowedOrigins = rawOrigins.map((origin) => {
+    try {
+      new URL(origin);
+      return origin;
+    } catch {
+      logger.warn(`Invalid origin ignored in ALLOWED_ORIGINS: ${origin}`);
+      return null;
+    }
+  }).filter(Boolean) as string[];
+
+  const corsOriginOption = (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(null, false);
+    }
+  };
+
   const io = new SocketIOServer(server, {
-    cors: { origin: allowedOrigins, methods: ["GET", "POST"], credentials: true },
+    cors: { origin: corsOriginOption, methods: ["GET", "POST"], credentials: true },
   });
 
   // Synthetic observability data is strictly opt-in for local demonstrations. Production must
@@ -94,7 +112,7 @@ async function startServer() {
       },
     },
   }));
-  app.use(cors({ origin: allowedOrigins, credentials: true }));
+  app.use(cors({ origin: corsOriginOption, credentials: true }));
   app.use(cookieParser());
 
   // Redis-backed Rate Limiter
