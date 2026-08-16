@@ -45,7 +45,7 @@ async function startServer() {
     try {
       new URL(origin);
       return origin;
-    } catch (e) {
+    } catch {
       logger.warn(`Invalid origin ignored in ALLOWED_ORIGINS: ${origin}`);
       return null;
     }
