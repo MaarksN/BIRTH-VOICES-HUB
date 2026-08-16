@@ -137,7 +137,8 @@ describe('agentRepository.deleteAgentForTenant', () => {
     const call = vi.mocked(prisma.agent.updateMany).mock.calls[0][0] as unknown as import("@prisma/client").Prisma.AgentUpdateManyArgs;
     expect(call.where).toEqual({ id: 'a1', tenantId: 'tenant-1' });
     expect(call.data.deletedAt).toBeInstanceOf(Date);
-    expect(call.data.deletedAt.getTime()).toBeGreaterThanOrEqual(before);
+        const deletedAt = call.data.deletedAt as Date;
+    expect(deletedAt.getTime()).toBeGreaterThanOrEqual(before);
     expect(result).toEqual({ count: 1 });
   });
 });
