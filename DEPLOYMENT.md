@@ -1,61 +1,115 @@
 # Deployment Guide
 
-Birth Voices Hub is containerized and designed for deployment on Google Cloud Platform (GCP) via Cloud Run, but can be deployed to any Docker-compatible environment.
+Birth Voices Hub is containerized and the supported production path is **Google Cloud Run**. Other Docker-compatible targets are possible, but they are not part of the guarded GitHub production release flow documented here.
 
-## Docker Deployment
+## Docker
 
-The application is packaged using a multi-stage `Dockerfile`.
+Build locally:
 
-### Building the Image
 ```bash
-docker build -t birth-voices-hub:latest .
+docker build -t birth-voices-hub:local .
 ```
 
-### Running the Image
-```bash
-docker run -p 3000:3000 \
-  -e DATABASE_URL="postgresql://user:password@host:5432/db" \
-  -e REDIS_URL="redis://host:6379" \
-  -e JWT_SECRET="your-secret" \
-  -e REFRESH_TOKEN_SECRET="your-refresh-secret" \
-  -e ALLOWED_ORIGINS="https://your-production-domain.com" \
-  birth-voices-hub:latest
-```
-`JWT_SECRET` and `REFRESH_TOKEN_SECRET` are both required — the server throws on the
-first auth operation if either is unset (`src/lib/auth-tokens.ts#requireSecret`).
+Run only with a complete environment. Do not copy development placeholders into production.
 
-## CI/CD Pipeline (GitHub Actions)
+## Release model
 
-We use GitHub Actions for continuous integration and continuous deployment.
+CI and deploy are intentionally separated.
 
-### Workflow Steps
-1. **Setup**: Checkout code, setup Node.js.
-2. **Install**: Install npm dependencies and cache them.
-3. **Validate**: Run linting (`eslint`) and typechecking (`tsc`).
-4. **Test**: Run the Vitest test suite.
-5. **Build**: Generate the Prisma client and build the application (`npm run build`).
-6. **Docker Build & Push**: Build the Docker image and push to Google Artifact Registry.
-7. **Deploy**: Deploy the new image to Google Cloud Run.
+### CI/CD Pipeline
 
-## Google Cloud Platform (GCP) Setup
+Every PR/push covered by `.github/workflows/ci.yml` runs:
 
-### Secrets Management
-The following secrets must be configured in your GitHub Repository (Settings →
-Secrets and variables → Actions):
-- `GCP_PROJECT_ID`: Your Google Cloud Project ID.
-- `GCP_SA_KEY` (or `GCP_CREDENTIALS` as a fallback): JSON key for a Service Account with permissions to push to Artifact Registry and deploy to Cloud Run.
-- `PRODUCTION_DATABASE_URL`: Connection string for your production PostgreSQL instance (e.g., Cloud SQL).
-- `PRODUCTION_REDIS_URL`: Connection string for your production Redis instance (e.g., Memorystore).
-- `JWT_SECRET`: Secure random string for access-token signing.
-- `REFRESH_TOKEN_SECRET`: Secure random string for refresh-token signing — **required**, deploy fails validation without it (same requirement as `JWT_SECRET`, easy to miss since it's a separate secret).
-- `GEMINI_API_KEY`: API key for Google Gemini integration.
-- `PRODUCTION_ALLOWED_ORIGINS` (recommended): comma-separated list of allowed CORS/Socket.IO origins for production. Without it, the app falls back to `http://localhost:$PORT`, which will reject requests from your real production frontend domain.
+1. PostgreSQL + Redis ephemeral services;
+2. `npm ci`;
+3. `prisma generate`;
+4. `prisma migrate deploy` against the ephemeral CI database;
+5. seed;
+6. lint;
+7. TypeScript typecheck;
+8. Vitest;
+9. application build;
+10. Playwright/Chromium smoke;
+11. Docker build.
 
-`deploy.yml` validates all of the above (except the optional `PRODUCTION_ALLOWED_ORIGINS`) are present before attempting to authenticate to GCP, and fails with a clear error naming whichever are missing.
+A green CI **does not automatically deploy**.
 
-### Infrastructure Dependencies
-Ensure the following are provisioned in GCP before deployment:
-1. **Cloud SQL for PostgreSQL**: Managed relational database.
-2. **Memorystore for Redis**: Managed in-memory data store for caching and BullMQ.
-3. **Artifact Registry**: Docker repository for storing built images.
-4. **Cloud Run**: Serverless compute platform to host the application container.
+### Production Preflight (No Deploy)
+
+Before a production release, run `.github/workflows/production-preflight.yml` manually against the exact SHA already merged to `main`.
+
+It verifies without deployment:
+
+- exact SHA has successful CI and belongs to `main`;
+- production configuration passes `scripts/validate-production-config.mjs`;
+- PostgreSQL connectivity;
+- Redis `PING`;
+- Twilio credentials via read-only account lookup;
+- Gemini key via read-only model listing;
+- Google Cloud project access;
+- optional public `/api/health` probe.
+
+No Docker image is pushed, no migration is applied and no Cloud Run revision is promoted.
+
+### Production Deploy
+
+Run `.github/workflows/deploy.yml` manually only after preflight + UAT.
+
+Required inputs:
+
+- `target_sha`: approved commit already on `main`;
+- `confirm_production`: exactly `DEPLOY`;
+- `reason`: meaningful audit reason.
+
+The workflow then:
+
+1. verifies explicit production intent;
+2. verifies the SHA belongs to `main`;
+3. verifies successful CI for the exact SHA;
+4. revalidates the production configuration contract;
+5. authenticates to GCP;
+6. builds and pushes an immutable image tagged by SHA;
+7. applies `prisma migrate deploy` to production;
+8. deploys that same image to Cloud Run;
+9. performs a required `/api/health` check against the deployed service URL.
+
+## GitHub environment `production`
+
+Production secrets and variables belong in **Settings → Secrets and variables → Actions → Environment secrets/variables**, not in repository files.
+
+### Core secrets
+
+- `GCP_PROJECT_ID`
+- `GCP_SA_KEY` or `GCP_CREDENTIALS`
+- `PRODUCTION_DATABASE_URL`
+- `PRODUCTION_REDIS_URL`
+- `JWT_SECRET`
+- `REFRESH_TOKEN_SECRET`
+- `GEMINI_API_KEY`
+- `TWILIO_ACCOUNT_SID`
+- `TWILIO_AUTH_TOKEN`
+- `TWILIO_FROM_NUMBER`
+- `WEBHOOK_SIGNING_SECRET`
+
+### Core variables
+
+- `PUBLIC_BASE_URL`
+- `ALLOWED_ORIGINS`
+
+`PUBLIC_BASE_URL` must be the exact public HTTPS origin used by Twilio. `ALLOWED_ORIGINS` is the production CORS/Socket.IO allowlist. The legacy name `PRODUCTION_ALLOWED_ORIGINS` is **not** consumed by the current guarded deploy.
+
+See [`docs/secrets-guide.md`](./docs/secrets-guide.md) for optional providers and AtlasGR/Bland configuration.
+
+## GCP prerequisites
+
+Provision before preflight/deploy:
+
+1. PostgreSQL/Cloud SQL or another reachable production PostgreSQL;
+2. production Redis/Memorystore or compatible Redis endpoint;
+3. Artifact Registry repository expected by the workflow;
+4. Cloud Run permissions for the deployment Service Account;
+5. public HTTPS domain/origin that will be used consistently by Cloud Run/Twilio/CORS.
+
+## Go-live and rollback
+
+The authoritative operational sequence, UAT criteria and rollback rules are in [`docs/GO_LIVE_RUNBOOK.md`](./docs/GO_LIVE_RUNBOOK.md).
